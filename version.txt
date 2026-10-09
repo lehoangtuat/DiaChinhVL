@@ -1,2 +1,2 @@
-1.4
-Trich luc: bang phu so dinh/chieu dai, thay chu mau phieu do dac, tat/bat lop ban do, level ho so/so do, luu file ho so
+1.5
+Cap nhat nhanh hon: chi tai module thay doi, khong treo may, hien tien do
