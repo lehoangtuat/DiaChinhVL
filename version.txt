@@ -1,2 +1,2 @@
-1.2
-Trich luc: chep nguyen chu tu file mau DGN, chu bang toa do giua hang, mui ten huong Bac dung mau
+1.4
+Trich luc: bang phu so dinh/chieu dai, thay chu mau phieu do dac, tat/bat lop ban do, level ho so/so do, luu file ho so
