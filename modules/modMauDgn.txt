@@ -1,7 +1,7 @@
 '============================================================
 ' modMauDgn - Dung file MAU .dgn (kieu gCadas) cho trich luc
 '   - DC_ChuanBiMau: "File mau" la .dgn -> tu bat mau ra
-'       C:\DiaChinhVL\Mau\<ten>_mau_v3.txt (chi lam lai khi .dgn/.ini doi)
+'       C:\DiaChinhVL\Mau\<ten>_mau_v4.txt (chi lam lai khi .dgn/.ini doi)
 '   - Doc .dgn bang OpenDesignFileForProgram (khong mo len man hinh)
 '   - Lay TOAN BO file mau (moi trang: KQ do dac, Trich luc, Ho so...).
 '     Trang Trich luc (co o so do level LevelKhungSoDoHinhThe) duoc dien
@@ -36,6 +36,10 @@ Private Type OPENFILENAME
     lpTemplateName As String
 End Type
 Private Declare Function GetOpenFileNameA Lib "comdlg32.dll" (pOpenfilename As OPENFILENAME) As Long
+Private Declare Function GetSaveFileNameA Lib "comdlg32.dll" (pOpenfilename As OPENFILENAME) As Long
+
+' Level ho so: nhap 1 so -> moi phan tu chep tu mau ve level do; nhieu so / tat -> giu level cua mau
+Public gLvHSMot As Level
 
 Private Const BOX_CHUAN As Double = 989.8      ' be rong o so do mau chuan (TT26)
 Private Const TCVN_MAP As String = "A10102,A200C2,A300CA,A400D4,A501A0,A601AF,A70110,A80103,A900E2,AA00EA,AB00F4,AC01A1,AD01B0,AE0111,B500E0,B61EA3,B700E3,B800E1,B91EA1,BB1EB1,BC1EB3,BD1EB5,BE1EAF,C61EB7,C71EA7,C81EA9,C91EAB,CA1EA5,CB1EAD,CC00E8,CE1EBB,CF1EBD,D000E9,D11EB9,D21EC1,D31EC3,D41EC5,D51EBF,D61EC7,D700EC,D81EC9,DC0129,DD00ED,DE1ECB,DF00F2,E11ECF,E200F5,E300F3,E41ECD,E51ED3,E61ED5,E71ED7,E81ED1,E91ED9,EA1EDD,EB1EDF,EC1EE1,ED1EDB,EE1EE3,EF00F9,F11EE7,F20169,F300FA,F41EE5,F51EEB,F61EED,F71EEF,F81EE9,F91EF1,FA1EF3,FB1EF7,FC1EF9,FD00FD,FE1EF5"
@@ -94,7 +98,7 @@ Public Function DC_ChuanBiMau(ByVal mauPath As String) As String
     If Len(Dir$(DC_THUMUC, vbDirectory)) = 0 Then MkDir DC_THUMUC
     If Len(Dir$(DC_THUMUC & "\Mau", vbDirectory)) = 0 Then MkDir DC_THUMUC & "\Mau"
     On Error GoTo 0
-    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v3.txt"
+    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v4.txt"
 
     ' Cache: dung lai khi CUNG duong dan .dgn + .ini va file .txt moi hon ca hai.
     ' SUA 09/10/2026: truoc chi so ten file -> doi sang tluc.dgn o thu muc khac
@@ -151,7 +155,7 @@ Public Sub DC_BatLaiMau()
     End If
     ten = Mid$(mau, InStrRev(mau, "\") + 1)
     p = InStrRev(ten, "."): If p > 0 Then ten = Left$(ten, p - 1)
-    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v3.txt"
+    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v4.txt"
     On Error Resume Next
     If Len(Dir$(outF)) > 0 Then Kill outF
     On Error GoTo 0
@@ -341,6 +345,10 @@ Private Sub ThemText(ByVal el As Element, ByVal lv As Long)
     Select Case s
         Case "tttl", "tamXtl", "tamYtl", "cdtl"
             If hy > ly Then oy = (ly + hy) / 2#
+        Case "tths", "cdhs", "tamxhs", "tamyhs", "ttkq", "cdkq", "tamxkq", "tamykq"
+            ' bang phu: luu TAM chu ca X va Y
+            If hy > ly Then oy = (ly + hy) / 2#
+            If rg.High.X > lx Then ox = (lx + rg.High.X) / 2#
     End Select
     s = Replace(Replace(Replace(s, vbTab, " "), vbCr, " "), vbLf, " ")
     ThemBuf "T" & vbTab & lv & vbTab & kind & vbTab & S2(h * mS) & vbTab & _
@@ -431,6 +439,14 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
                         If Len(gt) = 0 Then laTagBang = True     ' khong co gia tri -> bo
                 End Select
                 If laTagBang Then GoTo Tiep
+            ElseIf Len(s) > 0 Then
+                ' Chu mau (vd "ONT+CLN", "NGUYEN VAN A", dia chi mau) -> thay bang
+                ' thong tin thua (bang thay the: ThayTheMau.txt)
+                Dim sU As String, khop As Boolean
+                sU = s
+                If LaFontVn(el) Then sU = Tcvn3SangUnicode(s)
+                gt = ThayTheChuMau(sU, v, toBanDo, tenXa, tenHuyen, tenTinh, khop)
+                If khop And Len(gt) = 0 Then GoTo Tiep
             End If
         End If
 
@@ -445,6 +461,7 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
                 e2.AsTextElement.Text = gt
             End If
             e2.Transform tr
+            If Not gLvHSMot Is Nothing Then DC_GanLevel e2, gLvHSMot
             ' Kieu net tuy bien (co do rong tuyet doi) khong co dan theo ty le
             ' -> mui ten huong Bac thanh vach day. Doi ve net lien 0.
             BoNetTuyBien e2
@@ -474,6 +491,87 @@ Private Sub BoNetTuyBien(ByVal e As Element)
     Err.Clear
 End Sub
 
+'============================================================
+' Hop thoai LUU file (Windows) - tra ve duong dan, rong = huy
+'============================================================
+Public Function DC_LuuFile(ByVal loc As String, ByVal tieuDe As String, _
+                           ByVal tenMacDinh As String, ByVal duoi As String) As String
+    Dim o As OPENFILENAME, r As Long, p As Long, ten As String
+    o.lStructSize = Len(o)
+    o.lpstrFilter = Replace(loc, "|", vbNullChar) & vbNullChar & vbNullChar
+    ten = tenMacDinh
+    p = InStrRev(ten, "\")
+    If p > 0 Then o.lpstrInitialDir = Left$(ten, p - 1): ten = Mid$(ten, p + 1)
+    o.lpstrFile = ten & String$(1024 - Len(ten), vbNullChar)
+    o.nMaxFile = 1024
+    o.lpstrTitle = tieuDe
+    o.lpstrDefExt = duoi
+    o.flags = &H2 Or &H800 Or &H4                ' OVERWRITEPROMPT, PATHMUSTEXIST, HIDEREADONLY
+    r = GetSaveFileNameA(o)
+    If r <> 0 Then
+        p = InStr(o.lpstrFile, vbNullChar)
+        If p > 0 Then DC_LuuFile = Left$(o.lpstrFile, p - 1) Else DC_LuuFile = o.lpstrFile
+    End If
+End Function
+
+'--- Gan level cho phan tu (ca phan tu con cua cell / phan tu phuc)
+Public Sub DC_GanLevel(ByVal e As Element, ByVal lv As Level)
+    On Error Resume Next
+    Set e.Level = lv
+    If Err.Number <> 0 Then Err.Clear: e.Level = lv
+    Err.Clear
+End Sub
+
+' Bang thay the chu mau: C:\DiaChinhVL\Mau\ThayTheMau.txt (UTF-8), moi dong:
+'     <chu mau dung y nguyen trong file mau>|<truong>
+'   truong: soHieuThua, toBanDo, dienTich, mdsd, chuSuDung, diaChiChu,
+'           tenXa, tenHuyen, tenTinh, diaChiThua (xa, huyen, tinh)
+' Khong co file -> dung bang mac dinh (mau tluc.dgn kieu gCadas).
+Private Function ThayTheChuMau(ByVal s As String, ByVal v As clsVung, ByVal toBanDo As String, _
+                               ByVal tenXa As String, ByVal tenHuyen As String, _
+                               ByVal tenTinh As String, ByRef khop As Boolean) As String
+    Dim ds As Variant, i As Long, p As Long, mau As String, tr As String
+    khop = False
+    ds = DsThayThe()
+    For i = 0 To UBound(ds)
+        p = InStrRev(ds(i), "|")
+        If p > 1 Then
+            mau = Trim$(Left$(ds(i), p - 1)): tr = Trim$(Mid$(ds(i), p + 1))
+            If StrComp(Trim$(s), mau, vbBinaryCompare) = 0 Then
+                khop = True
+                ThayTheChuMau = GiaTri(tr, v, toBanDo, tenXa, tenHuyen, tenTinh)
+                Exit Function
+            End If
+        End If
+    Next i
+End Function
+
+Private Function DsThayThe() As Variant
+    Dim f As String, st As Object, t As String
+    f = DC_THUMUC & "\Mau\ThayTheMau.txt"
+    If Len(Dir$(f)) > 0 Then
+        On Error Resume Next
+        Set st = CreateObject("ADODB.Stream")
+        st.Type = 2: st.Charset = "utf-8": st.Open
+        st.LoadFromFile f
+        t = st.ReadText
+        st.Close
+        On Error GoTo 0
+        t = Replace(t, vbCr, "")
+        If Left$(t, 1) = ChrW(&HFEFF) Then t = Mid$(t, 2)
+        If Len(Trim$(t)) > 0 Then DsThayThe = Split(t, vbLf): Exit Function
+    End If
+    DsThayThe = Array("ONT+CLN|mdsd", _
+                      "NGUY" & ChrW(7876) & "N V" & ChrW(258) & "N A|chuSuDung", _
+                      ChrW(7845) & "p Dinh An, x" & ChrW(227) & " Phong Th" & ChrW(7841) & "nh An Ph" & ChrW(250) & " T" & ChrW(226) & "n, t" & ChrW(7881) & "nh V" & ChrW(297) & "nh Long|diaChiThua")
+End Function
+
+' "Xa An Phu Tan" -> "xa An Phu Tan" (chu dau viet thuong, dung giua cau)
+Private Function ThuongDau(ByVal s As String) As String
+    s = Trim$(s)
+    If Len(s) > 0 Then ThuongDau = LCase$(Left$(s, 1)) & Mid$(s, 2)
+End Function
+
 Private Function GiaTri(ByVal tag As String, ByVal v As clsVung, ByVal toBanDo As String, _
                         ByVal tenXa As String, ByVal tenHuyen As String, ByVal tenTinh As String) As String
     Select Case tag
@@ -486,6 +584,12 @@ Private Function GiaTri(ByVal tag As String, ByVal v As clsVung, ByVal toBanDo A
         Case "tenXa":      GiaTri = tenXa
         Case "tenHuyen":   GiaTri = tenHuyen
         Case "tenTinh":    GiaTri = tenTinh
+        Case "diaChiThua"
+            Dim dc As String
+            If Len(Trim$(tenXa)) > 0 Then dc = ThuongDau(tenXa)
+            If Len(Trim$(tenHuyen)) > 0 Then dc = dc & IIf(Len(dc) > 0, ", ", "") & ThuongDau(tenHuyen)
+            If Len(Trim$(tenTinh)) > 0 Then dc = dc & IIf(Len(dc) > 0, ", ", "") & ThuongDau(tenTinh)
+            GiaTri = dc
     End Select
 End Function
 
