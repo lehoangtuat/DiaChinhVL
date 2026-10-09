@@ -133,6 +133,7 @@ Public Sub DC_ChayLenh(ByVal ma As String)
     Case "CAPNHAT"
         ' chay sau khi thoat su kien menu (khong sua code form dang chay)
         Unload frmDiaChinh
+        DC_ThayCapNhatWeb              ' ban tai ve lan truoc (modCapNhatWeb khong tu thay duoc chinh no)
         CadInputQueue.SendKeyin "vba run [DiaChinhVL]modCapNhatWeb.DC_KiemTraCapNhat"
     Case "DONG":      Unload frmDiaChinh
     Case Else
@@ -245,3 +246,36 @@ Private Sub MoHuongDan()
     End If
     Shell "cmd /c start """" """ & f & """", vbHide
 End Sub
+
+
+' Thay code modCapNhatWeb bang ban da tai ve C:\DiaChinhVL\capnhat_web (neu khac)
+Private Sub DC_ThayCapNhatWeb()
+    Dim f As String, n As Integer, moi As String, cu As String, c As Object, p As Object
+    f = DC_THUMUC & "\capnhat_web\modCapNhatWeb.txt"
+    On Error GoTo Thoat
+    If Len(Dir$(f)) = 0 Then Exit Sub
+    n = FreeFile
+    Open f For Binary Access Read As #n
+    moi = Space$(LOF(n)): Get #n, , moi
+    Close #n
+    If Len(Trim$(moi)) < 100 Then Exit Sub
+    For Each p In Application.VBE.VBProjects
+        If StrComp(p.Name, "DiaChinhVL", vbTextCompare) = 0 Then Set c = p.VBComponents("modCapNhatWeb"): Exit For
+    Next p
+    If c Is Nothing Then Exit Sub
+    With c.CodeModule
+        If .CountOfLines > 0 Then cu = .Lines(1, .CountOfLines)
+        If ChuanHoa(cu) = ChuanHoa(moi) Then Exit Sub
+        .DeleteLines 1, .CountOfLines
+        .AddFromString moi
+    End With
+Thoat:
+End Sub
+
+Private Function ChuanHoa(ByVal s As String) As String
+    s = Replace(s, vbCr, "")
+    Do While Right$(s, 1) = vbLf Or Right$(s, 1) = " "
+        s = Left$(s, Len(s) - 1)
+    Loop
+    ChuanHoa = s
+End Function
