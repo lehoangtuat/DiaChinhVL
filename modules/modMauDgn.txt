@@ -96,7 +96,16 @@ Public Function DC_ChuanBiMau(ByVal mauPath As String) As String
     On Error GoTo 0
     outF = DC_THUMUC & "\Mau\" & ten & "_mau_v3.txt"
 
-    ' Cache: file .txt moi hon .dgn va .ini -> dung lai
+    ' Cache: dung lai khi CUNG duong dan .dgn + .ini va file .txt moi hon ca hai.
+    ' SUA 09/10/2026: truoc chi so ten file -> doi sang tluc.dgn o thu muc khac
+    ' van dung cache cua file cu (chep phan tu tu file cu -> lech).
+    If Len(Dir$(outF)) > 0 Then
+        If Not CacheCungFile(outF, mauPath, ini) Then
+            On Error Resume Next
+            Kill outF
+            On Error GoTo 0
+        End If
+    End If
     If Len(Dir$(outF)) > 0 Then
         If FileDateTime(outF) >= FileDateTime(mauPath) Then
             If Len(ini) = 0 Then
@@ -108,6 +117,28 @@ Public Function DC_ChuanBiMau(ByVal mauPath As String) As String
     End If
 
     If BatMauDgn(mauPath, ini, outF) Then DC_ChuanBiMau = outF
+End Function
+
+' Dong H cua cache: ... DGN <mS> <duong dan .dgn> <duong dan .ini>
+Private Function CacheCungFile(ByVal outF As String, ByVal dgn As String, ByVal ini As String) As Boolean
+    Dim st As Object, l As String, parts() As String
+    On Error GoTo loi
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.LineSeparator = 10        ' adLF
+    st.LoadFromFile outF
+    l = st.ReadText(-2)          ' 1 dong
+    st.Close
+    l = Replace(l, vbCr, "")
+    If Left$(l, 1) = ChrW(&HFEFF) Then l = Mid$(l, 2)
+    parts = Split(l, vbTab)
+    If UBound(parts) < 9 Then Exit Function
+    If LCase$(Trim$(parts(8))) <> LCase$(Trim$(dgn)) Then Exit Function
+    If LCase$(Trim$(parts(9))) <> LCase$(Trim$(ini)) Then Exit Function
+    CacheCungFile = True
+    Exit Function
+loi:
+    CacheCungFile = False
 End Function
 
 ' Bat lai mau ngay (menu / nut "Bat lai mau")
@@ -188,7 +219,7 @@ Private Function BatMauDgn(ByVal dgn As String, ByVal ini As String, ByVal outF 
     Dim txt As String
     ' H: ... DGN <he so quy doi> <duong dan .dgn>  (modKhungMau chep thang phan tu tu .dgn)
     txt = "H" & vbTab & "100.0" & vbTab & S2(mMinX) & vbTab & S2(mMinY) & vbTab & _
-          S2(mMaxX) & vbTab & S2(mMaxY) & vbTab & "DGN" & vbTab & S2(mS) & vbTab & dgn & vbLf & JoinBuf()
+          S2(mMaxX) & vbTab & S2(mMaxY) & vbTab & "DGN" & vbTab & S2(mS) & vbTab & dgn & vbTab & ini & vbLf & JoinBuf()
     BatMauDgn = GhiUtf8(outF, txt)
 End Function
 
