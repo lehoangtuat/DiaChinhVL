@@ -1,0 +1,41 @@
+'============================================================
+' modLevel - Tim level theo SO hoac TEN
+'   "13"        -> level co Number = 13
+'   "Level 13"  -> tim theo ten; khong co ten do thi lay so 13
+'   "Ranh thua" -> tim theo ten
+'============================================================
+Option Explicit
+
+Public Function DC_TimLevel(ByVal s As String) As Level
+    Dim t As String, lv As Level, n As Long
+    t = Trim$(s)
+    If Len(t) = 0 Then Exit Function
+
+    If IsNumeric(t) Then
+        Set DC_TimLevel = TimTheoSo(CLng(Val(t)))
+        Exit Function
+    End If
+
+    On Error Resume Next
+    Set lv = ActiveModelReference.Levels(t)
+    On Error GoTo 0
+    If Not lv Is Nothing Then Set DC_TimLevel = lv: Exit Function
+
+    If LCase$(Left$(t, 6)) = "level " Then
+        If IsNumeric(Trim$(Mid$(t, 7))) Then Set DC_TimLevel = TimTheoSo(CLng(Val(Mid$(t, 7))))
+    End If
+End Function
+
+'--- so level cua 1 phan tu (-1 neu khong doc duoc)
+Public Function DC_LevelSo(ByVal el As Element) As Long
+    DC_LevelSo = -1
+    On Error Resume Next
+    DC_LevelSo = el.Level.Number
+End Function
+
+Private Function TimTheoSo(ByVal n As Long) As Level
+    Dim lv As Level
+    For Each lv In ActiveModelReference.Levels
+        If lv.Number = n Then Set TimTheoSo = lv: Exit Function
+    Next lv
+End Function

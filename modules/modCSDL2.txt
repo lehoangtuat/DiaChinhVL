@@ -1,0 +1,173 @@
+Option Explicit
+
+'============================================================
+' modCSDL2 - Buoc 3: Gan thong tin tu nhan vao CSDL + ve nhan
+'   Mo CSDL -> gan cac truong tu level -> luu lai CSDL -> ve nhan.
+'============================================================
+
+Private Function DocMotText(ByVal el As Element, ByRef x As Double, _
+                            ByRef y As Double, ByRef s As String) As Boolean
+    DocMotText = False
+    s = ""
+    Dim o As Point3d
+    If el.Type = msdElementTypeText Then
+        Dim oT As TextElement
+        Set oT = el
+        o = oT.Origin: x = o.x: y = o.y
+        s = Trim$(oT.Text)
+        DocMotText = True
+    ElseIf el.Type = msdElementTypeTextNode Then
+        Dim oNode As TextNodeElement
+        Set oNode = el
+        o = oNode.Origin: x = o.x: y = o.y
+        Dim subs As ElementEnumerator
+        Set subs = oNode.GetSubElements
+        Do While subs.MoveNext
+            If subs.Current.Type = msdElementTypeText Then
+                s = Trim$(subs.Current.AsTextElement.Text)
+                If Len(s) > 0 Then Exit Do
+            End If
+        Loop
+        DocMotText = True
+    End If
+End Function
+
+Private Function LayTruong(ByVal v As clsVung, ByVal t As String) As String
+    Select Case t
+        Case "so_thua": LayTruong = v.soThua
+        Case "so_to": LayTruong = v.SoTo
+        Case "loai_dat": LayTruong = v.loaiDat
+        Case "ten_chu": LayTruong = v.TenChu
+        Case "dia_chi": LayTruong = v.DiaChi
+    End Select
+End Function
+
+Private Sub DatTruong(ByVal v As clsVung, ByVal t As String, ByVal g As String)
+    Select Case t
+        Case "so_thua": v.soThua = g
+        Case "so_to": v.SoTo = g
+        Case "loai_dat": v.loaiDat = g
+        Case "ten_chu": v.TenChu = g
+        Case "dia_chi": v.DiaChi = g
+    End Select
+End Sub
+
+Private Function GanTruongCSDL(ByVal vungs As Collection, ByVal levelName As String, _
+                               ByVal truong As String) As Long
+    If Len(Trim$(levelName)) = 0 Then Exit Function
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    Dim lv As Level, lvSo As Long
+    Set lv = DC_TimLevel(levelName)          ' go "13" = level so 13
+    If lv Is Nothing Then Exit Function
+    lvSo = lv.Number
+
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+    Dim x As Double, y As Double, s As String, v As clsVung, dem As Long
+    Do While ee.MoveNext
+        If DC_LevelSo(ee.Current) = lvSo Then
+        If DocMotText(ee.Current, x, y, s) Then
+            If Len(s) > 0 Then
+                Set v = TimThuaChua(vungs, x, y)
+                If Not v Is Nothing Then
+                    If Len(LayTruong(v, truong)) = 0 Then
+                        DatTruong v, truong, s
+                        dem = dem + 1
+                    End If
+                End If
+            End If
+        End If
+        End If
+    Loop
+    GanTruongCSDL = dem
+End Function
+
+
+'============================================================
+' (3) GAN THONG TIN TU NHAN VAO CSDL + VE NHAN
+'============================================================
+Public Sub DC_GanThongTinCSDL()
+    Dim path As String
+    path = InputBox("Duong dan file CSDL:", "Gan thong tin", "C:\DiaChinhVL\csdl_tobando.txt")
+    If path = "" Then Exit Sub
+    Dim vungs As Collection
+    Set vungs = MoCSDL(path)
+    If vungs.Count = 0 Then MsgBox "CSDL rong / khong doc duoc.", vbExclamation: Exit Sub
+
+    Dim lvTo As String, lvSo As String, lvLoai As String, lvChu As String, lvDC As String
+    lvSo = InputBox("Level SO HIEU THUA:", "Gan thong tin", "")
+    lvTo = InputBox("Level TO BAN DO (de trong=bo qua):", "Gan thong tin", "")
+    lvLoai = InputBox("Level LOAI DAT (de trong=bo qua):", "Gan thong tin", "")
+    lvChu = InputBox("Level TEN CHU (de trong=bo qua):", "Gan thong tin", "")
+    lvDC = InputBox("Level DIA CHI (de trong=bo qua):", "Gan thong tin", "")
+
+    Dim nSo As Long, nTo As Long, nLoai As Long, nChu As Long, nDC As Long
+    nSo = GanTruongCSDL(vungs, lvSo, "so_thua")
+    nTo = GanTruongCSDL(vungs, lvTo, "so_to")
+    nLoai = GanTruongCSDL(vungs, lvLoai, "loai_dat")
+    nChu = GanTruongCSDL(vungs, lvChu, "ten_chu")
+    nDC = GanTruongCSDL(vungs, lvDC, "dia_chi")
+
+    ' Luu lai CSDL da co thuoc tinh
+    Dim ok As Boolean
+    ok = LuuCSDL(vungs, path)
+
+    ' Ve nhan tu CSDL
+    Dim lvNhan As String, caoStr As String, cao As Double
+    lvNhan = InputBox("Lop nhan (ve nhan len level nay):", "Ve nhan", "6")
+    caoStr = InputBox("Co chu nhan:", "Ve nhan", "1")
+    cao = val(caoStr): If cao <= 0 Then cao = 1
+    If Len(Trim$(lvNhan)) > 0 Then
+        On Error Resume Next
+        Set ActiveSettings.Level = DC_TimLevel(lvNhan)
+        On Error GoTo 0
+    End If
+    Dim i As Long, v As clsVung
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        VeNhanThuaDayDu v, cao, "mau"
+    Next i
+
+    MsgBox "So thua: " & vungs.Count & vbCrLf & _
+           "Gan So thua: " & nSo & vbCrLf & _
+           "Gan To ban do: " & nTo & vbCrLf & _
+           "Gan Loai dat: " & nLoai & vbCrLf & _
+           "Gan Ten chu: " & nChu & vbCrLf & _
+           "Gan Dia chi: " & nDC & vbCrLf & _
+           IIf(ok, "Da cap nhat CSDL.", "KHONG luu duoc CSDL!") & vbCrLf & _
+           "Da ve nhan len " & lvNhan, _
+           vbInformation, "Gan thong tin + ve nhan"
+End Sub
+
+
+'============================================================
+' Ve lai nhan tu CSDL (khong gan lai)
+'============================================================
+Public Sub DC_VeNhanTuCSDL()
+    Dim path As String
+    path = InputBox("Duong dan file CSDL:", "Ve nhan tu CSDL", "C:\DiaChinhVL\csdl_tobando.txt")
+    If path = "" Then Exit Sub
+    Dim vungs As Collection
+    Set vungs = MoCSDL(path)
+    If vungs.Count = 0 Then MsgBox "CSDL rong.", vbExclamation: Exit Sub
+
+    Dim lvNhan As String, caoStr As String, cao As Double
+    lvNhan = InputBox("Lop nhan:", "Ve nhan", "6")
+    caoStr = InputBox("Co chu:", "Ve nhan", "1")
+    cao = val(caoStr): If cao <= 0 Then cao = 1
+    If Len(Trim$(lvNhan)) > 0 Then
+        On Error Resume Next
+        Set ActiveSettings.Level = DC_TimLevel(lvNhan)
+        On Error GoTo 0
+    End If
+    Dim i As Long, v As clsVung
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        VeNhanThuaDayDu v, cao, "mau"
+    Next i
+    MsgBox "Da ve nhan " & vungs.Count & " thua tu CSDL.", vbInformation, "Ve nhan"
+End Sub

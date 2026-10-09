@@ -1,0 +1,227 @@
+'============================================================
+' frmTrichLuc - Trich luc thua dat (Viet hoa, chu nho Arial 8)
+'   Them combo "Ty le ban do" -> khoi bi hoi popup moi lan Chap nhan.
+'   Can clsNutTL, clsComboEvent, modMaXa.
+'============================================================
+Option Explicit
+
+Private Const MAXA_PATH As String = "C:\DiaChinhVL\MaXaVN.txt"
+
+Private mNut As New Collection
+Private mCbo As clsComboEvent
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Trich luc thua dat"   ' title bar de ASCII (font he thong)
+    Me.Font.Name = "Arial"
+    Me.Font.size = 8
+    Me.Width = 384
+    Me.Height = 410
+
+    Dim TINH_MD As String
+    TINH_MD = "T" & ChrW(7881) & "nh V" & ChrW(297) & "nh Long"   ' Tinh Vinh Long
+
+    Dim x As Single: x = 10
+    AddPairW "File CSDL:", "txtCSDL", "", x, 8, 252
+    ' Mau ho so + file mau (.dgn kieu gCadas hoac .txt) + file cau hinh .ini
+    AddLbl "lbl_mauhs", "M" & ChrW(7851) & "u h" & ChrW(7891) & " s" & ChrW(417) & ":", x, 34, 100
+    Dim cM As Object
+    Set cM = Me.Controls.Add("Forms.ComboBox.1", "cboMauHS", True)
+    cM.Left = x + 104: cM.Top = 32: cM.Width = 252: cM.Height = 18
+    cM.Font.Name = "Arial": cM.Font.size = 8: cM.Style = 2
+    cM.AddItem "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " " & ChrW(273) & ChrW(7883) & "a ch" & ChrW(237) & "nh (TT26)"
+    cM.ListIndex = 0
+    AddPairW "File m" & ChrW(7851) & "u:", "txtMau", DC_DocCauHinh("MAU_TL", "C:\DiaChinhVL\TrichLucBanDo_mau.txt"), x, 56, 226
+    AddPairW "File c" & ChrW(7845) & "u h" & ChrW(236) & "nh:", "txtIni", DC_DocCauHinh("INI_TL", ""), x, 80, 226
+    ThemNutNho "CHONMAU", "...", x + 334, 56
+    ThemNutNho "CHONINI", "...", x + 334, 80
+    AddPair "S" & ChrW(7889) & " th" & ChrW(7917) & "a tr" & ChrW(237) & "ch l" & ChrW(7909) & "c:", "txtSoThua", "", x, 104
+    AddPair "T" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ":", "txtTo", "", x, 128
+
+    ' Nut chon thua tren ban do -> xuat trich luc thua do (khong can go so thua)
+    Dim bC As Object, hC As clsNutTL
+    Set bC = Me.Controls.Add("Forms.CommandButton.1", "cmdChon", True)
+    bC.Caption = "Ch" & ChrW(7885) & "n th" & ChrW(7917) & "a tr" & ChrW(234) & "n b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)
+    bC.Left = x + 230: bC.Top = 102: bC.Width = 130: bC.Height = 20
+    bC.Font.Name = "Arial": bC.Font.size = 8: bC.Font.Bold = True
+    Set hC = New clsNutTL: Set hC.btn = bC: Set hC.Form = Me: hC.ma = "CHON": mNut.Add hC
+
+    ' Tinh (combo) + Xa (combo)
+    AddLbl "lbl_tinh", "T" & ChrW(7881) & "nh:", x, 154, 100
+    Dim cboT As Object
+    Set cboT = Me.Controls.Add("Forms.ComboBox.1", "cboTinh", True)
+    cboT.Left = x + 104: cboT.Top = 152: cboT.Width = 190: cboT.Height = 18
+    cboT.Font.Name = "Arial": cboT.Font.size = 8
+
+    AddLbl "lbl_xa", "X" & ChrW(227) & " / ph" & ChrW(432) & ChrW(7901) & "ng:", x, 178, 100
+    Dim cboX As Object
+    Set cboX = Me.Controls.Add("Forms.ComboBox.1", "cboXa", True)
+    cboX.Left = x + 104: cboX.Top = 176: cboX.Width = 190: cboX.Height = 18
+    cboX.Font.Name = "Arial": cboX.Font.size = 8
+
+    AddPair "Huy" & ChrW(7879) & "n (n" & ChrW(7871) & "u c" & ChrW(243) & "):", "txtHuyen", "", x, 202
+    AddPair "L" & ChrW(7899) & "p xu" & ChrW(7845) & "t:", "txtLvXuat", "Level 50", x, 226
+    AddPair "C" & ChrW(7905) & " ch" & ChrW(7919) & " (t" & ChrW(7921) & " v" & ChrW(7869) & "):", "txtCao", "1", x, 250
+    AddPair "Ki" & ChrW(7875) & "u c" & ChrW(259) & "n (T/G):", "txtKieu", "T", x, 274
+
+    ' Ty le ban do (combo) - thay cho InputBox moi lan chen khung
+    AddLbl "lbl_tyle", "T" & ChrW(7927) & " l" & ChrW(7879) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ":", x, 300, 100
+    Dim cboTL As Object
+    Set cboTL = Me.Controls.Add("Forms.ComboBox.1", "cboTyLe", True)
+    cboTL.Left = x + 104: cboTL.Top = 298: cboTL.Width = 90: cboTL.Height = 18
+    cboTL.Font.Name = "Arial": cboTL.Font.size = 8
+    cboTL.AddItem "T" & ChrW(7921) & " " & ChrW(273) & ChrW(7897) & "ng"
+    cboTL.AddItem "200"
+    cboTL.AddItem "500"
+    cboTL.AddItem "1000"
+    cboTL.AddItem "2000"
+    cboTL.AddItem "5000"
+    cboTL.AddItem "10000"
+    cboTL.ListIndex = 0          ' mac dinh: Tu dong (theo kich thuoc thua)
+
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.CheckBox.1", "chkMau", True)
+    c.Caption = "Ch" & ChrW(232) & "n khung Ph" & ChrW(7909) & " l" & ChrW(7909) & "c 19 (b" & ChrW(7887) & " tick = s" & ChrW(417) & " " & ChrW(273) & ChrW(7891) & " t" & ChrW(7921) & " v" & ChrW(7869) & ")"
+    c.Left = x: c.Top = 326: c.Width = 350: c.Height = 16: c.Value = True
+    c.Font.Name = "Arial": c.Font.size = 8
+
+    Dim b1 As Object, b2 As Object
+    Set b1 = Me.Controls.Add("Forms.CommandButton.1", "cmdOK", True)
+    b1.Caption = "Ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n": b1.Left = 190: b1.Top = 348: b1.Width = 95: b1.Height = 24
+    b1.Font.Name = "Arial": b1.Font.size = 8
+    Set b2 = Me.Controls.Add("Forms.CommandButton.1", "cmdDong", True)
+    b2.Caption = ChrW(272) & ChrW(243) & "ng": b2.Left = 289: b2.Top = 348: b2.Width = 80: b2.Height = 24
+    b2.Font.Name = "Arial": b2.Font.size = 8
+    Dim h1 As clsNutTL, h2 As clsNutTL
+    Set h1 = New clsNutTL: Set h1.btn = b1: Set h1.Form = Me: h1.ma = "OK": mNut.Add h1
+    Set h2 = New clsNutTL: Set h2.btn = b2: Set h2.Form = Me: h2.ma = "DONG": mNut.Add h2
+
+    ' Nap danh sach Tinh/Xa
+    If NapMaXa(MAXA_PATH) Then
+        Dim ds As Collection, i As Long
+        Set ds = DsTinh()
+        For i = 1 To ds.Count
+            cboT.AddItem ds.Item(i)
+        Next i
+    End If
+
+    ' Don vi hanh chinh da thiet lap (menu He thong) -> dien san
+    Dim tinhLuu As String, xaLuu As String
+    tinhLuu = DC_DocCauHinh("TINH", TINH_MD)
+    cboT.Value = tinhLuu
+    FillXa tinhLuu
+    xaLuu = DC_DocCauHinh("XA", "")
+    If Len(xaLuu) > 0 Then cboX.Value = xaLuu
+    Me.Controls("txtHuyen").Text = DC_DocCauHinh("HUYEN", "")
+
+    ' Tu dien CSDL theo ten file .dgn dang mo (dc01.dgn -> dc01.txt)
+    Me.Controls("txtCSDL").Text = CsdlMacDinh()
+
+    ' Bat su kien doi Tinh -> loc Xa
+    Set mCbo = New clsComboEvent
+    Set mCbo.cbo = cboT
+    Set mCbo.Form = Me
+End Sub
+
+' Goi tu clsComboEvent khi doi Tinh
+Public Sub TinhDoi()
+    FillXa Me.Controls("cboTinh").Value
+End Sub
+
+Private Sub FillXa(ByVal tinh As String)
+    Dim cboX As Object
+    Set cboX = Me.Controls("cboXa")
+    cboX.Clear
+    Dim ds As Collection, i As Long
+    Set ds = DsXa(tinh)
+    For i = 1 To ds.Count
+        cboX.AddItem ds.Item(i)
+    Next i
+    If ds.Count > 0 Then cboX.ListIndex = 0
+End Sub
+
+Private Sub AddPair(ByVal cap As String, ByVal nm As String, ByVal txt As String, _
+                    ByVal x As Single, ByVal y As Single)
+    AddLbl "lbl_" & nm, cap, x, y + 2, 100
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Text = txt: c.Left = x + 104: c.Top = y: c.Width = 120: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub AddPairW(ByVal cap As String, ByVal nm As String, ByVal txt As String, _
+                     ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    AddLbl "lbl_" & nm, cap, x, y + 2, 100
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Text = txt: c.Left = x + 104: c.Top = y: c.Width = w: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub AddLbl(ByVal nm As String, ByVal cap As String, _
+                   ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 14
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub ThemNutNho(ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single)
+    Dim b As Object, h As clsNutTL
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = 22: b.Height = 16
+    b.Font.Name = "Arial": b.Font.size = 8
+    Set h = New clsNutTL: Set h.btn = b: Set h.Form = Me: h.ma = ma: mNut.Add h
+End Sub
+
+Private Sub LuuMau()
+    DC_GhiCauHinh "MAU_TL", Trim$(Me.Controls("txtMau").Text)
+    DC_GhiCauHinh "INI_TL", Trim$(Me.Controls("txtIni").Text)
+End Sub
+
+Private Sub LuuDonViHC()
+    DC_GhiCauHinh "TINH", CStr(Me.Controls("cboTinh").Value)
+    DC_GhiCauHinh "XA", CStr(Me.Controls("cboXa").Value)
+    DC_GhiCauHinh "HUYEN", Me.Controls("txtHuyen").Text
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then Unload Me: Exit Sub
+    If ma = "CHONMAU" Then
+        Dim f As String
+        f = DC_ChonFile("File m" & ChrW(7851) & "u (*.dgn;*.txt)|*.dgn;*.txt|T" & ChrW(7845) & "t c" & ChrW(7843) & "|*.*", "Chon file mau trich luc", Me.Controls("txtMau").Text)
+        If Len(f) > 0 Then Me.Controls("txtMau").Text = f: LuuMau
+        Exit Sub
+    End If
+    If ma = "CHONINI" Then
+        Dim g As String
+        g = DC_ChonFile("File c" & ChrW(7845) & "u h" & ChrW(236) & "nh (*.ini)|*.ini|T" & ChrW(7845) & "t c" & ChrW(7843) & "|*.*", "Chon file cau hinh", Me.Controls("txtIni").Text)
+        If Len(g) > 0 Then Me.Controls("txtIni").Text = g: LuuMau
+        Exit Sub
+    End If
+    LuuMau
+    If ma = "CHON" Then
+        LuuDonViHC
+        Me.Hide
+        DC_ChonThuaTrichLuc Me.Controls("txtCSDL").Text, _
+                 Me.Controls("txtMau").Text, Me.Controls("txtKieu").Text, _
+                 Me.Controls("txtTo").Text, CStr(Me.Controls("cboXa").Value), _
+                 Me.Controls("txtHuyen").Text, CStr(Me.Controls("cboTinh").Value), _
+                 Me.Controls("txtLvXuat").Text, val(Me.Controls("txtCao").Text), _
+                 Me.Controls("chkMau").Value, val(Me.Controls("cboTyLe").Value)
+        Exit Sub
+    End If
+    If Len(Trim$(Me.Controls("txtSoThua").Text)) = 0 Then
+        MsgBox "Nh" & ChrW(7853) & "p s" & ChrW(7889) & " th" & ChrW(7917) & "a c" & ChrW(7847) & "n tr" & ChrW(237) & "ch l" & ChrW(7909) & "c.", vbExclamation: Exit Sub
+    End If
+    LuuDonViHC                         ' nho lai don vi hanh chinh vua dung
+    Me.Hide
+    ChayTrichLuc Me.Controls("txtCSDL").Text, Me.Controls("txtSoThua").Text, _
+                 Me.Controls("txtMau").Text, Me.Controls("txtKieu").Text, _
+                 Me.Controls("txtTo").Text, CStr(Me.Controls("cboXa").Value), _
+                 Me.Controls("txtHuyen").Text, CStr(Me.Controls("cboTinh").Value), _
+                 Me.Controls("txtLvXuat").Text, val(Me.Controls("txtCao").Text), _
+                 Me.Controls("chkMau").Value, val(Me.Controls("cboTyLe").Value)
+    Me.Show vbModeless
+End Sub
+
+

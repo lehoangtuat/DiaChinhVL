@@ -1,0 +1,5 @@
+Option Explicit
+
+Public Sub DC_MoTaoThua()
+    frmTaoThua.Show vbModeless
+End Sub

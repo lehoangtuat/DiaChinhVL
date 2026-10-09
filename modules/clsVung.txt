@@ -1,0 +1,42 @@
+Option Explicit
+' --- Hinh hoc ---
+Private mRing() As Double
+Public Dao As Collection
+Public cx As Double
+Public cy As Double
+Public Dt As Double
+Public NDao As Long
+Public HasRing As Boolean
+' --- Thuoc tinh ---
+Public soThua As String
+Public SoTo As String
+Public loaiDat As String
+Public TenChu As String
+Public tenXa As String
+Public DiaChi As String
+Public daChon As Boolean        ' danh dau da tao (che do tao vung theo diem)
+
+Private Sub Class_Initialize()
+    Set Dao = New Collection
+    NDao = 0
+    Dt = 0#
+    HasRing = False
+    soThua = ""
+    SoTo = ""
+    loaiDat = ""
+    TenChu = ""
+    tenXa = ""
+    DiaChi = ""
+    daChon = False
+End Sub
+' Ring la mang -> phai boc qua Property (VBA cam mang Public trong class)
+Public Property Get ring() As Double()
+    ring = mRing
+End Property
+
+Public Property Let ring(ByRef v() As Double)
+    mRing = v
+End Property
+Private Sub Class_Terminate()
+    Set Dao = Nothing
+End Sub

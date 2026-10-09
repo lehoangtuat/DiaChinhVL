@@ -1,0 +1,8 @@
+Option Explicit
+
+Public WithEvents cbo As MSForms.ComboBox
+Public Form As Object
+
+Private Sub cbo_Change()
+    If Not Form Is Nothing Then Form.TinhDoi
+End Sub

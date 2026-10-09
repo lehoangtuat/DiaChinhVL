@@ -1,0 +1,54 @@
+'============================================================
+' frmGioiThieu - Hop "Gioi thieu" dung Label font Arial
+'   Tieu de thanh (title bar) de ASCII de khoi "?".
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Gioi thieu"
+    Me.Width = 360
+    Me.Height = 178
+
+    Dim l1 As Object
+    Set l1 = Me.Controls.Add("Forms.Label.1", "lblTen", True)
+    l1.Caption = ChrW(272) & ChrW(7882) & "A CH" & ChrW(205) & "NH VL"
+    l1.Left = 12: l1.Top = 12: l1.Width = 332: l1.Height = 18
+    l1.Font.Name = "Arial": l1.Font.size = 11: l1.Font.Bold = True
+    l1.TextAlign = 2   ' center
+
+    Dim l2 As Object
+    Set l2 = Me.Controls.Add("Forms.Label.1", "lblND", True)
+    l2.Caption = "C" & ChrW(244) & "ng c" & ChrW(7909) & " t" & ChrW(7841) & "o v" & ChrW(249) & "ng, xu" & ChrW(7845) & "t tr" & ChrW(237) & "ch l" & ChrW(7909) & "c mi" & ChrW(7877) & "n ph" & ChrW(237) & "."
+    l2.Left = 12: l2.Top = 40: l2.Width = 332: l2.Height = 16
+    l2.Font.Name = "Arial": l2.Font.size = 9
+    l2.TextAlign = 2
+
+    Dim lNote As Object
+    Set lNote = Me.Controls.Add("Forms.Label.1", "lblNote", True)
+    lNote.Caption = "(Anh, Ch" & ChrW(7883) & " t" & ChrW(7843) & "i v" & ChrW(7873) & " vi" & ChrW(7871) & "t l" & ChrW(7841) & "i ph" & ChrW(249) & " h" & ChrW(7907) & "p cho " & ChrW(273) & ChrW(417) & "n v" & ChrW(7883) & " m" & ChrW(236) & "nh)"
+    lNote.Left = 12: lNote.Top = 60: lNote.Width = 332: lNote.Height = 16
+    lNote.Font.Name = "Arial": lNote.Font.size = 8: lNote.Font.Italic = True
+    lNote.TextAlign = 2
+
+    Dim l3 As Object
+    Set l3 = Me.Controls.Add("Forms.Label.1", "lblMail", True)
+    l3.Caption = "Email g" & ChrW(243) & "p " & ChrW(253) & ": lehoangtuat@hotmail.com"
+    l3.Left = 12: l3.Top = 84: l3.Width = 332: l3.Height = 16
+    l3.Font.Name = "Arial": l3.Font.size = 9
+    l3.TextAlign = 2
+
+    Dim b As Object
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "cmdOK", True)
+    b.Caption = "OK": b.Left = 142: b.Top = 112: b.Width = 76: b.Height = 26
+    b.Font.Name = "Arial": b.Font.size = 8
+    Dim hd As clsNutTL
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = "OK"
+    mNut.Add hd
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "OK" Then Unload Me
+End Sub

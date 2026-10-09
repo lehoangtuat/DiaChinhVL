@@ -1,0 +1,64 @@
+'============================================================
+' clsChonThuaTL - Bam vao 1 thua tren ban do -> xuat trich luc thua do.
+'   Reset (chuot phai) = thoi. Prompt de ASCII (thanh trang thai).
+'   Can: IPrimitiveCommandEvents, TimThuaChua, ChayTrichLucThua.
+'   Chi can co vung topology (CSDL) - thua chua gan so van xuat duoc.
+'============================================================
+Option Explicit
+Implements IPrimitiveCommandEvents
+
+Public vungs As Collection
+Public csdl As String, mau As String, kieu As String, toBanDo As String
+Public xa As String, huyen As String, tinh As String, lvXuat As String
+Public cao As Double, cheDoMau As Boolean, tyLe As Double
+Private mXong As Boolean
+
+Private Sub IPrimitiveCommandEvents_Start()
+    On Error Resume Next
+    ShowCommand "Trich luc - chon thua"
+    ShowPrompt "Bam vao TRONG thua can trich luc ; Reset (chuot phai) = thoi"
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Datapoint(pt As Point3d, ByVal oView As View)
+    Dim v As clsVung
+    On Error Resume Next
+    Set v = TimThuaChua(vungs, pt.X, pt.Y)
+    On Error GoTo 0
+    If v Is Nothing Then
+        ShowPrompt "Khong co thua (trong CSDL) tai day - bam cho khac ; Reset = thoi"
+        Exit Sub
+    End If
+    ' Thua chua gan thong tin van xuat: so thua 0, loai dat 0, dien tich tu tinh
+    mXong = True
+    Set gViewTL = oView             ' zoom dung view vua bam sau khi xuat
+    CommandState.StartDefaultCommand
+    ChayTrichLucThua v, mau, kieu, toBanDo, xa, huyen, tinh, _
+                     lvXuat, cao, cheDoMau, tyLe
+    MoLaiForm Trim$(v.soThua)
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Dynamics(pt As Point3d, ByVal oView As View, ByVal DrawMode As MsdDrawingMode)
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Keyin(ByVal keyin As String)
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Reset()
+    mXong = True
+    CommandState.StartDefaultCommand
+    MoLaiForm ""
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Cleanup()
+    ' bi cong cu khac thay the khi chua chon -> mo lai form
+    If Not mXong Then
+        mXong = True
+        MoLaiForm ""
+    End If
+End Sub
+
+Private Sub MoLaiForm(ByVal soThua As String)
+    On Error Resume Next
+    frmTrichLuc.Show vbModeless
+    If Len(soThua) > 0 Then frmTrichLuc.Controls("txtSoThua").Text = soThua
+End Sub

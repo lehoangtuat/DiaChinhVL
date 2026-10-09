@@ -1,0 +1,5 @@
+Option Explicit
+
+Public Sub DC_MoGanNhan()
+    frmGanNhan.Show vbModeless
+End Sub

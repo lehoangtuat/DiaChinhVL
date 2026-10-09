@@ -1,0 +1,242 @@
+Option Explicit
+
+'============================================================
+' modLoaiDat - Loai dat + nhan thua day du (so thua / dt / loai dat)
+' Tu chua, dung lai TimThuaChua (modThuocTinh) va VeText/VeLine.
+'============================================================
+
+
+'============================================================
+' Bang mau theo loai dat (port MA_LOAI_DAT). Tra -1 neu khong co.
+'============================================================
+Public Function MauLoaiDat(ByVal loai As String) As Long
+    Select Case UCase$(Trim$(loai))
+        Case "ODT", "ONT":        MauLoaiDat = 2
+        Case "CLN":               MauLoaiDat = 3
+        Case "CHN":               MauLoaiDat = 58
+        Case "LUA", "LUC":        MauLoaiDat = 62
+        Case "NTS":               MauLoaiDat = 1
+        Case "TNN":               MauLoaiDat = 45
+        Case "RSX":               MauLoaiDat = 4
+        Case "RPH":               MauLoaiDat = 49
+        Case "RDD":               MauLoaiDat = 64
+        Case "SKK":               MauLoaiDat = 11
+        Case "MNC":               MauLoaiDat = 9
+        Case "DGT":               MauLoaiDat = 7
+        Case "CSD":               MauLoaiDat = 42
+        Case "ANQ":               MauLoaiDat = 38
+        Case "TON":               MauLoaiDat = 70
+        Case "BDT":               MauLoaiDat = 65
+        Case Else:                MauLoaiDat = -1
+    End Select
+End Function
+
+
+'============================================================
+' Doc 1 phan tu text (Text hoac TextNode) -> (x, y, chuoi)
+'============================================================
+Private Function DocMotText(ByVal el As Element, ByRef x As Double, _
+                            ByRef y As Double, ByRef s As String) As Boolean
+    DocMotText = False
+    s = ""
+    Dim o As Point3d
+    If el.Type = msdElementTypeText Then
+        Dim oT As TextElement
+        Set oT = el
+        o = oT.Origin
+        x = o.x: y = o.y
+        s = Trim$(oT.Text)
+        DocMotText = True
+    ElseIf el.Type = msdElementTypeTextNode Then
+        Dim oNode As TextNodeElement
+        Set oNode = el
+        o = oNode.Origin
+        x = o.x: y = o.y
+        Dim subs As ElementEnumerator
+        Set subs = oNode.GetSubElements
+        Do While subs.MoveNext
+            If subs.Current.Type = msdElementTypeText Then
+                s = Trim$(subs.Current.AsTextElement.Text)
+                If Len(s) > 0 Then Exit Do
+            End If
+        Loop
+        DocMotText = True
+    End If
+End Function
+
+Private Function LayTruong(ByVal v As clsVung, ByVal truong As String) As String
+    Select Case truong
+        Case "so_thua":  LayTruong = v.soThua
+        Case "loai_dat": LayTruong = v.loaiDat
+        Case "ten_chu":  LayTruong = v.TenChu
+    End Select
+End Function
+
+Private Sub DatTruong(ByVal v As clsVung, ByVal truong As String, ByVal giaTri As String)
+    Select Case truong
+        Case "so_thua":  v.soThua = giaTri
+        Case "loai_dat": v.loaiDat = giaTri
+        Case "ten_chu":  v.TenChu = giaTri
+    End Select
+End Sub
+
+
+'============================================================
+' Gan gia tri text tren mot level vao truong tuong ung cua thua chua no.
+' Tra ve so thua gan duoc.
+'============================================================
+Public Function GanTruong(ByVal vungs As Collection, ByVal levelName As String, _
+                          ByVal truong As String) As Long
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    If Len(Trim$(levelName)) > 0 Then
+        Dim lv As Level
+        On Error Resume Next
+        Set lv = ActiveModelReference.Levels(levelName)
+        On Error GoTo 0
+        If Not lv Is Nothing Then esc.ExcludeAllLevels: esc.IncludeLevel lv
+    End If
+
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+    Dim x As Double, y As Double, s As String, v As clsVung, dem As Long
+    Do While ee.MoveNext
+        If DocMotText(ee.Current, x, y, s) Then
+            If Len(s) > 0 Then
+                Set v = TimThuaChua(vungs, x, y)
+                If Not v Is Nothing Then
+                    If Len(LayTruong(v, truong)) = 0 Then
+                        DatTruong v, truong, s
+                        dem = dem + 1
+                    End If
+                End If
+            End If
+        End If
+    Loop
+    GanTruong = dem
+End Function
+
+
+'============================================================
+' Ve nhan thua day du - kieu phan so dia chinh:
+'   so thua (tren) / dien tich (duoi), loai dat ben trai, gach ngang giua.
+'   maDung: "mau" = to mau theo loai dat ; "khong" = giu mau active.
+'============================================================
+Public Sub VeNhanThuaDayDu(ByVal v As clsVung, ByVal cao As Double, _
+                           Optional ByVal maDung As String = "khong")
+    Dim mau As Long
+    mau = -1
+    If maDung = "mau" Then
+        Dim m As Long
+        m = MauLoaiDat(v.loaiDat)
+        If m >= 0 Then mau = m
+    End If
+
+    Dim tu As String, duoiS As String, loai As String
+    tu = Trim$(v.soThua)
+    duoiS = Replace(Format$(Round(v.Dt, 1), "0.0"), ".", ",")
+    loai = Trim$(v.loaiDat)
+
+    Dim wTu As Double, wMau As Double, rong As Double, nua As Double
+    wTu = Len(tu) * cao * 0.6
+    wMau = Len(duoiS) * cao * 0.6
+    rong = wTu
+    If wMau > rong Then rong = wMau
+    nua = rong / 2# + cao * 0.2
+
+    ' Gach ngang giua
+    VeLine v.cx - nua, v.cy, v.cx + nua, v.cy, mau
+    ' So thua tren
+    If Len(tu) > 0 Then VeText v.cx, v.cy + cao * 0.9, tu, cao, mau
+    ' Dien tich duoi
+    If Len(duoiS) > 0 Then VeText v.cx, v.cy - cao * 0.9, duoiS, cao, mau
+    ' Loai dat ben trai, ngang muc gach
+    If Len(loai) > 0 Then
+        Dim wl As Double
+        wl = Len(loai) * cao * 0.6
+        VeText v.cx - nua - wl / 2# - cao * 0.3, v.cy, loai, cao, mau
+    End If
+End Sub
+
+
+Private Function TenLevelActive() As String
+    On Error Resume Next
+    TenLevelActive = ActiveSettings.Level.Name
+    On Error GoTo 0
+End Function
+
+Private Function CoChuUocLuong(ByVal minX As Double, ByVal minY As Double, _
+                               ByVal maxX As Double, ByVal maxY As Double) As Double
+    Dim s As Double
+    s = ((maxX - minX) + (maxY - minY)) / 2# / 1500#
+    If s <= 0# Then s = 1#
+    CoChuUocLuong = s
+End Function
+
+
+'============================================================
+' LENH TONG HOP: GAN SO THUA + LOAI DAT (+ TEN CHU) + VE NHAN DAY DU
+'============================================================
+Public Sub DC_GanNhanDayDu()
+    Dim lvRanh As String, lvSo As String, lvLoai As String, lvChu As String
+    Dim snapStr As String, snap As Double
+
+    lvRanh = InputBox("TEN level RANH thua:", "Gan nhan day du", TenLevelActive())
+    lvSo = InputBox("TEN level SO THUA:", "Gan nhan day du", "")
+    lvLoai = InputBox("TEN level LOAI DAT:" & vbCrLf & "(De trong = bo qua)", _
+                      "Gan nhan day du", "")
+    lvChu = InputBox("TEN level TEN CHU:" & vbCrLf & "(De trong = bo qua)", _
+                     "Gan nhan day du", "")
+    snapStr = InputBox("Dung sai noi diem (snap):", "Gan nhan day du", "0.05")
+    If snapStr = "" Then Exit Sub
+    snap = val(snapStr)
+    If snap <= 0 Then snap = 0.05
+
+    ' Doc ranh + ghep vung
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayCacDoan(snap, lvRanh, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc doan ranh nao.", vbExclamation, "Gan nhan day du"
+        Exit Sub
+    End If
+    Dim soTia As Long, vungs As Collection
+    Set vungs = GhepVung(segs, snap, soTia)
+    If vungs.Count = 0 Then
+        MsgBox "Khong ghep duoc vung nao.", vbExclamation, "Gan nhan day du"
+        Exit Sub
+    End If
+
+    ' Gan cac truong
+    Dim nSo As Long, nLoai As Long, nChu As Long
+    nSo = GanTruong(vungs, lvSo, "so_thua")
+    If Len(Trim$(lvLoai)) > 0 Then nLoai = GanTruong(vungs, lvLoai, "loai_dat")
+    If Len(Trim$(lvChu)) > 0 Then nChu = GanTruong(vungs, lvChu, "ten_chu")
+
+    ' Hoi co chu + mau
+    Dim caoStr As String, cao As Double
+    cao = CoChuUocLuong(minX, minY, maxX, maxY)
+    caoStr = InputBox("Co chu nhan (chieu cao):", "Gan nhan day du", Format$(cao, "0.###"))
+    If caoStr <> "" Then cao = val(caoStr)
+    If cao <= 0 Then cao = 1
+
+    Dim mauStr As String, maDung As String
+    mauStr = InputBox("To mau nhan theo loai dat? (c/k):", "Gan nhan day du", "k")
+    If LCase$(Trim$(mauStr)) = "c" Then maDung = "mau" Else maDung = "khong"
+
+    ' Ve nhan
+    Dim i As Long, v As clsVung
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        VeNhanThuaDayDu v, cao, maDung
+    Next i
+
+    MsgBox "So thua (vung): " & vungs.Count & vbCrLf & _
+           "Gan so thua: " & nSo & vbCrLf & _
+           "Gan loai dat: " & nLoai & vbCrLf & _
+           "Gan ten chu: " & nChu, _
+           vbInformation, "Gan nhan day du"
+End Sub

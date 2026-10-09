@@ -1,0 +1,758 @@
+Option Explicit
+
+'============================================================
+' modHinhHoc - Hinh hoc & to-po (khong phu thuoc MicroStation)
+' Port tu DiaChinhVL_GUI.py:
+'   diem_trong_polygon, kc_diem_doan, kc_toi_ranh,
+'   centroid_hinh_hoc, tam_can_giua,
+'   xay_graph, tim_diem_ho, ghep_vung
+'
+' QUY UOC DU LIEU (dung chung ca du an):
+'   Diem  : mang Double(0 To 1) -> (x, y)
+'   Seg   : mang Double(0 To 3) -> (x1, y1, x2, y2)
+'   Segs  : Collection cac Seg
+'   Ring  : mang Double(0 To n, 0 To 1), vong KIN (Ring(n)=Ring(0)),
+'           n = UBound(Ring,1) = so dinh phan biet
+'============================================================
+
+
+'--- Tao mot Seg tu 2 diem ---
+Public Function NewSeg(ByVal ax As Double, ByVal ay As Double, _
+                       ByVal bx As Double, ByVal by As Double) As Double()
+    Dim s(0 To 3) As Double
+    s(0) = ax: s(1) = ay: s(2) = bx: s(3) = by
+    NewSeg = s
+End Function
+
+'--- Tao mot Diem ---
+Public Function NewPt(ByVal x As Double, ByVal y As Double) As Double()
+    Dim p(0 To 1) As Double
+    p(0) = x: p(1) = y
+    NewPt = p
+End Function
+
+
+'============================================================
+' atan2 (VBA khong co san)
+'============================================================
+Public Function Atan2(ByVal y As Double, ByVal x As Double) As Double
+    Const PI As Double = 3.14159265358979
+    If x > 0 Then
+        Atan2 = Atn(y / x)
+    ElseIf x < 0 Then
+        If y >= 0 Then
+            Atan2 = Atn(y / x) + PI
+        Else
+            Atan2 = Atn(y / x) - PI
+        End If
+    Else ' x = 0
+        If y > 0 Then
+            Atan2 = PI / 2
+        ElseIf y < 0 Then
+            Atan2 = -PI / 2
+        Else
+            Atan2 = 0#
+        End If
+    End If
+End Function
+
+Private Function Hypot(ByVal dx As Double, ByVal dy As Double) As Double
+    Hypot = Sqr(dx * dx + dy * dy)
+End Function
+
+
+'============================================================
+' diem_trong_polygon
+' ring KIN, n = UBound(ring,1)
+'============================================================
+Public Function DiemTrongPolygon(ByRef ring() As Double, _
+                                 ByVal x As Double, ByVal y As Double) As Boolean
+    Dim n As Long, i As Long, j As Long
+    Dim xi As Double, yi As Double, xj As Double, yj As Double
+    Dim trong As Boolean
+    n = UBound(ring, 1)          ' so dinh phan biet
+    If n < 3 Then
+        DiemTrongPolygon = False
+        Exit Function
+    End If
+    trong = False
+    j = n - 1
+    For i = 0 To n - 1
+        xi = ring(i, 0): yi = ring(i, 1)
+        xj = ring(j, 0): yj = ring(j, 1)
+        If ((yi > y) <> (yj > y)) Then
+            If (x < (xj - xi) * (y - yi) / (yj - yi + 1E-30) + xi) Then
+                trong = Not trong
+            End If
+        End If
+        j = i
+    Next i
+    DiemTrongPolygon = trong
+End Function
+
+
+'============================================================
+' kc_diem_doan - khoang cach tu diem p toi doan a-b
+'============================================================
+Public Function KcDiemDoan(ByVal px As Double, ByVal py As Double, _
+                           ByVal ax As Double, ByVal ay As Double, _
+                           ByVal bx As Double, ByVal by As Double) As Double
+    Dim dx As Double, dy As Double, l2 As Double, t As Double
+    dx = bx - ax: dy = by - ay
+    l2 = dx * dx + dy * dy
+    If l2 = 0# Then
+        KcDiemDoan = Hypot(px - ax, py - ay)
+        Exit Function
+    End If
+    t = ((px - ax) * dx + (py - ay) * dy) / l2
+    If t < 0# Then t = 0#
+    If t > 1# Then t = 1#
+    KcDiemDoan = Hypot(px - (ax + t * dx), py - (ay + t * dy))
+End Function
+
+
+'============================================================
+' kc_toi_ranh - khoang cach nho nhat tu diem toi bien ring
+'============================================================
+Public Function KcToiRanh(ByRef ring() As Double, _
+                          ByVal px As Double, ByVal py As Double) As Double
+    Dim n As Long, i As Long, d As Double, best As Double
+    n = UBound(ring, 1)
+    best = 1E+30
+    For i = 0 To n - 1
+        d = KcDiemDoan(px, py, ring(i, 0), ring(i, 1), ring(i + 1, 0), ring(i + 1, 1))
+        If d < best Then best = d
+    Next i
+    KcToiRanh = best
+End Function
+
+
+'============================================================
+' centroid_hinh_hoc -> tra ve qua ByRef cx, cy
+'============================================================
+Public Sub CentroidHinhHoc(ByRef ring() As Double, _
+                           ByRef cx As Double, ByRef cy As Double)
+    Dim n As Long, i As Long, j As Long
+    Dim A As Double, sx As Double, sy As Double, cr As Double
+    Dim xmin As Double, xmax As Double, ymin As Double, ymax As Double
+    n = UBound(ring, 1)
+    A = 0#: sx = 0#: sy = 0#
+    For i = 0 To n - 1
+        j = (i + 1) Mod n
+        cr = ring(i, 0) * ring(j, 1) - ring(j, 0) * ring(i, 1)
+        A = A + cr
+        sx = sx + (ring(i, 0) + ring(j, 0)) * cr
+        sy = sy + (ring(i, 1) + ring(j, 1)) * cr
+    Next i
+    A = A / 2#
+    If Abs(A) < 0.000000001 Then
+        xmin = ring(0, 0): xmax = ring(0, 0)
+        ymin = ring(0, 1): ymax = ring(0, 1)
+        For i = 1 To n - 1
+            If ring(i, 0) < xmin Then xmin = ring(i, 0)
+            If ring(i, 0) > xmax Then xmax = ring(i, 0)
+            If ring(i, 1) < ymin Then ymin = ring(i, 1)
+            If ring(i, 1) > ymax Then ymax = ring(i, 1)
+        Next i
+        cx = (xmin + xmax) / 2#
+        cy = (ymin + ymax) / 2#
+        Exit Sub
+    End If
+    cx = sx / (6# * A)
+    cy = sy / (6# * A)
+End Sub
+
+
+'============================================================
+' tam_can_giua -> tra ve tam dat nhan qua ByRef cx, cy
+' daoColl: Collection cac ring dao (co the rong)
+'============================================================
+Public Sub TamCanGiua(ByRef ring() As Double, ByVal daoColl As Collection, _
+                      ByRef cx As Double, ByRef cy As Double)
+    Dim n As Long, i As Long
+    Dim X0 As Double, x1 As Double, Y0 As Double, y1 As Double
+    Dim gcx As Double, gcy As Double
+    Dim bestX As Double, bestY As Double, bestD As Double, bestGc As Double
+    Dim N14 As Long, GX As Long, GY As Long
+    Dim px As Double, py As Double, d As Double, dgc As Double
+    Dim step As Double, ddx As Long, ddy As Long, k As Long
+    Dim co As Boolean
+
+    n = UBound(ring, 1)
+    X0 = ring(0, 0): x1 = ring(0, 0): Y0 = ring(0, 1): y1 = ring(0, 1)
+    For i = 1 To n - 1
+        If ring(i, 0) < X0 Then X0 = ring(i, 0)
+        If ring(i, 0) > x1 Then x1 = ring(i, 0)
+        If ring(i, 1) < Y0 Then Y0 = ring(i, 1)
+        If ring(i, 1) > y1 Then y1 = ring(i, 1)
+    Next i
+
+    CentroidHinhHoc ring, gcx, gcy
+
+    ' Uu tien trong tam neu no hop le
+    If TCG_HopLe(ring, daoColl, gcx, gcy) Then
+        cx = gcx: cy = gcy
+        Exit Sub
+    End If
+
+    ' Pole of inaccessibility (luoi tho -> tinh dan)
+    bestD = -1#: bestGc = 1E+30
+    co = False
+    N14 = 14
+    For GX = 0 To N14
+        For GY = 0 To N14
+            px = X0 + (x1 - X0) * GX / N14
+            py = Y0 + (y1 - Y0) * GY / N14
+            If TCG_HopLe(ring, daoColl, px, py) Then
+                d = TCG_Kc(ring, daoColl, px, py)
+                dgc = Hypot(px - gcx, py - gcy)
+                If (d > bestD * 1.01) Or (d > bestD * 0.99 And dgc < bestGc) Then
+                    If d > bestD Then bestD = d
+                    bestX = px: bestY = py: bestGc = dgc
+                    co = True
+                End If
+            End If
+        Next GY
+    Next GX
+
+    If Not co Then
+        cx = gcx: cy = gcy
+        Exit Sub
+    End If
+
+    step = x1 - X0
+    If (y1 - Y0) > step Then step = (y1 - Y0)
+    step = step / N14
+    For k = 1 To 2
+        step = step / 4#
+        For ddx = -2 To 2
+            For ddy = -2 To 2
+                px = bestX + ddx * step
+                py = bestY + ddy * step
+                If TCG_HopLe(ring, daoColl, px, py) Then
+                    d = TCG_Kc(ring, daoColl, px, py)
+                    dgc = Hypot(px - gcx, py - gcy)
+                    If (d > bestD * 1.01) Or (d > bestD * 0.99 And dgc < bestGc) Then
+                        If d > bestD Then bestD = d
+                        bestX = px: bestY = py: bestGc = dgc
+                    End If
+                End If
+            Next ddy
+        Next ddx
+    Next k
+
+    cx = bestX: cy = bestY
+End Sub
+
+Private Function TCG_HopLe(ByRef ring() As Double, ByVal daoColl As Collection, _
+                           ByVal px As Double, ByVal py As Double) As Boolean
+    Dim k As Long, dr() As Double
+    If Not DiemTrongPolygon(ring, px, py) Then
+        TCG_HopLe = False
+        Exit Function
+    End If
+    If Not daoColl Is Nothing Then
+        For k = 1 To daoColl.Count
+            dr = daoColl.Item(k)
+            If DiemTrongPolygon(dr, px, py) Then
+                TCG_HopLe = False
+                Exit Function
+            End If
+        Next k
+    End If
+    TCG_HopLe = True
+End Function
+
+Private Function TCG_Kc(ByRef ring() As Double, ByVal daoColl As Collection, _
+                        ByVal px As Double, ByVal py As Double) As Double
+    Dim d As Double, d2 As Double, k As Long, dr() As Double
+    d = KcToiRanh(ring, px, py)
+    If Not daoColl Is Nothing Then
+        For k = 1 To daoColl.Count
+            dr = daoColl.Item(k)
+            d2 = KcToiRanh(dr, px, py)
+            If d2 < d Then d = d2
+        Next k
+    End If
+    TCG_Kc = d
+End Function
+
+
+'============================================================
+' XAY GRAPH (dung chung cho tim_diem_ho va ghep_vung)
+' Ket qua tra ve qua ByRef:
+'   nodeX(), nodeY()  : toa do node (0..nodeCount-1)
+'   eu(), ev()        : cap node cua canh (0..edgeCount-1)
+'============================================================
+Private Sub XayGraph(ByVal segs As Collection, ByVal snap As Double, _
+                     ByRef nodeX() As Double, ByRef nodeY() As Double, _
+                     ByRef nodeCount As Long, _
+                     ByRef eu() As Long, ByRef ev() As Long, _
+                     ByRef edgeCount As Long)
+    Dim nodeMap As Object, edgeSet As Object
+    Dim s() As Double, i As Long
+    Dim u As Long, v As Long
+    Dim ekey As String
+    Dim capX As Long, capE As Long
+
+    Set nodeMap = CreateObject("Scripting.Dictionary")
+    Set edgeSet = CreateObject("Scripting.Dictionary")
+
+    capX = 256: capE = 256
+    ReDim nodeX(0 To capX - 1)
+    ReDim nodeY(0 To capX - 1)
+    ReDim eu(0 To capE - 1)
+    ReDim ev(0 To capE - 1)
+    nodeCount = 0
+    edgeCount = 0
+
+    If segs Is Nothing Then Exit Sub
+
+    For i = 1 To segs.Count
+        s = segs.Item(i)
+        u = FindNode(s(0), s(1), snap, nodeMap, nodeX, nodeY, nodeCount, capX)
+        v = FindNode(s(2), s(3), snap, nodeMap, nodeX, nodeY, nodeCount, capX)
+        If u <> v Then
+            If u < v Then
+                ekey = u & "|" & v
+            Else
+                ekey = v & "|" & u
+            End If
+            If Not edgeSet.Exists(ekey) Then
+                edgeSet.Add ekey, True
+                If edgeCount >= capE Then
+                    capE = capE * 2
+                    ReDim Preserve eu(0 To capE - 1)
+                    ReDim Preserve ev(0 To capE - 1)
+                End If
+                eu(edgeCount) = u
+                ev(edgeCount) = v
+                edgeCount = edgeCount + 1
+            End If
+        End If
+    Next i
+End Sub
+
+Private Function FindNode(ByVal x As Double, ByVal y As Double, ByVal snap As Double, _
+                          ByVal nodeMap As Object, _
+                          ByRef nodeX() As Double, ByRef nodeY() As Double, _
+                          ByRef nodeCount As Long, ByRef capX As Long) As Long
+    Dim key As String, idx As Long
+    key = CLng(RoundHalf(x / snap)) & "|" & CLng(RoundHalf(y / snap))
+    If nodeMap.Exists(key) Then
+        FindNode = nodeMap.Item(key)
+        Exit Function
+    End If
+    If nodeCount >= capX Then
+        capX = capX * 2
+        ReDim Preserve nodeX(0 To capX - 1)
+        ReDim Preserve nodeY(0 To capX - 1)
+    End If
+    idx = nodeCount
+    nodeX(idx) = x
+    nodeY(idx) = y
+    nodeMap.Add key, idx
+    nodeCount = nodeCount + 1
+    FindNode = idx
+End Function
+
+' Lam tron ".5 ra so chan" giong Python round() (banker's rounding)
+Private Function RoundHalf(ByVal v As Double) As Double
+    RoundHalf = Round(v, 0)
+End Function
+
+
+'============================================================
+' tim_diem_ho -> Collection cac Diem (mang Double(0..1)) bac 1
+'============================================================
+Public Function TimDiemHo(ByVal segs As Collection, ByVal snap As Double) As Collection
+    Dim nodeX() As Double, nodeY() As Double, nodeCount As Long
+    Dim eu() As Long, ev() As Long, edgeCount As Long
+    Dim deg() As Long, i As Long
+    Dim ket As New Collection
+
+    XayGraph segs, snap, nodeX, nodeY, nodeCount, eu, ev, edgeCount
+    If nodeCount = 0 Then
+        Set TimDiemHo = ket
+        Exit Function
+    End If
+    ReDim deg(0 To nodeCount - 1)
+    For i = 0 To edgeCount - 1
+        deg(eu(i)) = deg(eu(i)) + 1
+        deg(ev(i)) = deg(ev(i)) + 1
+    Next i
+    For i = 0 To nodeCount - 1
+        If deg(i) = 1 Then
+            ket.Add NewPt(nodeX(i), nodeY(i))
+        End If
+    Next i
+    Set TimDiemHo = ket
+End Function
+
+
+'============================================================
+' ghep_vung -> Collection cac clsVung ; soTia tra ve ByRef
+'============================================================
+' TU VA HO RANH: noi 2 dau ranh ho (bac 1) nam gan nhau trong gapTol.
+' Chi noi cap dau ho gan nhau nhat, khoang cach > snap va <= gapTol.
+' Tra ve segs da them cac doan noi. gapTol <= 0 -> giu nguyen.
+Public Function VaHoRanh(ByVal segs As Collection, ByVal snap As Double, _
+                         ByVal gapTol As Double) As Collection
+    Dim res As New Collection, i As Long, j As Long
+    For i = 1 To segs.Count
+        res.Add segs.Item(i)
+    Next i
+    If gapTol <= 0 Then Set VaHoRanh = res: Exit Function
+
+    Dim ho As Collection
+    Set ho = TimDiemHo(segs, snap)
+    Dim n As Long: n = ho.Count
+    If n < 2 Then Set VaHoRanh = res: Exit Function
+
+    Dim used() As Boolean: ReDim used(1 To n)
+    Dim A() As Double, b() As Double, d As Double, best As Long, bestD As Double
+    For i = 1 To n
+        If Not used(i) Then
+            A = ho.Item(i)
+            best = -1: bestD = gapTol + 0.000001
+            For j = 1 To n
+                If j <> i And Not used(j) Then
+                    b = ho.Item(j)
+                    d = Sqr((b(0) - A(0)) ^ 2 + (b(1) - A(1)) ^ 2)
+                    If d > snap And d <= gapTol And d < bestD Then bestD = d: best = j
+                End If
+            Next j
+            If best > 0 Then
+                b = ho.Item(best)
+                res.Add NewSeg(A(0), A(1), b(0), b(1))
+                used(i) = True: used(best) = True
+            End If
+        End If
+    Next i
+    Set VaHoRanh = res
+End Function
+
+Public Function GhepVung(ByVal segs As Collection, ByVal snap As Double, _
+                         ByRef soTia As Long) As Collection
+    Dim nodeX() As Double, nodeY() As Double, nodeCount As Long
+    Dim eu() As Long, ev() As Long, edgeCount As Long
+    Dim deg() As Long, alive() As Boolean
+    Dim i As Long, j As Long, u As Long, v As Long, w As Long
+    Dim thayDoi As Boolean
+    Dim parent() As Long
+
+    Dim ket As New Collection
+    soTia = 0
+
+    XayGraph segs, snap, nodeX, nodeY, nodeCount, eu, ev, edgeCount
+    If edgeCount = 0 Then
+        Set GhepVung = ket
+        Exit Function
+    End If
+
+    '--- Bac cac node ---
+    ReDim deg(0 To nodeCount - 1)
+    For i = 0 To edgeCount - 1
+        deg(eu(i)) = deg(eu(i)) + 1
+        deg(ev(i)) = deg(ev(i)) + 1
+    Next i
+
+    '--- Tia cac canh cut (bac 1) lap lai ---
+    ReDim alive(0 To edgeCount - 1)
+    For i = 0 To edgeCount - 1
+        alive(i) = True
+    Next i
+    thayDoi = True
+    Do While thayDoi
+        thayDoi = False
+        For i = 0 To edgeCount - 1
+            If alive(i) Then
+                u = eu(i): v = ev(i)
+                If deg(u) <= 1 Or deg(v) <= 1 Then
+                    alive(i) = False
+                    deg(u) = deg(u) - 1
+                    deg(v) = deg(v) - 1
+                    soTia = soTia + 1
+                    thayDoi = True
+                End If
+            End If
+        Next i
+    Loop
+
+    '--- Union-Find tren cac canh con song ---
+    ReDim parent(0 To nodeCount - 1)
+    For i = 0 To nodeCount - 1
+        parent(i) = i
+    Next i
+    For i = 0 To edgeCount - 1
+        If alive(i) Then UF_Union parent, eu(i), ev(i)
+    Next i
+
+    '--- Ke (adjacency) + sap xep theo goc + pos ---
+    Dim adjD As Object, posD As Object
+    Set adjD = CreateObject("Scripting.Dictionary")   ' node -> Long() neighbor da sap xep
+    Set posD = CreateObject("Scripting.Dictionary")   ' "a|w" -> chi so trong danh sach ke cua a
+
+    ' Dem so ke moi node
+    Dim cnt() As Long
+    ReDim cnt(0 To nodeCount - 1)
+    For i = 0 To edgeCount - 1
+        If alive(i) Then
+            cnt(eu(i)) = cnt(eu(i)) + 1
+            cnt(ev(i)) = cnt(ev(i)) + 1
+        End If
+    Next i
+
+    ' Dua ke vao mang tam
+    Dim tmpN As Object
+    Set tmpN = CreateObject("Scripting.Dictionary")   ' node -> Collection ke
+    For i = 0 To edgeCount - 1
+        If alive(i) Then
+            AddNeighbor tmpN, eu(i), ev(i)
+            AddNeighbor tmpN, ev(i), eu(i)
+        End If
+    Next i
+
+    Dim keyA As Variant, A As Long
+    Dim lst As Collection, arrN() As Long, ang() As Double, m As Long
+    For Each keyA In tmpN.Keys
+        A = CLng(keyA)
+        Set lst = tmpN.Item(keyA)
+        m = lst.Count
+        ReDim arrN(0 To m - 1)
+        ReDim ang(0 To m - 1)
+        For j = 0 To m - 1
+            arrN(j) = lst.Item(j + 1)
+            ang(j) = Atan2(nodeY(arrN(j)) - nodeY(A), nodeX(arrN(j)) - nodeX(A))
+        Next j
+        SortByAngle arrN, ang
+        adjD.Add A, arrN
+        For j = 0 To m - 1
+            posD.Add A & "|" & arrN(j), j
+        Next j
+    Next keyA
+
+    '--- Truy vet mat (faces) ---
+    Dim unused As Object
+    Set unused = CreateObject("Scripting.Dictionary")
+    For i = 0 To edgeCount - 1
+        If alive(i) Then
+            unused.Add eu(i) & "|" & ev(i), True
+            unused.Add ev(i) & "|" & eu(i), True
+        End If
+    Next i
+
+    ' Cac face duong (dat) va face am (dao)
+    Dim faceRings As New Collection   ' moi phan tu: ring() 2 chieu
+    Dim faceArea As New Collection    ' Double
+    Dim faceComp As New Collection    ' Long
+    Dim faceDao As New Collection     ' Collection cac ring dao (khoi tao rong)
+
+    Dim daoRings As New Collection
+    Dim daoArea As New Collection
+    Dim daoComp As New Collection
+
+    Dim startKey As Variant, su As Long, sv As Long
+    Dim ringNodes() As Long, rn As Long, capRn As Long
+    Dim guard As Long, ii As Long, lstAdj() As Long
+    Dim comp As Long
+    Dim ring() As Double, nn As Long, kk As Long
+    Dim Aria As Double   ' dien tich co dau - PHAI Double (toa do VN2000 lon -> Long bi Overflow)
+
+    Do While unused.Count > 0
+        ' lay 1 canh huong bat ky con lai
+        startKey = unused.Keys()(0)
+        ParseKey CStr(startKey), su, sv
+        u = su: v = sv
+
+        capRn = 64
+        ReDim ringNodes(0 To capRn - 1)
+        rn = 0
+        ringNodes(rn) = u: rn = rn + 1
+
+        Dim okFace As Boolean
+        okFace = False
+        For guard = 0 To edgeCount * 2
+            If Not unused.Exists(u & "|" & v) Then Exit For
+            unused.Remove u & "|" & v
+            If rn >= capRn Then
+                capRn = capRn * 2
+                ReDim Preserve ringNodes(0 To capRn - 1)
+            End If
+            ringNodes(rn) = v: rn = rn + 1
+            ii = posD.Item(v & "|" & u)
+            lstAdj = adjD.Item(v)
+            Dim mm As Long
+            mm = UBound(lstAdj) + 1
+            w = lstAdj(((ii - 1) + mm) Mod mm)   ' (i-1) mod len, tranh am
+            u = v: v = w
+            If u = su And v = sv Then
+                okFace = True
+                Exit For
+            End If
+        Next guard
+
+        If okFace And rn >= 4 Then
+            ' dung ring (KIN: ringNodes(0)=ringNodes(rn-1))
+            nn = rn - 1                 ' so dinh phan biet
+            ReDim ring(0 To nn, 0 To 1)
+            For kk = 0 To nn
+                ring(kk, 0) = nodeX(ringNodes(kk))
+                ring(kk, 1) = nodeY(ringNodes(kk))
+            Next kk
+            comp = UF_Find(parent, ringNodes(0))
+            ' dien tich co dau (Double - tranh Overflow voi toa do lon)
+            Aria = 0#
+            For kk = 0 To nn - 1
+                Aria = Aria + ring(kk, 0) * ring(kk + 1, 1) - ring(kk + 1, 0) * ring(kk, 1)
+            Next kk
+            Aria = Aria / 2#
+            If Abs(Aria) >= 1# Then
+                If Aria > 0 Then
+                    faceRings.Add ring
+                    faceArea.Add Aria
+                    faceComp.Add comp
+                    faceDao.Add New Collection
+                Else
+                    daoRings.Add ring
+                    daoArea.Add Abs(Aria)
+                    daoComp.Add comp
+                End If
+            End If
+        End If
+    Loop
+
+    '--- Gan dao vao face nho nhat chua no (khac component) & tru dien tich ---
+    Dim di As Long, fi As Long, best As Long
+    Dim bestArea As Double, hasBest As Boolean
+    Dim ringD() As Double, Af As Double, ringF() As Double
+    Dim ptx As Double, pty As Double, aMoi As Double
+
+    For di = 1 To daoRings.Count
+        ringD = daoRings.Item(di)
+        ptx = ringD(0, 0): pty = ringD(0, 1)
+        best = -1: hasBest = False: bestArea = 0#
+        For fi = 1 To faceRings.Count
+            If faceComp.Item(fi) <> daoComp.Item(di) Then
+                Af = faceArea.Item(fi)
+                If Af > daoArea.Item(di) Then
+                    ringF = faceRings.Item(fi)
+                    If DiemTrongPolygon(ringF, ptx, pty) Then
+                        If (Not hasBest) Or (Af < bestArea) Then
+                            best = fi
+                            bestArea = Af
+                            hasBest = True
+                        End If
+                    End If
+                End If
+            End If
+        Next fi
+        If hasBest Then
+            aMoi = faceArea.Item(best) - daoArea.Item(di)
+            If aMoi > 1# Then
+                ' cap nhat dien tich (Collection khong sua item -> thay bang mang phu)
+                Call CollectionSet(faceArea, best, aMoi)
+                faceDao.Item(best).Add ringD
+            End If
+        End If
+    Next di
+
+    '--- Tao clsVung ---
+    Dim fk As Long, vg As clsVung, cx As Double, cy As Double
+    Dim daoColl As Collection, rf() As Double
+    For fk = 1 To faceRings.Count
+        Set vg = New clsVung
+        rf = faceRings.Item(fk)
+        vg.ring = rf
+        vg.HasRing = True
+        Set daoColl = faceDao.Item(fk)
+        Set vg.Dao = daoColl
+        vg.NDao = daoColl.Count
+        vg.Dt = faceArea.Item(fk)
+        TamCanGiua rf, daoColl, cx, cy
+        vg.cx = cx
+        vg.cy = cy
+        ket.Add vg
+    Next fk
+
+    Set GhepVung = ket
+End Function
+
+
+'============================================================
+' Tro giup
+'============================================================
+Private Sub AddNeighbor(ByVal tmpN As Object, ByVal A As Long, ByVal b As Long)
+    Dim c As Collection
+    If tmpN.Exists(A) Then
+        Set c = tmpN.Item(A)
+    Else
+        Set c = New Collection
+        tmpN.Add A, c
+    End If
+    c.Add b
+End Sub
+
+Private Sub SortByAngle(ByRef arrN() As Long, ByRef ang() As Double)
+    ' Insertion sort tang dan theo goc
+    Dim i As Long, j As Long, kn As Long
+    Dim ka As Double
+    For i = 1 To UBound(arrN)
+        kn = arrN(i): ka = ang(i)
+        j = i - 1
+        Do While j >= 0
+            If ang(j) > ka Then
+                arrN(j + 1) = arrN(j)
+                ang(j + 1) = ang(j)
+                j = j - 1
+            Else
+                Exit Do
+            End If
+        Loop
+        arrN(j + 1) = kn
+        ang(j + 1) = ka
+    Next i
+End Sub
+
+Private Sub ParseKey(ByVal s As String, ByRef A As Long, ByRef b As Long)
+    Dim p As Long
+    p = InStr(s, "|")
+    A = CLng(Left$(s, p - 1))
+    b = CLng(Mid$(s, p + 1))
+End Sub
+
+'--- Union-Find ---
+Private Function UF_Find(ByRef parent() As Long, ByVal x As Long) As Long
+    Dim r As Long, nX As Long
+    r = x
+    Do While parent(r) <> r
+        r = parent(r)
+    Loop
+    ' nen duong
+    Do While parent(x) <> x
+        nX = parent(x)
+        parent(x) = r
+        x = nX
+    Loop
+    UF_Find = r
+End Function
+
+Private Sub UF_Union(ByRef parent() As Long, ByVal A As Long, ByVal b As Long)
+    Dim ra As Long, rb As Long
+    ra = UF_Find(parent, A)
+    rb = UF_Find(parent, b)
+    If ra <> rb Then parent(ra) = rb
+End Sub
+
+' Collection VBA khong sua item tai cho -> ham thay gia tri o vi tri idx
+Private Sub CollectionSet(ByRef c As Collection, ByVal idx As Long, ByVal val As Variant)
+    Dim i As Long, tmp As New Collection
+    For i = 1 To c.Count
+        If i = idx Then
+            tmp.Add val
+        Else
+            tmp.Add c.Item(i)
+        End If
+    Next i
+    Set c = tmp
+End Sub

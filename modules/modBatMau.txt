@@ -1,0 +1,171 @@
+Option Explicit
+
+'============================================================
+' modBatMau - Bat mau khung trich luc tu file .dgn dang mo
+'   Quet Line/LineString + Text/TextNode -> ghi ra file .txt
+'   (dinh dang H/L/T dung cho lenh chen khung).
+'   Chay khi dang MO file .dgn mau (vd TrichLucBanDo.dgn).
+'============================================================
+
+Private Function S2(ByVal v As Double) As String
+    S2 = Trim$(Str$(v))
+End Function
+
+Private Function XoaTab(ByVal s As String) As String
+    XoaTab = Replace(Replace(Replace(s, vbTab, " "), vbCr, " "), vbLf, " ")
+End Function
+
+' La tag (o dien gia tri) hay text co dinh?
+'
+' Danh sach nay lay DUNG bo TAG cua file mau dang chay
+' (TrichLucBanDo_mau.txt). Doi no la doi hanh vi ve, nen dung "cai tien".
+'
+' Luu y 4 gia tri cuoi: "X(m)", "Y(m)", "B", "2" KHONG phai tag that.
+' Chung phai la TAG de modKhungMau KHONG ve chung tu file mau:
+'   - "X(m)", "Y(m)"  : GiaTriTag tra "" -> khong ve. Dung vay, vi modBang8
+'                       tu ve tieu de bang muc 8 (xem C_BIEN1/C_BIEN2).
+'                       De thanh TEXT la bi ve 2 lan, chu de nhau.
+'   - "B", "2"        : GiaTriTag co hai Case rieng tra lai chinh no.
+Private Function LaTag(ByVal s As String) As Boolean
+    Select Case Trim$(s)
+        Case "soHieuThua", "toBanDo", "dienTich", "mdsd", "chuSuDung", _
+             "tenXa", "tenHuyen", "tenTinh", "gcn", "tinhhinhthaydoiranhgioi", _
+             "tttl", "tamXtl", "tamYtl", "cdtl", _
+             "X(m)", "Y(m)", "B", "2"
+            LaTag = True
+        Case Else
+            LaTag = False
+    End Select
+End Function
+
+' Chieu cao chu tu bounding box cua text
+Private Function CaoText(ByVal el As Element) As Double
+    Dim r As Range3d
+    On Error Resume Next
+    r = el.Range
+    CaoText = r.High.y - r.Low.y
+    On Error GoTo 0
+    If CaoText <= 0 Then CaoText = 1
+End Function
+
+
+Public Sub DC_BatMauTrichLuc()
+    Dim path As String
+    path = InputBox("Ghi file mau (.txt) ra dau:", "Bat mau trich luc", _
+                    "C:\DiaChinhVL\MauMoi_mau.txt")
+    If path = "" Then Exit Sub
+
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    On Error GoTo 0
+    If st Is Nothing Then MsgBox "Khong tao duoc file.", vbExclamation: Exit Sub
+    st.Type = 2: st.Charset = "utf-8": st.Open
+
+    ' Quet
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim first As Boolean: first = True
+    Dim nL As Long, nT As Long
+    Dim el As Element, ln As String, i As Long
+    Dim body As String
+    body = ""
+
+    Do While ee.MoveNext
+        Set el = ee.Current
+        Select Case el.Type
+            Case msdElementTypeLine, msdElementTypeLineString
+                Dim pts() As Point3d, okV As Boolean
+                On Error Resume Next
+                Err.Clear
+                pts = el.AsLineElement.GetVertices()
+                okV = (Err.Number = 0)
+                On Error GoTo 0
+                ' SUA: GetVertices that bai -> bo qua han, khong dung pts cua vong truoc
+                If okV Then
+                    ln = "L" & vbTab & el.Level.Number
+                    For i = LBound(pts) To UBound(pts)
+                        ln = ln & vbTab & S2(pts(i).x) & vbTab & S2(pts(i).y)
+                        first = CapNhatBBox(pts(i).x, pts(i).y, first, minX, minY, maxX, maxY)
+                    Next i
+                    body = body & ln & vbLf
+                    nL = nL + 1
+                End If
+
+            Case msdElementTypeText
+                Dim oT As TextElement, o As Point3d, s As String, cao As Double
+                Set oT = el
+                o = oT.Origin: s = Trim$(oT.Text): cao = CaoText(el)
+                body = body & GhiText(el.Level.Number, s, cao, o.x, o.y)
+                first = CapNhatBBox(o.x, o.y, first, minX, minY, maxX, maxY)
+                nT = nT + 1
+
+            Case msdElementTypeTextNode
+                Dim oNode As TextNodeElement, subs As ElementEnumerator
+                Set oNode = el
+                Set subs = oNode.GetSubElements
+                Do While subs.MoveNext
+                    If subs.Current.Type = msdElementTypeText Then
+                        Dim oc As TextElement, oc2 As Point3d, sc As String, cc As Double
+                        Set oc = subs.Current
+                        oc2 = oc.Origin: sc = Trim$(oc.Text): cc = CaoText(subs.Current)
+                        If Len(sc) > 0 Then
+                            body = body & GhiText(el.Level.Number, sc, cc, oc2.x, oc2.y)
+                            first = CapNhatBBox(oc2.x, oc2.y, first, minX, minY, maxX, maxY)
+                            nT = nT + 1
+                        End If
+                    End If
+                Loop
+        End Select
+    Loop
+
+    ' Dong dau H (uor_m=1)
+    st.WriteText "H" & vbTab & "1" & vbTab & S2(minX) & vbTab & S2(minY) & vbTab & _
+                 S2(maxX) & vbTab & S2(maxY) & vbLf
+    st.WriteText body
+
+    On Error Resume Next
+    Err.Clear                      ' SUA: khong xoa thi Err con ban tu CaoText/GetVertices
+    st.SaveToFile path, 2
+    Dim ok As Boolean: ok = (Err.Number = 0)
+    st.Close
+    On Error GoTo 0
+
+    MsgBox "Bat mau xong: " & nL & " line, " & nT & " text." & vbCrLf & _
+           IIf(ok, "Da ghi: " & path, "KHONG ghi duoc: " & path) & vbCrLf & vbCrLf & _
+           "Trong hop thoai Trich luc, tro o 'File mau' toi file nay.", _
+           vbInformation, "Bat mau trich luc"
+End Sub
+
+Private Function GhiText(ByVal lv As Long, ByVal s As String, ByVal cao As Double, _
+                         ByVal x As Double, ByVal y As Double) As String
+    Dim kind As String
+    If LaTag(s) Then kind = "TAG" Else kind = "TEXT"
+    GhiText = "T" & vbTab & lv & vbTab & kind & vbTab & S2(cao) & vbTab & _
+              S2(x) & vbTab & S2(y) & vbTab & XoaTab(s) & vbLf
+End Function
+
+Private Function CapNhatBBox(ByVal x As Double, ByVal y As Double, ByVal first As Boolean, _
+                             ByRef minX As Double, ByRef minY As Double, _
+                             ByRef maxX As Double, ByRef maxY As Double) As Boolean
+    If first Then
+        minX = x: maxX = x: minY = y: maxY = y
+        CapNhatBBox = False
+    Else
+        If x < minX Then minX = x
+        If x > maxX Then maxX = x
+        If y < minY Then minY = y
+        If y > maxY Then maxY = y
+        CapNhatBBox = False
+    End If
+End Function

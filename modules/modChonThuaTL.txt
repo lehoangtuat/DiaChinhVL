@@ -1,0 +1,30 @@
+'============================================================
+' modChonThuaTL - khoi dong che do "Chon thua tren ban do" de trich luc.
+'   Giu tham chieu cong cu o bien module de no song suot lenh.
+'============================================================
+Option Explicit
+
+Public gToolTL As clsChonThuaTL
+
+Public Sub DC_ChonThuaTrichLuc(ByVal csdl As String, ByVal mau As String, ByVal kieu As String, _
+        ByVal toBanDo As String, ByVal xa As String, ByVal huyen As String, ByVal tinh As String, _
+        ByVal lvXuat As String, ByVal cao As Double, ByVal cheDoMau As Boolean, ByVal tyLe As Double)
+
+    Dim vungs As Collection
+    Set vungs = MoCSDL(csdl)
+    If vungs.Count = 0 Then
+        DC_ThongBao "CSDL r" & ChrW(7895) & "ng / kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c:" & vbCrLf & csdl & vbCrLf & _
+                    "H" & ChrW(227) & "y ch" & ChrW(7841) & "y T" & ChrW(7841) & "o Topology/CSDL cho t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " n" & ChrW(224) & "y tr" & ChrW(432) & ChrW(7899) & "c.", "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c", vbExclamation
+        frmTrichLuc.Show vbModeless
+        Exit Sub
+    End If
+
+    Set gToolTL = New clsChonThuaTL
+    With gToolTL
+        Set .vungs = vungs
+        .csdl = csdl: .mau = mau: .kieu = kieu: .toBanDo = toBanDo
+        .xa = xa: .huyen = huyen: .tinh = tinh: .lvXuat = lvXuat
+        .cao = cao: .cheDoMau = cheDoMau: .tyLe = tyLe
+    End With
+    CommandState.StartPrimitive gToolTL
+End Sub

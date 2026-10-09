@@ -1,0 +1,73 @@
+'============================================================
+' modCauHinh - Luu / doc thiet lap cua DiaChinhVL
+'   File: C:\DiaChinhVL\DiaChinhVL.ini  (UTF-8, moi dong KHOA=gia tri)
+'   Khoa dang dung: TINH, XA, HUYEN
+'============================================================
+Option Explicit
+
+Public Const DC_CAUHINH As String = "C:\DiaChinhVL\DiaChinhVL.ini"
+
+Public Function DC_DocCauHinh(ByVal khoa As String, Optional ByVal macDinh As String = "") As String
+    Dim dong() As String, i As Long, p As Long
+    DC_DocCauHinh = macDinh
+    dong = Split(DocUtf8(DC_CAUHINH), vbLf)
+    For i = LBound(dong) To UBound(dong)
+        p = InStr(dong(i), "=")
+        If p > 1 Then
+            If StrComp(Trim$(Left$(dong(i), p - 1)), khoa, vbTextCompare) = 0 Then
+                DC_DocCauHinh = Trim$(Replace(Mid$(dong(i), p + 1), vbCr, ""))
+                Exit Function
+            End If
+        End If
+    Next i
+End Function
+
+Public Sub DC_GhiCauHinh(ByVal khoa As String, ByVal giaTri As String)
+    Dim dong() As String, i As Long, p As Long, kq As String, daCo As Boolean
+    Dim txt As String
+    txt = DocUtf8(DC_CAUHINH)
+    giaTri = Replace(Replace(giaTri, vbCr, " "), vbLf, " ")
+    If Len(txt) > 0 Then
+        dong = Split(Replace(txt, vbCr, ""), vbLf)
+        For i = LBound(dong) To UBound(dong)
+            If Len(Trim$(dong(i))) > 0 Then
+                p = InStr(dong(i), "=")
+                If p > 1 Then
+                    If StrComp(Trim$(Left$(dong(i), p - 1)), khoa, vbTextCompare) = 0 Then
+                        dong(i) = khoa & "=" & giaTri
+                        daCo = True
+                    End If
+                End If
+                kq = kq & dong(i) & vbCrLf
+            End If
+        Next i
+    End If
+    If Not daCo Then kq = kq & khoa & "=" & giaTri & vbCrLf
+    GhiUtf8 DC_CAUHINH, kq
+End Sub
+
+Private Function DocUtf8(ByVal path As String) As String
+    Dim st As Object
+    If Len(Dir$(path)) = 0 Then Exit Function
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.LoadFromFile path
+    If Err.Number = 0 Then DocUtf8 = st.ReadText(-1)
+    st.Close
+End Function
+
+Private Sub GhiUtf8(ByVal path As String, ByVal txt As String)
+    Dim st As Object, thu As String
+    On Error Resume Next
+    thu = Left$(path, InStrRev(path, "\") - 1)
+    If Len(Dir$(thu, vbDirectory)) = 0 Then MkDir thu
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.WriteText txt
+    st.SaveToFile path, 2          ' 2 = ghi de
+    st.Close
+    If Err.Number <> 0 Then
+        MsgBox "Khong luu duoc thiet lap: " & path & vbCrLf & Err.Description, vbExclamation, "DiaChinhVL"
+    End If
+End Sub

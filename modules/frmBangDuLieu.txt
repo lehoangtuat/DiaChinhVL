@@ -1,0 +1,163 @@
+'============================================================
+' frmBangDuLieu - Bang du lieu thua dat (kieu gCadas)
+'   Hien 1 bang ngay trong MicroStation thay vi xuat Excel.
+'   Nap tu CSDL (.txt) mac dinh theo ten file DGN dang mo.
+'   Yeu cau: Class Module "clsNutTL", modCSDL.MoCSDL, modTaoThua.CsdlMacDinh.
+'   Tieng Viet ma hoa ChrW() -> dan kieu gi cung khong ra "?".
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+Private mVungs As Collection
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "B" & ChrW(7843) & "ng d" & ChrW(7919) & " li" & ChrW(7879) & "u th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t"
+    Me.Width = 580
+    Me.Height = 430
+
+    ' Hang tren: file CSDL + nut
+    AddLabel "lblFile", "File CSDL:", 8, 10, 60
+    AddText "txtPath", "", 70, 8, 360
+
+    ThemNut "NAP", "N" & ChrW(7841) & "p l" & ChrW(7841) & "i", 438, 6, 60, 22
+    ThemNut "EXCEL", "Xu" & ChrW(7845) & "t Excel", 502, 6, 62, 22
+
+    ' Hang tieu de cot (label rieng, canh voi ColumnWidths cua ListBox)
+    Dim y As Single: y = 40
+    AddHead "hStt", "STT", 8, y, 30
+    AddHead "hTo", "T" & ChrW(7901), 40, y, 42
+    AddHead "hThua", "Th" & ChrW(7917) & "a", 84, y, 46
+    AddHead "hLoai", "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", 132, y, 58
+    AddHead "hDt", "Di" & ChrW(7879) & "n t" & ChrW(237) & "ch (m" & ChrW(178) & ")", 192, y, 72
+    AddHead "hChu", "T" & ChrW(234) & "n ch" & ChrW(7911) & " s" & ChrW(7917) & " d" & ChrW(7909) & "ng", 266, y, 150
+    AddHead "hDc", ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881), 418, y, 146
+
+    ' Bang du lieu
+    Dim lst As Object
+    Set lst = Me.Controls.Add("Forms.ListBox.1", "lstData", True)
+    lst.Left = 8: lst.Top = 56: lst.Width = 556: lst.Height = 316
+    lst.ColumnCount = 7
+    lst.ColumnWidths = "30;42;46;58;72;150;146"
+    lst.ListStyle = 0
+    lst.Font.Name = "Arial"
+    lst.Font.size = 9
+
+    ' Dong tong
+    AddLabel "lblTong", "", 8, 378, 470
+
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 494, 376, 70, 24
+
+    ' Mac dinh CSDL theo ten file .dgn dang mo
+    Me.Controls("txtPath").Text = CsdlMacDinh()
+    NapBang
+End Sub
+
+Private Sub NapBang()
+    Dim lst As Object, path As String
+    Set lst = Me.Controls("lstData")
+    lst.Clear
+    path = Trim$(Me.Controls("txtPath").Text)
+    Set mVungs = MoCSDL(path)
+    If mVungs Is Nothing Then Exit Sub
+    If mVungs.Count = 0 Then
+        Me.Controls("lblTong").Caption = "Ch" & ChrW(432) & "a c" & ChrW(243) & " th" & ChrW(7917) & "a n" & ChrW(224) & "o trong CSDL."
+        Exit Sub
+    End If
+
+    Dim i As Long, v As clsVung, r As Long, tong As Double
+    For i = 1 To mVungs.Count
+        Set v = mVungs.Item(i)
+        lst.AddItem CStr(i)
+        r = lst.ListCount - 1
+        lst.List(r, 1) = v.SoTo
+        lst.List(r, 2) = v.soThua
+        lst.List(r, 3) = v.loaiDat
+        lst.List(r, 4) = Format$(Round(v.Dt, 1), "0.0")
+        lst.List(r, 5) = v.TenChu
+        lst.List(r, 6) = v.DiaChi
+        tong = tong + v.Dt
+    Next i
+
+    Me.Controls("lblTong").Caption = "T" & ChrW(7893) & "ng di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & _
+        Format$(tong, "#,##0.0") & " m2   (" & mVungs.Count & " th" & ChrW(7917) & "a)"
+End Sub
+
+' Xuat bang hien tai ra Excel (giu lai tuy chon cu)
+Private Sub XuatExcel()
+    If mVungs Is Nothing Then Exit Sub
+    If mVungs.Count = 0 Then Exit Sub
+    Dim xl As Object, wb As Object, ws As Object
+    On Error Resume Next
+    Set xl = CreateObject("Excel.Application")
+    On Error GoTo 0
+    If xl Is Nothing Then MsgBox "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c Excel.", vbExclamation: Exit Sub
+    xl.Visible = True
+    Set wb = xl.Workbooks.Add
+    Set ws = wb.Worksheets(1)
+    ws.Cells(1, 1).Value = "STT"
+    ws.Cells(1, 2).Value = ChrW(272) & ChrW(7893) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)
+    ws.Cells(1, 3).Value = "Th" & ChrW(7917) & "a"
+    ws.Cells(1, 4).Value = "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t"
+    ws.Cells(1, 5).Value = "Di" & ChrW(7879) & "n t" & ChrW(237) & "ch (m2)"
+    ws.Cells(1, 6).Value = "T" & ChrW(234) & "n ch" & ChrW(7911)
+    ws.Cells(1, 7).Value = ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881)
+    ws.Range("A1:G1").Font.Bold = True
+    Dim i As Long, v As clsVung, r As Long
+    For i = 1 To mVungs.Count
+        Set v = mVungs.Item(i): r = i + 1
+        ws.Cells(r, 1).Value = i
+        ws.Cells(r, 2).Value = v.SoTo
+        ws.Cells(r, 3).Value = v.soThua
+        ws.Cells(r, 4).Value = v.loaiDat
+        ws.Cells(r, 5).Value = Round(v.Dt, 1)
+        ws.Cells(r, 6).Value = v.TenChu
+        ws.Cells(r, 7).Value = v.DiaChi
+    Next i
+    ws.Cells(mVungs.Count + 2, 4).Value = "T" & ChrW(7893) & "ng:"
+    ws.Cells(mVungs.Count + 2, 5).Formula = "=SUM(E2:E" & (mVungs.Count + 1) & ")"
+    ws.Columns("A:G").AutoFit
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    Select Case ma
+        Case "NAP":   NapBang
+        Case "EXCEL": XuatExcel
+        Case "DONG":  Unload Me
+    End Select
+End Sub
+
+'--- Tro giup dung control ---
+Private Sub AddLabel(ByVal nm As String, ByVal cap As String, _
+                     ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 16
+End Sub
+
+Private Sub AddHead(ByVal nm As String, ByVal cap As String, _
+                    ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 14
+    c.Font.Name = "Arial": c.Font.size = 8: c.Font.Bold = True
+End Sub
+
+Private Sub AddText(ByVal nm As String, ByVal txt As String, _
+                    ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Text = txt: c.Left = x: c.Top = y: c.Width = w: c.Height = 18
+End Sub
+
+Private Sub ThemNut(ByVal ma As String, ByVal cap As String, _
+                    ByVal x As Single, ByVal y As Single, _
+                    ByVal w As Single, ByVal h As Single)
+    Dim b As Object
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "btn" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = w: b.Height = h
+    b.Font.Name = "Arial": b.Font.size = 8
+    Dim hd As clsNutTL
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
+    mNut.Add hd
+End Sub

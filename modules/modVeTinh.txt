@@ -1,0 +1,349 @@
+'============================================================
+' modVeTinh - Xem ban do dang mo tren anh ve tinh (khong can xuat KMZ tay)
+'   DC_XemVeTinh  : tao C:\DiaChinhVL\XemVeTinh.html (Leaflet + anh ve tinh)
+'                   roi mo bang trinh duyet mac dinh.
+'   DC_MoGoogleEarth : tao C:\DiaChinhVL\XemVeTinh.kml roi mo bang
+'                   Google Earth Pro (neu may co cai).
+'   Toa do: VN-2000, mui chieu 3 do, k0 = 0.9999, kinh tuyen truc lay
+'   tu thiet lap (Kinh tuyen truc trong "Thiet lap don vi hanh chinh").
+'   Doi datum VN-2000 -> WGS-84 bang 7 tham so (TOWGS84 EPSG:4756).
+'   Bo qua level 50, 51 (level tool tu ve: khung trich luc, danh dau loi).
+'============================================================
+Option Explicit
+
+Private Const PI As Double = 3.14159265358979
+Private Const A_ As Double = 6378137#
+Private Const F_ As Double = 3.35281066474748E-03     ' 1/298.257223563
+Private Const K0 As Double = 0.9999
+Private Const MAX_DINH As Long = 300000                ' gioi han so dinh
+
+Private mBuf() As String, mN As Long                  ' bo dem chuoi
+Private mMinLa As Double, mMaxLa As Double, mMinLo As Double, mMaxLo As Double
+Private mSoDuong As Long, mSoDinh As Long, mSoBo As Long
+Private mKTT As Double
+Private mDatum7 As Boolean
+
+'------------------------------------------------------------
+Public Function DC_KinhTuyenTruc() As Double
+    Dim s As String
+    s = DC_DocCauHinh("KTT", "105.5")
+    DC_KinhTuyenTruc = Val(s)
+    If DC_KinhTuyenTruc < 100 Or DC_KinhTuyenTruc > 112 Then DC_KinhTuyenTruc = 105.5
+End Function
+
+'============================================================
+' 1) XEM TREN ANH VE TINH (trinh duyet)
+'============================================================
+Public Sub DC_XemVeTinh()
+    Dim duongJS As String, thuaJS As String, html As String, f As String
+    mKTT = DC_KinhTuyenTruc(): mDatum7 = (DC_DocCauHinh("DATUM7", "1") <> "0")
+
+    duongJS = GomDuong(False)
+    If mSoDuong = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng n" & ChrW(224) & "o c" & ChrW(243) & " t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " VN-2000 trong b" & ChrW(7843) & "n v" & ChrW(7869) & "." & vbCrLf & _
+                    "(C" & ChrW(7847) & "n t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " th" & ChrW(7853) & "t, " & ChrW(273) & ChrW(417) & "n v" & ChrW(7883) & " m" & ChrW(233) & "t.)", "Xem " & ChrW(7843) & "nh v" & ChrW(7879) & " tinh", vbExclamation
+        Exit Sub
+    End If
+    thuaJS = GomThua(False)
+
+    html = "<!DOCTYPE html><html><head><meta charset=""utf-8"">"
+    html = html & "<meta name=""viewport"" content=""width=device-width,initial-scale=1"">"
+    html = html & "<title>DiaChinhVL - " & JsEsc(ActiveDesignFile.Name) & "</title>"
+    html = html & "<link rel=""stylesheet"" href=""https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"">"
+    html = html & "<script src=""https://unpkg.com/leaflet@1.9.4/dist/leaflet.js""></script>"
+    html = html & "<style>html,body,#map{height:100%;margin:0}#info{position:absolute;z-index:999;left:50px;top:10px;"
+    html = html & "background:#fff;padding:6px 10px;font:13px Arial;border-radius:4px;box-shadow:0 1px 4px #0006}"
+    html = html & "#info a{margin-left:8px}</style></head><body><div id=""map""></div>"
+    html = html & "<div id=""info""><b>" & JsEsc(ActiveDesignFile.Name) & "</b> &middot; " & mSoDuong & " " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng, " & mSoBo & " th" & ChrW(7917) & "a"
+    html = html & " &middot; KTT " & Format$(mKTT, "0.00##") & "&deg;<a id=""gg"" href=""#"" target=""_blank"">M" & ChrW(7903) & " Google Maps t" & ChrW(7841) & "i " & ChrW(273) & ChrW(226) & "y</a></div>"
+    html = html & "<script>" & vbLf
+    html = html & "var D=" & duongJS & ";" & vbLf
+    html = html & "var P=" & thuaJS & ";" & vbLf
+    html = html & "var anh=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:21,maxNativeZoom:19,attribution:'" & ChrW(7842) & "nh: Esri, Maxar, Earthstar Geographics'});" & vbLf
+    html = html & "var osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:21,maxNativeZoom:19,attribution:'&copy; OpenStreetMap'});" & vbLf
+    html = html & "var map=L.map('map',{layers:[anh]});" & vbLf
+    html = html & "var gD=L.layerGroup(D.map(function(l){return L.polyline(l,{color:'#ffff00',weight:1.5})})).addTo(map);" & vbLf
+    html = html & "var gP=L.layerGroup(P.map(function(t){return L.polygon(t.r,{color:'#00e5ff',weight:1,fillOpacity:0.05})"
+    html = html & ".bindPopup('<b>Th" & ChrW(7917) & "a '+t.s+'</b> &middot; T" & ChrW(7901) & " '+t.t+'<br>Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: '+t.l+'<br>Di" & ChrW(7879) & "n t" & ChrW(237) & "ch: '+t.d+' m&sup2;'+(t.c?'<br>Ch" & ChrW(7911) & ": '+t.c:''))})).addTo(map);" & vbLf
+    html = html & "L.control.layers({'" & ChrW(7842) & "nh v" & ChrW(7879) & " tinh':anh,'B" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng':osm},{'" & ChrW(272) & ChrW(432) & ChrW(7901) & "ng ranh':gD,'Th" & ChrW(7917) & "a (CSDL)':gP}).addTo(map);" & vbLf
+    html = html & "L.control.scale({imperial:false}).addTo(map);" & vbLf
+    html = html & "map.fitBounds([[" & Num(mMinLa) & "," & Num(mMinLo) & "],[" & Num(mMaxLa) & "," & Num(mMaxLo) & "]]);" & vbLf
+    html = html & "function cn(){var c=map.getCenter();document.getElementById('gg').href='https://www.google.com/maps/@'+c.lat.toFixed(6)+','+c.lng.toFixed(6)+','+map.getZoom()+'z/data=!3m1!1e3';}" & vbLf
+    html = html & "map.on('moveend',cn);cn();" & vbLf
+    html = html & "</script></body></html>"
+
+    f = DC_THUMUC & "\XemVeTinh.html"
+    If Not GhiFileUtf8(f, html) Then Exit Sub
+    Shell "cmd /c start """" """ & f & """", vbHide
+End Sub
+
+'============================================================
+' 2) MO BANG GOOGLE EARTH PRO (KML)
+'============================================================
+Public Sub DC_MoGoogleEarth()
+    Dim duongK As String, thuaK As String, kml As String, f As String
+    mKTT = DC_KinhTuyenTruc(): mDatum7 = (DC_DocCauHinh("DATUM7", "1") <> "0")
+    duongK = GomDuong(True)
+    If mSoDuong = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng n" & ChrW(224) & "o c" & ChrW(243) & " t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " VN-2000 trong b" & ChrW(7843) & "n v" & ChrW(7869) & ".", "Google Earth", vbExclamation
+        Exit Sub
+    End If
+    thuaK = GomThua(True)
+
+    kml = "<?xml version=""1.0"" encoding=""UTF-8""?>" & vbLf & _
+      "<kml xmlns=""http://www.opengis.net/kml/2.2""><Document><name>" & XmlEsc(ActiveDesignFile.Name) & "</name>" & vbLf & _
+      "<Style id=""duong""><LineStyle><color>ff00ffff</color><width>1.5</width></LineStyle></Style>" & vbLf & _
+      "<Style id=""thua""><LineStyle><color>ffffe500</color><width>1</width></LineStyle><PolyStyle><color>1affe500</color></PolyStyle></Style>" & vbLf & _
+      "<Folder><name>Duong ranh</name>" & duongK & "</Folder>" & vbLf & _
+      "<Folder><name>Thua (CSDL)</name>" & thuaK & "</Folder>" & vbLf & _
+      "</Document></kml>"
+
+    f = DC_THUMUC & "\XemVeTinh.kml"
+    If Not GhiFileUtf8(f, kml) Then Exit Sub
+    Shell "cmd /c start """" """ & f & """", vbHide
+End Sub
+
+'============================================================
+' Gom duong tu ban ve -> chuoi JS (mang toa do) hoac KML
+'============================================================
+Private Function GomDuong(ByVal laKml As Boolean) As String
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator
+    mN = 0: ReDim mBuf(0 To 1023)
+    mSoDuong = 0: mSoDinh = 0
+    mMinLa = 90: mMaxLa = -90: mMinLo = 180: mMaxLo = -180
+
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    esc.IncludeType msdElementTypeShape
+    esc.IncludeType msdElementTypeComplexString
+    esc.IncludeType msdElementTypeComplexShape
+    Set ee = ActiveModelReference.Scan(esc)
+    Do While ee.MoveNext
+        If mSoDinh > MAX_DINH Then Exit Do
+        If Not LevelBoQua(ee.Current) Then ThemPhanTu ee.Current, laKml
+    Loop
+
+    If laKml Then
+        GomDuong = Join(CatBuf(), "")
+    Else
+        GomDuong = "[" & Join(CatBuf(), ",") & "]"
+    End If
+End Function
+
+Private Function LevelBoQua(ByVal el As Element) As Boolean
+    Dim n As Long
+    n = DC_LevelSo(el)
+    LevelBoQua = (n = 50 Or n = 51)
+End Function
+
+Private Sub ThemPhanTu(ByVal el As Element, ByVal laKml As Boolean)
+    Dim subs As ElementEnumerator, pts() As Point3d
+    On Error Resume Next
+    If el.IsComplexElement Then
+        Set subs = el.AsComplexElement.GetSubElements
+        Do While subs.MoveNext
+            ThemPhanTu subs.Current, laKml
+        Loop
+        Exit Sub
+    End If
+    If Not el.IsVertexList Then Exit Sub
+    Err.Clear
+    pts = el.AsVertexList.GetVertices
+    If Err.Number <> 0 Then Exit Sub
+    On Error GoTo 0
+
+    Dim i As Long, s As String, la As Double, lo As Double
+    For i = LBound(pts) To UBound(pts)
+        If Not ChuyenToaDo(pts(i).X, pts(i).Y, la, lo) Then Exit Sub   ' khong phai VN-2000
+        If laKml Then
+            s = s & Num(lo) & "," & Num(la) & ",0 "
+        Else
+            If Len(s) > 0 Then s = s & ","
+            s = s & "[" & Num(la) & "," & Num(lo) & "]"
+        End If
+    Next i
+    If laKml Then
+        s = "<Placemark><styleUrl>#duong</styleUrl><LineString><tessellate>1</tessellate><coordinates>" & s & "</coordinates></LineString></Placemark>"
+    Else
+        s = "[" & s & "]"
+    End If
+    ThemBuf s
+    mSoDuong = mSoDuong + 1
+    mSoDinh = mSoDinh + (UBound(pts) - LBound(pts) + 1)
+End Sub
+
+'============================================================
+' Gom thua tu CSDL (neu co) -> JS / KML
+'============================================================
+Private Function GomThua(ByVal laKml As Boolean) As String
+    Dim vungs As Collection, v As clsVung, i As Long, j As Long
+    Dim r() As Double, s As String, la As Double, lo As Double, ok As Boolean
+    mSoBo = 0
+    mN = 0: ReDim mBuf(0 To 1023)
+    On Error Resume Next
+    Set vungs = MoCSDL(CsdlMacDinh())
+    On Error GoTo 0
+    If vungs Is Nothing Then GoTo Xong
+
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        If v.HasRing Then
+            r = v.ring
+            s = "": ok = True
+            For j = LBound(r, 1) To UBound(r, 1)
+                If Not ChuyenToaDo(r(j, 0), r(j, 1), la, lo) Then ok = False: Exit For
+                If laKml Then
+                    s = s & Num(lo) & "," & Num(la) & ",0 "
+                Else
+                    If Len(s) > 0 Then s = s & ","
+                    s = s & "[" & Num(la) & "," & Num(lo) & "]"
+                End If
+            Next j
+            If ok And Len(s) > 0 Then
+                If laKml Then
+                    s = "<Placemark><name>" & XmlEsc(v.soThua) & "</name><description>" & _
+                        XmlEsc("To " & v.SoTo & " - " & v.loaiDat & " - " & Format$(v.Dt, "0.0") & " m2 - " & v.TenChu) & _
+                        "</description><styleUrl>#thua</styleUrl><Polygon><tessellate>1</tessellate><outerBoundaryIs><LinearRing><coordinates>" & _
+                        s & "</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>"
+                Else
+                    s = "{r:[" & s & "],s:'" & JsEsc(v.soThua) & "',t:'" & JsEsc(v.SoTo) & "',l:'" & JsEsc(v.loaiDat) & _
+                        "',d:'" & Format$(v.Dt, "0.0") & "',c:'" & JsEsc(v.TenChu) & "'}"
+                End If
+                ThemBuf s
+                mSoBo = mSoBo + 1
+            End If
+        End If
+    Next i
+Xong:
+    If laKml Then
+        GomThua = Join(CatBuf(), "")
+    Else
+        GomThua = "[" & Join(CatBuf(), ",") & "]"
+    End If
+End Function
+
+'============================================================
+' VN-2000 (E = x, N = y; met) -> WGS-84 (do). False neu ngoai pham vi VN
+'============================================================
+Private Function ChuyenToaDo(ByVal E As Double, ByVal N As Double, _
+                             ByRef lat As Double, ByRef lon As Double) As Boolean
+    If E < 100000# Or E > 900000# Or N < 900000# Or N > 2700000# Then Exit Function
+
+    Dim e2 As Double, ep2 As Double, e1 As Double, M As Double, mu As Double
+    Dim p As Double, C As Double, T As Double, N1 As Double, R1 As Double, D As Double
+    Dim sp As Double, la0 As Double, lo0 As Double
+    e2 = F_ * (2# - F_): ep2 = e2 / (1# - e2)
+    e1 = (1# - Sqr(1# - e2)) / (1# + Sqr(1# - e2))
+    M = N / K0
+    mu = M / (A_ * (1# - e2 / 4# - 3# * e2 ^ 2 / 64# - 5# * e2 ^ 3 / 256#))
+    p = mu + (3# * e1 / 2# - 27# * e1 ^ 3 / 32#) * Sin(2# * mu) _
+           + (21# * e1 ^ 2 / 16# - 55# * e1 ^ 4 / 32#) * Sin(4# * mu) _
+           + (151# * e1 ^ 3 / 96#) * Sin(6# * mu) _
+           + (1097# * e1 ^ 4 / 512#) * Sin(8# * mu)
+    sp = Sin(p)
+    C = ep2 * Cos(p) ^ 2: T = Tan(p) ^ 2
+    N1 = A_ / Sqr(1# - e2 * sp * sp)
+    R1 = A_ * (1# - e2) / (1# - e2 * sp * sp) ^ 1.5
+    D = (E - 500000#) / (N1 * K0)
+    la0 = p - (N1 * Tan(p) / R1) * (D ^ 2 / 2# _
+            - (5# + 3# * T + 10# * C - 4# * C ^ 2 - 9# * ep2) * D ^ 4 / 24# _
+            + (61# + 90# * T + 298# * C + 45# * T ^ 2 - 252# * ep2 - 3# * C ^ 2) * D ^ 6 / 720#)
+    lo0 = mKTT * PI / 180# + (D - (1# + 2# * T + C) * D ^ 3 / 6# _
+            + (5# - 2# * C + 28# * T - 3# * C ^ 2 + 8# * ep2 + 24# * T ^ 2) * D ^ 5 / 120#) / Cos(la0)
+
+    ' --- VN-2000 -> WGS-84: 7 tham so (TOWGS84 cua EPSG:4756, QD 05/2007),
+    '     quy uoc Position Vector. Tat bang DiaChinhVL.ini -> DATUM7=0
+    Dim nn As Double, X As Double, Y As Double, Z As Double
+    Dim xw As Double, yw As Double, zw As Double
+    Dim rx As Double, ry As Double, rz As Double, s As Double, sec As Double, pr As Double, i As Long
+    If Not mDatum7 Then
+        lat = la0 * 180# / PI: lon = lo0 * 180# / PI
+        GoTo CapNhatKhung
+    End If
+    nn = A_ / Sqr(1# - e2 * Sin(la0) ^ 2)
+    X = nn * Cos(la0) * Cos(lo0): Y = nn * Cos(la0) * Sin(lo0): Z = nn * (1# - e2) * Sin(la0)
+    sec = PI / 180# / 3600#
+    rx = -0.00928836 * sec: ry = 0.01975479 * sec: rz = -0.00427372 * sec
+    s = 0.252906278 / 1000000#
+    xw = -191.90441429 + (1# + s) * (X - rz * Y + ry * Z)
+    yw = -39.30318279 + (1# + s) * (rz * X + Y - rx * Z)
+    zw = -111.45032835 + (1# + s) * (-ry * X + rx * Y + Z)
+
+    lon = Atn2(yw, xw)
+    pr = Sqr(xw * xw + yw * yw)
+    lat = Atn(zw / (pr * (1# - e2)))
+    For i = 1 To 6
+        nn = A_ / Sqr(1# - e2 * Sin(lat) ^ 2)
+        lat = Atn((zw + e2 * nn * Sin(lat)) / pr)
+    Next i
+    lat = lat * 180# / PI: lon = lon * 180# / PI
+
+CapNhatKhung:
+    If lat < mMinLa Then mMinLa = lat
+    If lat > mMaxLa Then mMaxLa = lat
+    If lon < mMinLo Then mMinLo = lon
+    If lon > mMaxLo Then mMaxLo = lon
+    ChuyenToaDo = True
+End Function
+
+Private Function Atn2(ByVal y As Double, ByVal x As Double) As Double
+    If x > 0 Then
+        Atn2 = Atn(y / x)
+    ElseIf x < 0 Then
+        Atn2 = Atn(y / x) + IIf(y >= 0, PI, -PI)
+    Else
+        Atn2 = IIf(y >= 0, PI / 2, -PI / 2)
+    End If
+End Function
+
+'------------------------------------------------------------ tien ich
+Private Function Num(ByVal v As Double) As String
+    Num = Replace(Format$(v, "0.0000000"), ",", ".")      ' luon dau cham
+End Function
+
+Private Function JsEsc(ByVal s As String) As String
+    s = Replace(s, "\", "\\"): s = Replace(s, "'", "\'")
+    s = Replace(s, "<", "&lt;"): s = Replace(s, vbCr, " "): s = Replace(s, vbLf, " ")
+    JsEsc = s
+End Function
+
+Private Function XmlEsc(ByVal s As String) As String
+    s = Replace(s, "&", "&amp;"): s = Replace(s, "<", "&lt;"): s = Replace(s, ">", "&gt;")
+    XmlEsc = s
+End Function
+
+Private Sub ThemBuf(ByVal s As String)
+    If mN > UBound(mBuf) Then ReDim Preserve mBuf(0 To UBound(mBuf) * 2 + 1)
+    mBuf(mN) = s
+    mN = mN + 1
+End Sub
+
+Private Function CatBuf() As String()
+    Dim r() As String, i As Long
+    If mN = 0 Then
+        ReDim r(0 To 0): r(0) = ""
+        CatBuf = r
+        Exit Function
+    End If
+    ReDim r(0 To mN - 1)
+    For i = 0 To mN - 1: r(i) = mBuf(i): Next i
+    CatBuf = r
+End Function
+
+Private Function GhiFileUtf8(ByVal path As String, ByVal txt As String) As Boolean
+    Dim st As Object
+    On Error Resume Next
+    If Len(Dir$(DC_THUMUC, vbDirectory)) = 0 Then MkDir DC_THUMUC
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.WriteText txt
+    st.SaveToFile path, 2
+    st.Close
+    If Err.Number <> 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng ghi " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file: " & path & vbCrLf & Err.Description, "DiaChinhVL", vbExclamation
+        Exit Function
+    End If
+    GhiFileUtf8 = True
+End Function

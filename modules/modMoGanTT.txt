@@ -1,0 +1,129 @@
+Option Explicit
+
+Public Sub DC_MoGanTT()
+    frmGanTT.Show vbModeless
+End Sub
+
+'============================================================
+' Ham xu ly goi tu form: gan thong tin tu nhan vao CSDL + ve nhan
+'============================================================
+Public Sub ChayGanTT(ByVal path As String, ByVal lvSo As String, ByVal lvTo As String, _
+                     ByVal lvLoai As String, ByVal lvChu As String, ByVal lvDC As String, _
+                     ByVal lvNhan As String, ByVal cao As Double, ByVal veNhan As Boolean)
+    Dim vungs As Collection
+    Set vungs = MoCSDL(path)
+    If vungs.Count = 0 Then MsgBox "CSDL rong / khong doc duoc: " & path, vbExclamation: Exit Sub
+
+    If DC_TimLevel(lvSo) Is Nothing Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y level s" & ChrW(7889) & " hi" & ChrW(7879) & "u th" & ChrW(7917) & "a: " & lvSo & vbCrLf & _
+                    "(G" & ChrW(245) & " s" & ChrW(7889) & " level, v" & ChrW(237) & " d" & ChrW(7909) & " 13)", "G" & ChrW(225) & "n th" & ChrW(244) & "ng tin", vbExclamation
+        Exit Sub
+    End If
+
+    Dim nSo As Long, nTo As Long, nLoai As Long, nChu As Long, nDC As Long
+    nSo = GanTruongCSDL2(vungs, lvSo, "so_thua")
+    nTo = GanTruongCSDL2(vungs, lvTo, "so_to")
+    nLoai = GanTruongCSDL2(vungs, lvLoai, "loai_dat")
+    nChu = GanTruongCSDL2(vungs, lvChu, "ten_chu")
+    nDC = GanTruongCSDL2(vungs, lvDC, "dia_chi")
+
+    Dim ok As Boolean
+    ok = LuuCSDL(vungs, path)
+
+    If veNhan Then
+        If cao <= 0 Then cao = 1
+        If Len(Trim$(lvNhan)) > 0 Then
+            On Error Resume Next
+            Set ActiveSettings.Level = DC_TimLevel(lvNhan)
+            On Error GoTo 0
+        End If
+        Dim i As Long, v As clsVung
+        For i = 1 To vungs.Count
+            Set v = vungs.Item(i)
+            VeNhanThuaDayDu v, cao, "mau"
+        Next i
+    End If
+
+    MsgBox "So thua: " & vungs.Count & vbCrLf & _
+           "Gan So thua: " & nSo & " ; To: " & nTo & " ; Loai dat: " & nLoai & vbCrLf & _
+           "Ten chu: " & nChu & " ; Dia chi: " & nDC & vbCrLf & _
+           IIf(ok, "Da cap nhat CSDL.", "KHONG luu duoc CSDL!"), _
+           vbInformation, "Gan thong tin"
+End Sub
+
+'--- gan 1 truong (dung rieng cho module nay) ---
+Private Function GanTruongCSDL2(ByVal vungs As Collection, ByVal levelName As String, _
+                                ByVal truong As String) As Long
+    If Len(Trim$(levelName)) = 0 Then Exit Function
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    Dim lv As Level, lvSo As Long
+    Set lv = DC_TimLevel(levelName)          ' go "13" = level so 13
+    If lv Is Nothing Then Exit Function
+    lvSo = lv.Number
+
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+    Dim x As Double, y As Double, s As String, v As clsVung, dem As Long
+    Do While ee.MoveNext
+        If DC_LevelSo(ee.Current) = lvSo Then
+        If DocText2(ee.Current, x, y, s) Then
+            If Len(s) > 0 Then
+                Set v = TimThuaChua(vungs, x, y)
+                If Not v Is Nothing Then
+                    If Len(LayTruong2(v, truong)) = 0 Then
+                        DatTruong2 v, truong, s
+                        dem = dem + 1
+                    End If
+                End If
+            End If
+        End If
+        End If
+    Loop
+    GanTruongCSDL2 = dem
+End Function
+
+Private Function DocText2(ByVal el As Element, ByRef x As Double, _
+                          ByRef y As Double, ByRef s As String) As Boolean
+    DocText2 = False: s = ""
+    Dim o As Point3d
+    If el.Type = msdElementTypeText Then
+        Dim oT As TextElement
+        Set oT = el: o = oT.Origin: x = o.x: y = o.y: s = Trim$(oT.Text): DocText2 = True
+    ElseIf el.Type = msdElementTypeTextNode Then
+        Dim oNode As TextNodeElement
+        Set oNode = el: o = oNode.Origin: x = o.x: y = o.y
+        Dim subs As ElementEnumerator
+        Set subs = oNode.GetSubElements
+        Do While subs.MoveNext
+            If subs.Current.Type = msdElementTypeText Then
+                s = Trim$(subs.Current.AsTextElement.Text)
+                If Len(s) > 0 Then Exit Do
+            End If
+        Loop
+        DocText2 = True
+    End If
+End Function
+
+Private Function LayTruong2(ByVal v As clsVung, ByVal t As String) As String
+    Select Case t
+        Case "so_thua": LayTruong2 = v.soThua
+        Case "so_to": LayTruong2 = v.SoTo
+        Case "loai_dat": LayTruong2 = v.loaiDat
+        Case "ten_chu": LayTruong2 = v.TenChu
+        Case "dia_chi": LayTruong2 = v.DiaChi
+    End Select
+End Function
+
+Private Sub DatTruong2(ByVal v As clsVung, ByVal t As String, ByVal g As String)
+    Select Case t
+        Case "so_thua": v.soThua = g
+        Case "so_to": v.SoTo = g
+        Case "loai_dat": v.loaiDat = g
+        Case "ten_chu": v.TenChu = g
+        Case "dia_chi": v.DiaChi = g
+    End Select
+End Sub

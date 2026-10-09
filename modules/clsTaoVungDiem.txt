@@ -1,0 +1,82 @@
+'============================================================
+' clsTaoVungDiem - Tao vung theo DIEM BAM (kieu Create Region/Flood).
+'   Bam vao trong thua -> tao tam thua do ; Reset (chuot phai) = ket thuc.
+'   Can: IPrimitiveCommandEvents (MicroStationDGN), TimThuaChua, VeTam, LuuCSDL.
+'   Prompt/MsgBox de ASCII (thanh trang thai khong ve duoc chu Viet mo rong).
+'============================================================
+Option Explicit
+Implements IPrimitiveCommandEvents
+
+Public vungs As Collection
+Public loaiDat As String
+Public toBanDo As String
+Public kt As Double
+Public mauTam As Long
+Public csdlPath As String
+Private demChon As Long
+Private daKetThuc As Boolean
+
+Private Sub IPrimitiveCommandEvents_Start()
+    On Error Resume Next
+    ShowCommand "Tao vung theo diem"
+    ShowPrompt "Bam vao trong thua de tao tam ; Reset (chuot phai) = ket thuc"
+    On Error GoTo 0
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Datapoint(pt As Point3d, ByVal oView As View)
+    On Error Resume Next
+    Dim v As clsVung
+    Set v = TimThuaChua(vungs, pt.x, pt.y)
+    If v Is Nothing Then
+        ShowPrompt "Khong co thua khep kin tai day - bam cho khac."
+        Exit Sub
+    End If
+    If v.daChon Then
+        ShowPrompt "Thua nay da tao roi - bam thua khac."
+        Exit Sub
+    End If
+    v.daChon = True
+    If Len(v.loaiDat) = 0 Then v.loaiDat = loaiDat
+    If Len(v.SoTo) = 0 Then v.SoTo = toBanDo
+    VeTam v.cx, v.cy, kt, mauTam
+    demChon = demChon + 1
+    ShowPrompt "Da tao " & demChon & " thua. Bam tiep hoac Reset de ket thuc."
+    On Error GoTo 0
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Dynamics(pt As Point3d, ByVal oView As View, ByVal DrawMode As MsdDrawingMode)
+    ' khong dung
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Keyin(ByVal keyin As String)
+    ' khong dung
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Reset()
+    KetThuc
+End Sub
+
+Private Sub IPrimitiveCommandEvents_Cleanup()
+    ' cong cu bi thay -> dam bao co luu/ket thuc
+    If Not daKetThuc Then KetThuc
+End Sub
+
+Private Sub KetThuc()
+    On Error Resume Next
+    daKetThuc = True
+    Dim ok As Boolean, coLuu As Boolean
+    If demChon > 0 And Len(Trim$(csdlPath)) > 0 Then
+        Dim ds As New Collection, i As Long, v As clsVung
+        For i = 1 To vungs.Count
+            Set v = vungs.Item(i)
+            If v.daChon Then ds.Add v
+        Next i
+        ok = LuuCSDL(ds, csdlPath)
+        coLuu = True
+    End If
+    MsgBox "Da tao " & demChon & " thua theo diem bam." & vbCrLf & _
+           IIf(coLuu, IIf(ok, "Da luu CSDL: " & csdlPath, "KHONG luu duoc CSDL!"), ""), _
+           vbInformation, "Tao vung theo diem"
+    CommandState.StartDefaultCommand
+    On Error GoTo 0
+End Sub

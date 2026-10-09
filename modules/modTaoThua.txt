@@ -1,0 +1,76 @@
+Option Explicit
+
+'============================================================
+' modTaoThua (v2) - Tao thua tu ranh: ghep vung + ve tam + LUU CSDL
+'============================================================
+
+' Ten CSDL mac dinh theo ten file .dgn dang mo:  C:\DiaChinhVL\<ten>.txt
+Public Function CsdlMacDinh() As String
+    Dim nm As String, p As Long
+    On Error Resume Next
+    nm = ActiveDesignFile.Name          ' vd "dc01.dgn"
+    On Error GoTo 0
+    If Len(nm) = 0 Then nm = "csdl"
+    p = InStrRev(nm, ".")
+    If p > 0 Then nm = Left$(nm, p - 1) ' bo duoi .dgn
+    CsdlMacDinh = "C:\DiaChinhVL\" & nm & ".txt"
+End Function
+
+Public Sub ChayTaoThua(ByVal levelsCSV As String, _
+                       ByVal loaiDat As String, ByVal toBanDo As String, _
+                       ByVal soLe As Long, ByVal boNho As Double, _
+                       ByVal snap As Double, ByVal levelTam As String, _
+                       ByVal mauTam As Long, ByVal kt As Double, _
+                       ByVal csdlPath As String, _
+                       Optional ByVal mauCSV As String = "", _
+                       Optional ByVal gapTol As Double = 0)
+
+    If snap <= 0 Then snap = 0.05
+    If kt <= 0 Then kt = 0.3
+
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayDoanNhieuLevel(levelsCSV, snap, minX, minY, maxX, maxY, mauCSV)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc doan ranh nao tu cac level da chon.", vbExclamation, "Tao thua"
+        Exit Sub
+    End If
+
+    ' Tu va ho ranh nho (neu bat)
+    If gapTol > 0 Then Set segs = VaHoRanh(segs, snap, gapTol)
+
+    Dim tia As Long, vungs As Collection
+    Set vungs = GhepVung(segs, snap, tia)
+    If vungs.Count = 0 Then MsgBox "Khong ghep duoc vung nao.", vbExclamation, "Tao thua": Exit Sub
+
+    If Len(Trim$(levelTam)) > 0 Then
+        On Error Resume Next
+        ActiveSettings.Level = ActiveModelReference.Levels(Trim$(levelTam))
+        On Error GoTo 0
+    End If
+
+    Dim i As Long, v As clsVung, dem As Long, tong As Double
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        If boNho <= 0 Or v.Dt >= boNho Then
+            If Len(v.loaiDat) = 0 Then v.loaiDat = loaiDat
+            If Len(v.SoTo) = 0 Then v.SoTo = toBanDo
+            VeTam v.cx, v.cy, kt, mauTam
+            dem = dem + 1
+            tong = tong + v.Dt
+        End If
+    Next i
+
+    ' Luu CSDL
+    Dim ok As Boolean, msgCSDL As String
+    If Len(Trim$(csdlPath)) > 0 Then
+        ok = LuuCSDL(vungs, csdlPath)
+        msgCSDL = vbCrLf & IIf(ok, "Da luu CSDL: " & csdlPath, "KHONG luu duoc CSDL: " & csdlPath)
+    End If
+
+    Dim f As String
+    If soLe <= 0 Then f = "#,##0" Else f = "#,##0." & String$(soLe, "0")
+    MsgBox "So thua tao: " & dem & vbCrLf & _
+           "Tong dien tich: " & Format$(tong, f) & " m2" & msgCSDL, _
+           vbInformation, "Tao thua / tao CSDL"
+End Sub

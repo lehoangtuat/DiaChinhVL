@@ -1,0 +1,147 @@
+'============================================================
+' MENU CHINH kieu LandMap - frmDiaChinh
+'   Hang 1: thanh menu (Label) -> popup menu Windows (modMenuDC)
+'   Hang 2: thanh cong cu nhanh (CommandButton)
+' Can: clsMenuTop, clsNutTL, modMenuDC
+'============================================================
+Option Explicit
+
+Private mNut As New Collection     ' clsNutTL  (nut cong cu)
+Private mTop As New Collection     ' clsMenuTop (nhan menu)
+Private mDangChon As String
+Private mDaGanIcon As Boolean
+
+Private Const MAU_HOVER As Long = &HFFE8CC     ' xanh nhat (RGB 204,232,255)
+Private Const MAU_VIEN As Long = &HA0A0A0      ' xam
+Private Const MAU_CHU_DC As Long = &H8B0000    ' xanh dam (RGB 0,0,139)
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "DiaChinhVL V8i 10/2026"   ' title bar de ASCII
+    Me.Font.Name = "Arial"
+    Me.Font.size = 9
+
+    '--- Hang 1: thanh menu
+    Dim x As Single
+    x = 2
+    ThemTop "HETHONG", "H" & ChrW(7879) & " th" & ChrW(7889) & "ng", x
+    ThemTop "BANDO", "B" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891), x
+    ThemTop "BIENTAP", "Bi" & ChrW(234) & "n t" & ChrW(7853) & "p", x
+    ThemTop "KIEMKE", "Ki" & ChrW(7875) & "m k" & ChrW(234), x
+    ThemTop "TIENICH", "Ti" & ChrW(7879) & "n " & ChrW(237) & "ch", x
+    ThemTop "TROGIUP", "Tr" & ChrW(7907) & " gi" & ChrW(250) & "p", x
+    Dim wMenu As Single
+    wMenu = x
+
+    '--- Duong ke ngang
+    Dim ln As Object
+    Set ln = Me.Controls.Add("Forms.Label.1", "lnMenu", True)
+    ln.Caption = "": ln.BackStyle = 1: ln.BackColor = MAU_VIEN
+    ln.Left = 0: ln.Top = 21: ln.Height = 0.75
+
+    '--- Hang 2: thanh cong cu nhanh
+    Const Y2 As Single = 25
+    Const H2 As Single = 20
+    Const GX As Single = 2
+    x = 4
+    ThemNut "TOPO", "Topology", x, Y2, 56, H2: x = x + 56 + GX
+    ThemNut "TIMLOI", "T" & ChrW(236) & "m l" & ChrW(7895) & "i", x, Y2, 50, H2: x = x + 50 + GX
+    ThemNut "GANTT", "G" & ChrW(225) & "n TT", x, Y2, 50, H2: x = x + 50 + GX
+    ThemNut "BANGDL", "B" & ChrW(7843) & "ng DL", x, Y2, 54, H2: x = x + 54 + GX
+    ThemNut "TRICHLUC", "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c", x, Y2, 56, H2: x = x + 56 + GX
+    ThemNut "VETINH", "V" & ChrW(7879) & " tinh", x, Y2, 54, H2: x = x + 54 + GX + 6
+
+    Dim vd As Object
+    Set vd = Me.Controls.Add("Forms.Label.1", "lnDoc", True)
+    vd.Caption = "": vd.BackStyle = 1: vd.BackColor = MAU_VIEN
+    vd.Left = x: vd.Top = Y2 + 2: vd.Width = 0.75: vd.Height = H2 - 4
+    x = x + 8
+
+    Dim tg As Object
+    Set tg = Me.Controls.Add("Forms.Label.1", "lblDC", True)
+    tg.Caption = ChrW(272) & ChrW(7882) & "A CH" & ChrW(205) & "NH VL"
+    tg.Font.Name = "Arial": tg.Font.size = 9: tg.Font.Bold = True
+    tg.ForeColor = MAU_CHU_DC: tg.BackStyle = 0
+    tg.Left = x: tg.Top = Y2 + 4: tg.Width = 90: tg.Height = 14
+    x = x + 90
+
+    If wMenu > x Then x = wMenu
+    ln.Width = x + 20
+    Me.Width = x + 12
+    Me.Height = Y2 + H2 + 6 + 24
+End Sub
+
+'--- them 1 nhan tren thanh menu, tu tinh do rong theo chu
+Private Sub ThemTop(ByVal ma As String, ByVal cap As String, ByRef x As Single)
+    Dim l As Object
+    Set l = Me.Controls.Add("Forms.Label.1", "mnu" & ma, True)
+    l.Font.Name = "Arial": l.Font.size = 9
+    l.WordWrap = False
+    l.Caption = cap
+    l.AutoSize = True
+    Dim w As Single
+    w = l.Width + 14
+    l.AutoSize = False
+    l.Left = x: l.Top = 3: l.Width = w: l.Height = 16
+    l.TextAlign = 2          ' giua
+    l.BackStyle = 0
+    x = x + w
+
+    Dim t As clsMenuTop
+    Set t = New clsMenuTop
+    Set t.lbl = l: Set t.Form = Me: t.ma = ma
+    mTop.Add t
+End Sub
+
+Private Sub ThemNut(ByVal nm As String, ByVal cap As String, _
+                    ByVal x As Single, ByVal y As Single, _
+                    ByVal w As Single, ByVal h As Single)
+    Dim b As Object
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "btn" & nm, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = w: b.Height = h
+    b.Font.Name = "Arial": b.Font.size = 8
+    Dim hd As clsNutTL
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = nm
+    mNut.Add hd
+End Sub
+
+'--- to nen nhan menu khi re chuot qua
+Public Sub HoverTop(ByVal ma As String)
+    If ma = mDangChon Then Exit Sub
+    mDangChon = ma
+    Dim t As clsMenuTop
+    For Each t In mTop
+        If t.ma = ma Then
+            t.lbl.BackStyle = 1
+            t.lbl.BackColor = MAU_HOVER
+        Else
+            t.lbl.BackStyle = 0
+        End If
+    Next t
+End Sub
+
+'--- gan logo len thanh tieu de (1 lan, khi cua so da hien)
+Private Sub UserForm_Activate()
+    If Not mDaGanIcon Then
+        mDaGanIcon = True
+        DC_GanIcon Me.Caption
+    End If
+End Sub
+
+Private Sub UserForm_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+    HoverTop ""
+End Sub
+
+'--- goi tu clsMenuTop khi bam nhan menu
+Public Sub MoMenuTop(ByVal ma As String, ByVal lbl As Object, ByVal x As Single, ByVal y As Single)
+    HoverTop ma
+    Dim lenh As String
+    lenh = DC_HienMenu(ma, Me.Caption, x, y, lbl.Height)
+    HoverTop ""
+    If Len(lenh) > 0 Then DC_ChayLenh lenh
+End Sub
+
+'--- goi tu clsNutTL khi bam nut cong cu
+Public Sub XuLyNut(ByVal ma As String)
+    DC_ChayLenh ma
+End Sub

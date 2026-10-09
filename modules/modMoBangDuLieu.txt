@@ -1,0 +1,8 @@
+Option Explicit
+
+'============================================================
+' Mo bang du lieu thua dat (kieu gCadas) - form frmBangDuLieu
+'============================================================
+Public Sub DC_MoBangDuLieu()
+    frmBangDuLieu.Show vbModeless
+End Sub

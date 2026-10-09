@@ -1,0 +1,42 @@
+Option Explicit
+
+'============================================================
+' modTaoVungDiem - khoi dong che do "Tao vung theo diem bam".
+'   Giu tham chieu cong cu o bien module de no song suot lenh.
+'============================================================
+Public gToolVung As clsTaoVungDiem
+
+Public Sub DC_TaoVungTheoDiem(ByVal levelsCSV As String, ByVal loaiDat As String, _
+        ByVal toBanDo As String, ByVal snap As Double, ByVal levelTam As String, _
+        ByVal mauTam As Long, ByVal kt As Double, ByVal csdlPath As String, _
+        ByVal mauCSV As String, ByVal gapTol As Double)
+
+    If snap <= 0 Then snap = 0.05
+    If kt <= 0 Then kt = 0.3
+
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayDoanNhieuLevel(levelsCSV, snap, minX, minY, maxX, maxY, mauCSV)
+    If segs.Count = 0 Then MsgBox "Khong doc duoc ranh tu cac level da chon.", vbExclamation, "Tao vung theo diem": Exit Sub
+    If gapTol > 0 Then Set segs = VaHoRanh(segs, snap, gapTol)
+
+    Dim tia As Long, vungs As Collection
+    Set vungs = GhepVung(segs, snap, tia)
+    If vungs.Count = 0 Then MsgBox "Khong ghep duoc vung nao.", vbExclamation, "Tao vung theo diem": Exit Sub
+
+    If Len(Trim$(levelTam)) > 0 Then
+        On Error Resume Next
+        ActiveSettings.Level = ActiveModelReference.Levels(Trim$(levelTam))
+        On Error GoTo 0
+    End If
+
+    Set gToolVung = New clsTaoVungDiem
+    Set gToolVung.vungs = vungs
+    gToolVung.loaiDat = loaiDat
+    gToolVung.toBanDo = toBanDo
+    gToolVung.kt = kt
+    gToolVung.mauTam = mauTam
+    gToolVung.csdlPath = csdlPath
+
+    CommandState.StartPrimitive gToolVung
+End Sub

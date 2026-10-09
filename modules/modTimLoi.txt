@@ -1,0 +1,205 @@
+Option Explicit
+
+'============================================================
+' modTimLoi - Tim loi du lieu (5 loai nhu gCadas)
+'   D: dinh treo (ho ranh)   S: canh ngan   A: thua nho
+'   X: giao diem             O: chong de     E: canh sai (canh cut)
+' Ve dau bao loi len level xuat loi (mau khac nhau).
+'============================================================
+
+' Doc doan tu NHIEU level (danh sach ten cach nhau boi dau phay)
+Public Function LayDoanNhieuLevel(ByVal levelsCSV As String, ByVal snap As Double, _
+                                  ByRef minX As Double, ByRef minY As Double, _
+                                  ByRef maxX As Double, ByRef maxY As Double, _
+                                  Optional ByVal mauCSV As String = "") As Collection
+    Dim segs As New Collection
+    Dim arr() As String, i As Long, k As Long
+    Dim S2 As Collection
+    Dim mnx As Double, mny As Double, mxx As Double, mxy As Double
+    Dim first As Boolean
+    first = True
+    arr = Split(levelsCSV, ",")
+    For i = LBound(arr) To UBound(arr)
+        If Len(Trim$(arr(i))) > 0 Then
+            Set S2 = LayCacDoan(snap, Trim$(arr(i)), mnx, mny, mxx, mxy, mauCSV)
+            If S2.Count > 0 Then
+                For k = 1 To S2.Count
+                    segs.Add S2.Item(k)
+                Next k
+                If first Then
+                    minX = mnx: minY = mny: maxX = mxx: maxY = mxy: first = False
+                Else
+                    If mnx < minX Then minX = mnx
+                    If mny < minY Then minY = mny
+                    If mxx > maxX Then maxX = mxx
+                    If mxy > maxY Then maxY = mxy
+                End If
+            End If
+        End If
+    Next i
+    Set LayDoanNhieuLevel = segs
+End Function
+
+Private Function KcHai(ByVal ax As Double, ByVal ay As Double, _
+                       ByVal bx As Double, ByVal by As Double) As Double
+    KcHai = Sqr((bx - ax) ^ 2 + (by - ay) ^ 2)
+End Function
+
+' Giao diem TRONG (khong tinh dau mut) cua hai doan
+Private Function GiaoDiem(ByVal ax As Double, ByVal ay As Double, _
+                          ByVal bx As Double, ByVal by As Double, _
+                          ByVal cx As Double, ByVal cy As Double, _
+                          ByVal dx As Double, ByVal dy As Double, _
+                          ByRef ix As Double, ByRef iy As Double) As Boolean
+    GiaoDiem = False
+    Dim r1x As Double, r1y As Double, r2x As Double, r2y As Double, den As Double
+    Dim t As Double, u As Double
+    Const EPS As Double = 0.000001
+    r1x = bx - ax: r1y = by - ay
+    r2x = dx - cx: r2y = dy - cy
+    den = r1x * r2y - r1y * r2x
+    If Abs(den) < 0.000000000001 Then Exit Function
+    t = ((cx - ax) * r2y - (cy - ay) * r2x) / den
+    u = ((cx - ax) * r1y - (cy - ay) * r1x) / den
+    If t > EPS And t < 1# - EPS And u > EPS And u < 1# - EPS Then
+        ix = ax + t * r1x
+        iy = ay + t * r1y
+        GiaoDiem = True
+    End If
+End Function
+
+
+'============================================================
+' CHAY TIM LOI
+'============================================================
+Public Sub ChayTimLoi(ByVal levelsCSV As String, _
+                      ByVal cbD As Boolean, ByVal cbS As Boolean, ByVal cbA As Boolean, _
+                      ByVal cbX As Boolean, ByVal cbo As Boolean, ByVal cbE As Boolean, _
+                      ByVal canhNgan As Double, ByVal thuaNho As Double, _
+                      ByVal snap As Double, ByVal levelLoi As String, _
+                      Optional ByVal mauCSV As String = "")
+
+    If snap <= 0 Then snap = 0.05
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayDoanNhieuLevel(levelsCSV, snap, minX, minY, maxX, maxY, mauCSV)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc doan nao tu cac level da chon.", vbExclamation, "Tim loi"
+        Exit Sub
+    End If
+
+    ' Dat level xuat loi lam active (dau bao loi ve len do)
+    If Len(Trim$(levelLoi)) > 0 Then
+        On Error Resume Next
+        ActiveSettings.Level = ActiveModelReference.Levels(Trim$(levelLoi))
+        On Error GoTo 0
+    End If
+
+    Dim size As Double
+    size = ((maxX - minX) + (maxY - minY)) / 2# / 2000#
+    If size <= 0 Then size = 0.3
+
+    Dim nD As Long, nS As Long, nA As Long, nX As Long, nO As Long, nE As Long
+    Dim i As Long, j As Long, s1() As Double, S2() As Double
+    Dim dai As Double, mx As Double, my As Double
+
+    ' D: dinh treo (ho ranh)
+    If cbD Then
+        Dim ho As Collection, p() As Double
+        Set ho = TimDiemHo(segs, snap)
+        For i = 1 To ho.Count
+            p = ho.Item(i)
+            VeDanhDauLoi p(0), p(1), size          ' X do
+            nD = nD + 1
+        Next i
+    End If
+
+    ' S: canh ngan
+    If cbS Then
+        For i = 1 To segs.Count
+            s1 = segs.Item(i)
+            dai = KcHai(s1(0), s1(1), s1(2), s1(3))
+            If dai > 0 And dai < canhNgan Then
+                VeTam (s1(0) + s1(2)) / 2#, (s1(1) + s1(3)) / 2#, size, 5
+                nS = nS + 1
+            End If
+        Next i
+    End If
+
+    ' A: thua nho
+    If cbA Then
+        Dim tia As Long, vungs As Collection, v As clsVung
+        Set vungs = GhepVung(segs, snap, tia)
+        For i = 1 To vungs.Count
+            Set v = vungs.Item(i)
+            If v.Dt < thuaNho Then
+                VeTam v.cx, v.cy, size, 6
+                nA = nA + 1
+            End If
+        Next i
+    End If
+
+    ' X: giao diem (trong)
+    If cbX Then
+        Dim ix As Double, iy As Double
+        For i = 1 To segs.Count - 1
+            s1 = segs.Item(i)
+            For j = i + 1 To segs.Count
+                S2 = segs.Item(j)
+                If GiaoDiem(s1(0), s1(1), s1(2), s1(3), S2(0), S2(1), S2(2), S2(3), ix, iy) Then
+                    VeTam ix, iy, size, 3
+                    nX = nX + 1
+                End If
+            Next j
+        Next i
+    End If
+
+    ' O: chong de (doan trung nhau)
+    If cbo Then
+        Dim d As Object, key As String, ea As String, eb As String
+        Set d = CreateObject("Scripting.Dictionary")
+        For i = 1 To segs.Count
+            s1 = segs.Item(i)
+            ea = CLng(Round(s1(0) / snap)) & "|" & CLng(Round(s1(1) / snap))
+            eb = CLng(Round(s1(2) / snap)) & "|" & CLng(Round(s1(3) / snap))
+            If ea <= eb Then key = ea & "_" & eb Else key = eb & "_" & ea
+            If d.Exists(key) Then
+                VeTam (s1(0) + s1(2)) / 2#, (s1(1) + s1(3)) / 2#, size, 7
+                nO = nO + 1
+            Else
+                d.Add key, True
+            End If
+        Next i
+    End If
+
+    ' E: canh sai (canh co dau mut bac 1 - canh cut/du)
+    If cbE Then
+        Dim deg As Object, ka As String, kb As String
+        Set deg = CreateObject("Scripting.Dictionary")
+        For i = 1 To segs.Count
+            s1 = segs.Item(i)
+            ka = CLng(Round(s1(0) / snap)) & "|" & CLng(Round(s1(1) / snap))
+            kb = CLng(Round(s1(2) / snap)) & "|" & CLng(Round(s1(3) / snap))
+            deg(ka) = deg(ka) + 1
+            deg(kb) = deg(kb) + 1
+        Next i
+        For i = 1 To segs.Count
+            s1 = segs.Item(i)
+            ka = CLng(Round(s1(0) / snap)) & "|" & CLng(Round(s1(1) / snap))
+            kb = CLng(Round(s1(2) / snap)) & "|" & CLng(Round(s1(3) / snap))
+            If deg(ka) = 1 Or deg(kb) = 1 Then
+                VeTam (s1(0) + s1(2)) / 2#, (s1(1) + s1(3)) / 2#, size, 2
+                nE = nE + 1
+            End If
+        Next i
+    End If
+
+    MsgBox "So doan quet: " & segs.Count & vbCrLf & vbCrLf & _
+           "(D) Dinh treo/ho ranh: " & nD & vbCrLf & _
+           "(S) Canh ngan: " & nS & vbCrLf & _
+           "(A) Thua nho: " & nA & vbCrLf & _
+           "(X) Giao diem: " & nX & vbCrLf & _
+           "(O) Chong de: " & nO & vbCrLf & _
+           "(E) Canh sai: " & nE, _
+           vbInformation, "Ket qua tim loi"
+End Sub

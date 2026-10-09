@@ -1,0 +1,200 @@
+Option Explicit
+
+'============================================================
+' modThuocTinh - Doc so thua (Text + TextNode) & gan vao thua
+'   Text     : el.Text, el.Origin
+'   TextNode : el.Origin ; noi dung = dong dau (GetSubElements)
+'============================================================
+
+
+'============================================================
+' Doc 1 phan tu text -> (x, y, chuoi). Ho tro Text va TextNode.
+'============================================================
+Private Function DocMotText(ByVal el As Element, ByRef x As Double, _
+                            ByRef y As Double, ByRef s As String) As Boolean
+    DocMotText = False
+    s = ""
+    Dim o As Point3d
+
+    If el.Type = msdElementTypeText Then
+        Dim oT As TextElement
+        Set oT = el
+        o = oT.Origin
+        x = o.x: y = o.y
+        s = Trim$(oT.Text)
+        DocMotText = True
+
+    ElseIf el.Type = msdElementTypeTextNode Then
+        Dim oNode As TextNodeElement
+        Set oNode = el
+        o = oNode.Origin
+        x = o.x: y = o.y
+        Dim subs As ElementEnumerator
+        Set subs = oNode.GetSubElements
+        Do While subs.MoveNext
+            If subs.Current.Type = msdElementTypeText Then
+                s = Trim$(subs.Current.AsTextElement.Text)
+                If Len(s) > 0 Then Exit Do
+            End If
+        Loop
+        DocMotText = True
+    End If
+End Function
+
+
+'============================================================
+' Tim thua chua diem (x,y): ring chua diem & khong trong lo dao;
+' nhieu thua long nhau -> chon thua dien tich NHO NHAT.
+'============================================================
+Public Function TimThuaChua(ByVal vungs As Collection, _
+                            ByVal x As Double, ByVal y As Double) As clsVung
+    Dim i As Long, k As Long, v As clsVung
+    Dim r() As Double, dr() As Double
+    Dim trongDao As Boolean
+    Dim best As clsVung, bestDt As Double
+    Set best = Nothing
+    bestDt = 1E+300
+
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        If v.HasRing Then
+            r = v.ring
+            If DiemTrongPolygon(r, x, y) Then
+                trongDao = False
+                For k = 1 To v.Dao.Count
+                    dr = v.Dao.Item(k)
+                    If DiemTrongPolygon(dr, x, y) Then trongDao = True: Exit For
+                Next k
+                If Not trongDao And v.Dt < bestDt Then
+                    Set best = v
+                    bestDt = v.Dt
+                End If
+            End If
+        End If
+    Next i
+    Set TimThuaChua = best
+End Function
+
+
+Private Function TenLevelActive() As String
+    On Error Resume Next
+    TenLevelActive = ActiveSettings.Level.Name
+    On Error GoTo 0
+End Function
+
+Private Function CoChuUocLuong(ByVal minX As Double, ByVal minY As Double, _
+                               ByVal maxX As Double, ByVal maxY As Double) As Double
+    Dim s As Double
+    s = ((maxX - minX) + (maxY - minY)) / 2# / 1500#
+    If s <= 0# Then s = 1#
+    CoChuUocLuong = s
+End Function
+
+
+'============================================================
+' LENH CHAY DUOC: GAN SO THUA (Text + TextNode) + chan doan
+'============================================================
+Public Sub DC_GanSoThua()
+    Dim lvRanh As String, lvSo As String, snapStr As String, snap As Double
+
+    lvRanh = InputBox("TEN level chua RANH thua:", "Gan so thua", TenLevelActive())
+    lvSo = InputBox("TEN level chua SO THUA (Text/TextNode):" & vbCrLf & _
+                    "(De trong = quet tat ca)", "Gan so thua", "")
+    snapStr = InputBox("Dung sai noi diem (snap):", "Gan so thua", "0.05")
+    If snapStr = "" Then Exit Sub
+    snap = val(snapStr)
+    If snap <= 0 Then snap = 0.05
+
+    ' 1) Doc ranh + ghep vung
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayCacDoan(snap, lvRanh, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc doan ranh nao.", vbExclamation, "Gan so thua"
+        Exit Sub
+    End If
+    Dim soTia As Long, vungs As Collection
+    Set vungs = GhepVung(segs, snap, soTia)
+    If vungs.Count = 0 Then
+        MsgBox "Khong ghep duoc vung nao.", vbExclamation, "Gan so thua"
+        Exit Sub
+    End If
+
+    ' 2) Quet Text + TextNode
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    If Len(Trim$(lvSo)) > 0 Then
+        Dim lv As Level
+        On Error Resume Next
+        Set lv = ActiveModelReference.Levels(lvSo)
+        On Error GoTo 0
+        If Not lv Is Nothing Then esc.ExcludeAllLevels: esc.IncludeLevel lv
+    End If
+
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+
+    Dim nText As Long, nNode As Long, demGan As Long
+    Dim tMinX As Double, tMinY As Double, tMaxX As Double, tMaxY As Double
+    Dim firstT As Boolean: firstT = True
+    Dim x As Double, y As Double, s As String, v As clsVung
+    Dim el As Element
+
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If el.Type = msdElementTypeText Then nText = nText + 1
+        If el.Type = msdElementTypeTextNode Then nNode = nNode + 1
+        If DocMotText(el, x, y, s) Then
+            If firstT Then
+                tMinX = x: tMaxX = x: tMinY = y: tMaxY = y: firstT = False
+            Else
+                If x < tMinX Then tMinX = x
+                If x > tMaxX Then tMaxX = x
+                If y < tMinY Then tMinY = y
+                If y > tMaxY Then tMaxY = y
+            End If
+            If Len(s) > 0 Then
+                Set v = TimThuaChua(vungs, x, y)
+                If Not v Is Nothing Then
+                    If Len(v.soThua) = 0 Then v.soThua = s: demGan = demGan + 1
+                End If
+            End If
+        End If
+    Loop
+
+    ' 3) Chan doan
+    Dim chan As String
+    chan = "So thua (vung): " & vungs.Count & vbCrLf & _
+           "Text roi: " & nText & " ; TextNode: " & nNode & vbCrLf & _
+           "Da gan vao thua: " & demGan & vbCrLf & vbCrLf & _
+           "Khoang toa do THUA:" & vbCrLf & _
+           "  X: " & Format$(minX, "0") & " .. " & Format$(maxX, "0") & vbCrLf & _
+           "  Y: " & Format$(minY, "0") & " .. " & Format$(maxY, "0") & vbCrLf & _
+           "Khoang toa do TEXT:" & vbCrLf & _
+           "  X: " & Format$(tMinX, "0") & " .. " & Format$(tMaxX, "0") & vbCrLf & _
+           "  Y: " & Format$(tMinY, "0") & " .. " & Format$(tMaxY, "0") & vbCrLf & vbCrLf & _
+           "Ve nhan phan so bay gio?"
+
+    If MsgBox(chan, vbInformation + vbYesNo, "Gan so thua - chan doan") <> vbYes Then Exit Sub
+
+    ' 4) Ve nhan
+    Dim caoStr As String, cao As Double
+    cao = CoChuUocLuong(minX, minY, maxX, maxY)
+    caoStr = InputBox("Co chu nhan (chieu cao):", "Gan so thua", Format$(cao, "0.###"))
+    If caoStr <> "" Then cao = val(caoStr)
+    If cao <= 0 Then cao = 1
+
+    Dim i As Long, dtStr As String
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        dtStr = Format$(Round(v.Dt, 1), "0.0")
+        If Len(v.soThua) > 0 Then
+            VeNhanPhanSo v.cx, v.cy, v.soThua, dtStr, cao, 0
+        Else
+            VeText v.cx, v.cy, dtStr, cao, 2
+        End If
+    Next i
+End Sub

@@ -1,0 +1,247 @@
+'============================================================
+' modMenuDC - Thanh menu kieu LandMap cho DiaChinhVL
+'   - Popup menu that cua Windows (AppendMenuW -> giu chu Viet Unicode)
+'   - TrackPopupMenu + TPM_RETURNCMD: khong can subclass, an toan
+'
+' THEM CONG CU MOI (2 buoc):
+'   1. Trong TaoMenu: them dong  Muc h, "<ten hien thi>", "<MA>"
+'      (MA = "" -> muc mo xam, chua dung duoc)
+'   2. Trong DC_ChayLenh: them  Case "<MA>": <ten Sub can goi>
+'============================================================
+Option Explicit
+
+Private Type POINTAPI
+    x As Long
+    y As Long
+End Type
+
+Private Declare Function CreatePopupMenu Lib "user32" () As Long
+Private Declare Function AppendMenuW Lib "user32" (ByVal hMenu As Long, ByVal uFlags As Long, ByVal uIDNewItem As Long, ByVal lpNewItem As Long) As Long
+Private Declare Function TrackPopupMenu Lib "user32" (ByVal hMenu As Long, ByVal uFlags As Long, ByVal x As Long, ByVal y As Long, ByVal nReserved As Long, ByVal hwnd As Long, ByVal prcRect As Long) As Long
+Private Declare Function DestroyMenu Lib "user32" (ByVal hMenu As Long) As Long
+Private Declare Function GetCursorPos Lib "user32" (lpPoint As POINTAPI) As Long
+Private Declare Function FindWindowA Lib "user32" (ByVal lpClassName As String, ByVal lpWindowName As String) As Long
+Private Declare Function GetForegroundWindow Lib "user32" () As Long
+Private Declare Function SetForegroundWindow Lib "user32" (ByVal hwnd As Long) As Long
+Private Declare Function GetDC Lib "user32" (ByVal hwnd As Long) As Long
+Private Declare Function ReleaseDC Lib "user32" (ByVal hwnd As Long, ByVal hdc As Long) As Long
+Private Declare Function GetDeviceCaps Lib "gdi32" (ByVal hdc As Long, ByVal nIndex As Long) As Long
+Private Declare Function LoadImageA Lib "user32" (ByVal hInst As Long, ByVal lpszName As String, ByVal uType As Long, ByVal cxDesired As Long, ByVal cyDesired As Long, ByVal fuLoad As Long) As Long
+Private Declare Function SendMessageA Lib "user32" (ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+Private Declare Function GetWindowLongA Lib "user32" (ByVal hwnd As Long, ByVal nIndex As Long) As Long
+Private Declare Function SetWindowLongA Lib "user32" (ByVal hwnd As Long, ByVal nIndex As Long, ByVal dwNewLong As Long) As Long
+Private Declare Function SetWindowPos Lib "user32" (ByVal hwnd As Long, ByVal hWndInsertAfter As Long, ByVal x As Long, ByVal y As Long, ByVal cx As Long, ByVal cy As Long, ByVal wFlags As Long) As Long
+Private Declare Function MessageBoxW Lib "user32" (ByVal hwnd As Long, ByVal lpText As Long, ByVal lpCaption As Long, ByVal uType As Long) As Long
+
+Private Const MF_STRING As Long = &H0
+Private Const MF_GRAYED As Long = &H1
+Private Const MF_SEPARATOR As Long = &H800
+Private Const TPM_LEFTBUTTON As Long = &H0
+Private Const TPM_NONOTIFY As Long = &H80
+Private Const TPM_RETURNCMD As Long = &H100
+Private Const LOGPIXELSX As Long = 88
+
+Private Const IMAGE_ICON As Long = 1
+Private Const LR_LOADFROMFILE As Long = &H10
+Private Const WM_SETICON As Long = &H80
+Private Const ICON_SMALL As Long = 0
+Private Const ICON_BIG As Long = 1
+Private Const GWL_EXSTYLE As Long = -20
+Private Const WS_EX_DLGMODALFRAME As Long = &H1
+Private Const SWP_FLAGS As Long = &H27      ' NOSIZE Or NOMOVE Or NOZORDER Or FRAMECHANGED
+
+Public Const DC_THUMUC As String = "C:\DiaChinhVL"
+Public Const DC_ICON As String = "C:\DiaChinhVL\DiaChinhVL.ico"
+
+Private mMa() As String     ' id menu -> ma lenh
+Private mN As Long
+
+'============================================================
+' NOI DUNG CAC MENU  (sua o day khi them cong cu)
+'============================================================
+Private Function TaoMenu(ByVal ten As String) As Long
+    Dim h As Long
+    h = CreatePopupMenu()
+    If h = 0 Then Exit Function
+    mN = 0
+    ReDim mMa(1 To 1)
+
+    Select Case ten
+    Case "HETHONG"
+        Muc h, "Thi" & ChrW(7871) & "t l" & ChrW(7853) & "p " & ChrW(273) & ChrW(417) & "n v" & ChrW(7883) & " h" & ChrW(224) & "nh ch" & ChrW(237) & "nh...", "DONVIHC"
+        Gach h
+        Muc h, "Thi" & ChrW(7871) & "t l" & ChrW(7853) & "p m" & ChrW(7863) & "c " & ChrW(273) & ChrW(7883) & "nh (n" & ChrW(233) & "t 0, font Times New Roman)", "MACDINH"
+        Muc h, "M" & ChrW(7903) & " th" & ChrW(432) & " m" & ChrW(7909) & "c d" & ChrW(7919) & " li" & ChrW(7879) & "u (C:\DiaChinhVL)", "THUMUC"
+        Gach h
+        Muc h, ChrW(272) & ChrW(243) & "ng menu " & ChrW(272) & ChrW(7883) & "a Ch" & ChrW(237) & "nh VL", "DONG"
+
+    Case "BANDO"
+        Muc h, "T" & ChrW(7841) & "o Topology / CSDL", "TOPO"
+        Muc h, "T" & ChrW(236) & "m l" & ChrW(7895) & "i", "TIMLOI"
+        Gach h
+        Muc h, "G" & ChrW(225) & "n th" & ChrW(244) & "ng tin", "GANTT"
+        Muc h, "B" & ChrW(7843) & "ng d" & ChrW(7919) & " li" & ChrW(7879) & "u", "BANGDL"
+
+    Case "BIENTAP"
+        Muc h, "G" & ChrW(225) & "n nh" & ChrW(227) & "n th" & ChrW(7917) & "a", "GANNHAN"
+        Gach h
+        Muc h, "T" & ChrW(244) & " m" & ChrW(224) & "u theo lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", ""
+        Muc h, "S" & ChrW(7917) & "a ranh th" & ChrW(7917) & "a", ""
+
+    Case "KIEMKE"
+        Muc h, "L" & ChrW(7853) & "p b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ki" & ChrW(7875) & "m k" & ChrW(234), ""
+        Muc h, "Th" & ChrW(7889) & "ng k" & ChrW(234) & " di" & ChrW(7879) & "n t" & ChrW(237) & "ch theo lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", ""
+
+    Case "TIENICH"
+        Muc h, "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t", "TRICHLUC"
+        Gach h
+        Muc h, "Xem b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " tr" & ChrW(234) & "n " & ChrW(7843) & "nh v" & ChrW(7879) & " tinh", "VETINH"
+        Muc h, "M" & ChrW(7903) & " b" & ChrW(7857) & "ng Google Earth Pro (KML)", "GEARTH"
+        Gach h
+        Muc h, "Xu" & ChrW(7845) & "t d" & ChrW(7919) & " li" & ChrW(7879) & "u", ""
+
+    Case "TROGIUP"
+        Muc h, "H" & ChrW(432) & ChrW(7899) & "ng d" & ChrW(7851) & "n s" & ChrW(7917) & " d" & ChrW(7909) & "ng", "HUONGDAN"
+        Muc h, "Ki" & ChrW(7875) & "m tra c" & ChrW(7853) & "p nh" & ChrW(7853) & "t...", "CAPNHAT"
+        Gach h
+        Muc h, "Gi" & ChrW(7899) & "i thi" & ChrW(7879) & "u", "GIOITHIEU"
+    End Select
+
+    TaoMenu = h
+End Function
+
+'============================================================
+' THUC THI LENH THEO MA  (them Case khi co cong cu moi)
+'============================================================
+Public Sub DC_ChayLenh(ByVal ma As String)
+    Select Case ma
+    Case "TOPO":      DC_MoTaoThua
+    Case "TIMLOI":    DC_MoTimLoi
+    Case "GANTT":     DC_MoGanTT
+    Case "BANGDL":    DC_MoBangDuLieu
+    Case "TRICHLUC":  DC_MoTrichLuc
+    Case "GANNHAN":   DC_MoGanNhan
+    Case "VETINH":    DC_XemVeTinh
+    Case "GEARTH":    DC_MoGoogleEarth
+    Case "MACDINH"
+        DC_MacDinh
+        DC_ThongBao ChrW(272) & ChrW(227) & " " & ChrW(273) & ChrW(7863) & "t: Line Style 0, Weight 0, font Times New Roman.", "Thi" & ChrW(7871) & "t l" & ChrW(7853) & "p"
+    Case "DONVIHC":   frmDonViHC.Show vbModeless
+    Case "THUMUC":    MoThuMuc
+    Case "HUONGDAN":  MoHuongDan
+    Case "GIOITHIEU": DC_GioiThieu
+    Case "CAPNHAT"
+        ' chay sau khi thoat su kien menu (khong sua code form dang chay)
+        Unload frmDiaChinh
+        CadInputQueue.SendKeyin "vba run [DiaChinhVL]modCapNhatWeb.DC_KiemTraCapNhat"
+    Case "DONG":      Unload frmDiaChinh
+    Case Else
+        DC_ThongBao "Ch" & ChrW(7913) & "c n" & ChrW(259) & "ng " & ChrW(273) & "ang ph" & ChrW(225) & "t tri" & ChrW(7875) & "n.", ChrW(272) & ChrW(7883) & "a Ch" & ChrW(237) & "nh VL"
+    End Select
+End Sub
+
+'============================================================
+' Hien popup menu ngay duoi nhan menu tren form.
+'   x, y     : toa do chuot trong nhan (point, tu su kien MouseDown)
+'   caoNhan  : chieu cao nhan (point)
+' Tra ve ma lenh da chon ("" neu bam ra ngoai)
+'============================================================
+Public Function DC_HienMenu(ByVal ten As String, ByVal tieuDe As String, _
+                            ByVal x As Single, ByVal y As Single, _
+                            ByVal caoNhan As Single) As String
+    Dim h As Long, hw As Long, id As Long, k As Double
+    Dim p As POINTAPI
+
+    h = TaoMenu(ten)
+    If h = 0 Then Exit Function
+
+    GetCursorPos p
+    k = HeSoDpi()
+    hw = FindWindowA("ThunderDFrame", tieuDe)
+    If hw = 0 Then hw = GetForegroundWindow()
+    SetForegroundWindow hw
+
+    id = TrackPopupMenu(h, TPM_RETURNCMD Or TPM_NONOTIFY Or TPM_LEFTBUTTON, _
+                        CLng(p.x - x * k), CLng(p.y + (caoNhan - y) * k), 0, hw, 0)
+    DestroyMenu h
+
+    If id >= 1 And id <= mN Then DC_HienMenu = mMa(id)
+End Function
+
+'============================================================
+' Hop thong bao Unicode (chu Viet day du, khong bi "?")
+'   kieu: vbInformation / vbExclamation / vbCritical / vbYesNo...
+'============================================================
+Public Function DC_ThongBao(ByVal noiDung As String, _
+                            Optional ByVal tieuDe As String = "", _
+                            Optional ByVal kieu As Long = vbInformation) As Long
+    If Len(tieuDe) = 0 Then tieuDe = ChrW(272) & ChrW(7883) & "a Ch" & ChrW(237) & "nh VL"
+    DC_ThongBao = MessageBoxW(GetForegroundWindow(), StrPtr(noiDung), StrPtr(tieuDe), kieu)
+End Function
+
+'------------------------------------------------------------
+Private Sub Muc(ByVal h As Long, ByVal cap As String, ByVal ma As String)
+    mN = mN + 1
+    ReDim Preserve mMa(1 To mN)
+    mMa(mN) = ma
+    If Len(ma) = 0 Then
+        AppendMenuW h, MF_STRING Or MF_GRAYED, mN, StrPtr(cap)
+    Else
+        AppendMenuW h, MF_STRING, mN, StrPtr(cap)
+    End If
+End Sub
+
+Private Sub Gach(ByVal h As Long)
+    AppendMenuW h, MF_SEPARATOR, 0, 0
+End Sub
+
+Private Function HeSoDpi() As Double
+    Dim hdc As Long, dpi As Long
+    hdc = GetDC(0)
+    dpi = GetDeviceCaps(hdc, LOGPIXELSX)
+    ReleaseDC 0, hdc
+    If dpi <= 0 Then dpi = 96
+    HeSoDpi = dpi / 72#
+End Function
+
+'============================================================
+' Gan logo (file .ico) len thanh tieu de cua form.
+'   Goi trong UserForm_Activate (luc do cua so da ton tai).
+'   Khong co file icon -> bo qua, khong bao loi.
+'============================================================
+Public Sub DC_GanIcon(ByVal tieuDe As String)
+    On Error Resume Next
+    Dim hw As Long, hNho As Long, hLon As Long, ex As Long
+    If Len(Dir$(DC_ICON)) = 0 Then Exit Sub
+    hw = FindWindowA("ThunderDFrame", tieuDe)
+    If hw = 0 Then Exit Sub
+
+    ' bo kieu khung hop thoai -> Windows moi ve icon o goc trai
+    ex = GetWindowLongA(hw, GWL_EXSTYLE)
+    SetWindowLongA hw, GWL_EXSTYLE, ex And Not WS_EX_DLGMODALFRAME
+
+    hNho = LoadImageA(0, DC_ICON, IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+    hLon = LoadImageA(0, DC_ICON, IMAGE_ICON, 32, 32, LR_LOADFROMFILE)
+    If hNho <> 0 Then SendMessageA hw, WM_SETICON, ICON_SMALL, hNho
+    If hLon <> 0 Then SendMessageA hw, WM_SETICON, ICON_BIG, hLon
+
+    SetWindowPos hw, 0, 0, 0, 0, 0, SWP_FLAGS
+End Sub
+
+Private Sub MoThuMuc()
+    If Len(Dir$(DC_THUMUC, vbDirectory)) = 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a c" & ChrW(243) & " th" & ChrW(432) & " m" & ChrW(7909) & "c " & DC_THUMUC & ". H" & ChrW(227) & "y ch" & ChrW(7841) & "y CaiDat_DiaChinhVL.bat.", ChrW(272) & ChrW(7883) & "a Ch" & ChrW(237) & "nh VL", vbExclamation
+        Exit Sub
+    End If
+    Shell "explorer.exe """ & DC_THUMUC & """", vbNormalFocus
+End Sub
+
+Private Sub MoHuongDan()
+    Dim f As String
+    f = DC_THUMUC & "\HuongDan_DiaChinhVL.docx"
+    If Len(Dir$(f)) = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng th" & ChrW(7845) & "y file h" & ChrW(432) & ChrW(7899) & "ng d" & ChrW(7851) & "n:" & vbCrLf & f, "H" & ChrW(432) & ChrW(7899) & "ng d" & ChrW(7851) & "n", vbExclamation
+        Exit Sub
+    End If
+    Shell "cmd /c start """" """ & f & """", vbHide
+End Sub

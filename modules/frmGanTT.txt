@@ -1,0 +1,89 @@
+'============================================================
+' frmGanTT - Gan thong tin tu nhan (tu CSDL) - Viet hoa ChrW, Arial
+' Can Class Module "clsNutTL". Tieu de thanh de ASCII (font he thong).
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Gan thong tin tu nhan (tu CSDL)"
+    Me.Font.Name = "Arial"
+    Me.Font.size = 8
+    Me.Width = 380
+    Me.Height = 340
+
+    Dim x As Single: x = 12
+    AddLabel "lblPath", ChrW(272) & ChrW(432) & ChrW(7901) & "ng d" & ChrW(7851) & "n file CSDL:", x, 8, 200
+    AddText "txtPath", "", x, 24, 340
+
+    AddLabel "lblH", "Level ch" & ChrW(7913) & "a t" & ChrW(7915) & "ng th" & ChrW(244) & "ng tin:", x, 52, 250
+    AddPair "S" & ChrW(7889) & " hi" & ChrW(7879) & "u th" & ChrW(7917) & "a:", "txtLvSo", "", x, 72
+    AddPair "T" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ":", "txtLvTo", "", x, 96
+    AddPair "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t:", "txtLvLoai", "", x, 120
+    AddPair "T" & ChrW(234) & "n ch" & ChrW(7911) & ":", "txtLvChu", "", x, 144
+    AddPair ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881) & ":", "txtLvDC", "", x, 168
+
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.CheckBox.1", "chkVe", True)
+    c.Caption = "V" & ChrW(7869) & " nh" & ChrW(227) & "n l" & ChrW(234) & "n b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " sau khi g" & ChrW(225) & "n"
+    c.Left = x: c.Top = 196: c.Width = 300: c.Height = 16: c.Value = False   ' mac dinh KHONG ve nhan
+    c.Font.Name = "Arial": c.Font.size = 8
+    AddPair "L" & ChrW(7899) & "p nh" & ChrW(227) & "n:", "txtLvNhan", "6", x, 216
+    AddPair "C" & ChrW(7905) & " ch" & ChrW(7919) & " nh" & ChrW(227) & "n:", "txtCao", "1", x, 240
+
+    ' Tu dien CSDL theo ten file .dgn dang mo (dc01.dgn -> dc01.txt)
+    Me.Controls("txtPath").Text = CsdlMacDinh()
+
+    Dim b1 As Object, b2 As Object
+    Set b1 = Me.Controls.Add("Forms.CommandButton.1", "cmdOK", True)
+    b1.Caption = "Ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n": b1.Left = 170: b1.Top = 274: b1.Width = 95: b1.Height = 26
+    b1.Font.Name = "Arial": b1.Font.size = 8
+    Set b2 = Me.Controls.Add("Forms.CommandButton.1", "cmdDong", True)
+    b2.Caption = ChrW(272) & ChrW(243) & "ng": b2.Left = 275: b2.Top = 274: b2.Width = 80: b2.Height = 26
+    b2.Font.Name = "Arial": b2.Font.size = 8
+    Dim h1 As clsNutTL, h2 As clsNutTL
+    Set h1 = New clsNutTL: Set h1.btn = b1: Set h1.Form = Me: h1.ma = "OK": mNut.Add h1
+    Set h2 = New clsNutTL: Set h2.btn = b2: Set h2.Form = Me: h2.ma = "DONG": mNut.Add h2
+End Sub
+
+Private Sub AddLabel(ByVal nm As String, ByVal cap As String, _
+                     ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 14
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub AddText(ByVal nm As String, ByVal txt As String, _
+                    ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Text = txt: c.Left = x: c.Top = y: c.Width = w: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub AddPair(ByVal cap As String, ByVal nm As String, ByVal txt As String, _
+                    ByVal x As Single, ByVal y As Single)
+    AddLabel "lbl_" & nm, cap, x, y + 2, 90
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Text = txt: c.Left = x + 95: c.Top = y: c.Width = 120: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then Unload Me: Exit Sub
+    If Len(Trim$(Me.Controls("txtLvSo").Text)) = 0 Then
+        MsgBox "N" & ChrW(234) & "n nh" & ChrW(7853) & "p " & ChrW(237) & "t nh" & ChrW(7845) & "t level S" & ChrW(7889) & " hi" & ChrW(7879) & "u th" & ChrW(7917) & "a.", vbExclamation
+    End If
+    Me.Hide
+    ChayGanTT Me.Controls("txtPath").Text, Me.Controls("txtLvSo").Text, _
+              Me.Controls("txtLvTo").Text, Me.Controls("txtLvLoai").Text, _
+              Me.Controls("txtLvChu").Text, Me.Controls("txtLvDC").Text, _
+              Me.Controls("txtLvNhan").Text, val(Me.Controls("txtCao").Text), _
+              Me.Controls("chkVe").Value
+    Me.Show vbModeless
+End Sub
+
+

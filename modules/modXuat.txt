@@ -1,0 +1,191 @@
+Option Explicit
+
+'============================================================
+' modXuat - Xuat bang thong ke ra Excel + Xoa nhan theo level
+' Dung lai: LayCacDoan, GhepVung (modDoc/modHinhHoc),
+'           GanTruong (modLoaiDat).
+'============================================================
+
+Private Function TenLevelActive() As String
+    On Error Resume Next
+    TenLevelActive = ActiveSettings.Level.Name
+    On Error GoTo 0
+End Function
+
+
+'============================================================
+' LENH: XUAT BANG THONG KE RA EXCEL
+'============================================================
+Public Sub DC_XuatExcel()
+    Dim lvRanh As String, lvSo As String, lvLoai As String, lvChu As String
+    Dim snapStr As String, snap As Double
+
+    lvRanh = InputBox("TEN level RANH thua:", "Xuat Excel", TenLevelActive())
+    lvSo = InputBox("TEN level SO THUA:", "Xuat Excel", "")
+    lvLoai = InputBox("TEN level LOAI DAT (de trong = bo qua):", "Xuat Excel", "")
+    lvChu = InputBox("TEN level TEN CHU (de trong = bo qua):", "Xuat Excel", "")
+    snapStr = InputBox("Dung sai noi diem (snap):", "Xuat Excel", "0.05")
+    If snapStr = "" Then Exit Sub
+    snap = val(snapStr)
+    If snap <= 0 Then snap = 0.05
+
+    ' Doc ranh + ghep vung + gan thuoc tinh
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayCacDoan(snap, lvRanh, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc doan ranh nao.", vbExclamation, "Xuat Excel"
+        Exit Sub
+    End If
+    Dim soTia As Long, vungs As Collection
+    Set vungs = GhepVung(segs, snap, soTia)
+    If vungs.Count = 0 Then
+        MsgBox "Khong ghep duoc vung nao.", vbExclamation, "Xuat Excel"
+        Exit Sub
+    End If
+    GanTruong vungs, lvSo, "so_thua"
+    If Len(Trim$(lvLoai)) > 0 Then GanTruong vungs, lvLoai, "loai_dat"
+    If Len(Trim$(lvChu)) > 0 Then GanTruong vungs, lvChu, "ten_chu"
+
+    ' Sap xep theo so thua (so hoc neu duoc)
+    Dim n As Long, idx() As Long, keyv() As Double, i As Long, j As Long
+    n = vungs.Count
+    ReDim idx(1 To n)
+    ReDim keyv(1 To n)
+    For i = 1 To n
+        idx(i) = i
+        keyv(i) = SoThuaSo(vungs.Item(i).soThua)
+    Next i
+    ' insertion sort theo keyv
+    Dim ti As Long
+    Dim tk As Double
+    For i = 2 To n
+        ti = idx(i): tk = keyv(i)
+        j = i - 1
+        Do While j >= 1
+            If keyv(j) > tk Then
+                keyv(j + 1) = keyv(j): idx(j + 1) = idx(j): j = j - 1
+            Else
+                Exit Do
+            End If
+        Loop
+        keyv(j + 1) = tk: idx(j + 1) = ti
+    Next i
+
+    ' Mo Excel (lien ket muon, khong can tham chieu)
+    Dim xl As Object, wb As Object, ws As Object
+    On Error Resume Next
+    Set xl = CreateObject("Excel.Application")
+    On Error GoTo 0
+    If xl Is Nothing Then
+        MsgBox "Khong mo duoc Excel. May co cai Excel khong?", vbExclamation, "Xuat Excel"
+        Exit Sub
+    End If
+    xl.Visible = True
+    Set wb = xl.Workbooks.Add
+    Set ws = wb.Worksheets(1)
+
+    ws.Cells(1, 1).Value = "STT"
+    ws.Cells(1, 2).Value = "So thua"
+    ws.Cells(1, 3).Value = "Loai dat"
+    ws.Cells(1, 4).Value = "Dien tich (m2)"
+    ws.Cells(1, 5).Value = "Ten chu"
+    ws.Range("A1:E1").Font.Bold = True
+
+    Dim v As clsVung, r As Long
+    For i = 1 To n
+        Set v = vungs.Item(idx(i))
+        r = i + 1
+        ws.Cells(r, 1).Value = i
+        ws.Cells(r, 2).Value = v.soThua
+        ws.Cells(r, 3).Value = v.loaiDat
+        ws.Cells(r, 4).Value = Round(v.Dt, 1)
+        ws.Cells(r, 5).Value = v.TenChu
+    Next i
+
+    ' Dong tong
+    ws.Cells(n + 2, 3).Value = "Tong:"
+    ws.Cells(n + 2, 3).Font.Bold = True
+    ws.Cells(n + 2, 4).Formula = "=SUM(D2:D" & (n + 1) & ")"
+    ws.Cells(n + 2, 4).Font.Bold = True
+
+    ws.Columns("A:E").AutoFit
+
+    MsgBox "Da xuat " & n & " thua ra Excel." & vbCrLf & _
+           "Nho luu file trong Excel neu can giu.", _
+           vbInformation, "Xuat Excel"
+End Sub
+
+' Doi so thua ra so de sap xep; khong phai so -> day xuong cuoi
+Private Function SoThuaSo(ByVal s As String) As Double
+    Dim t As String, i As Long, c As String, hasDigit As Boolean
+    t = ""
+    For i = 1 To Len(s)
+        c = Mid$(s, i, 1)
+        If c >= "0" And c <= "9" Then t = t & c: hasDigit = True
+    Next i
+    If hasDigit Then
+        SoThuaSo = val(t)
+    Else
+        SoThuaSo = 1E+18
+    End If
+End Function
+
+
+'============================================================
+' LENH: XOA NHAN THEO LEVEL
+'   Xoa Text + TextNode tren level da chon.
+'   Neu nhap "chieu dai toi da", xoa them cac LINE ngan hon nguong do
+'   (de xoa gach phan so ma khong dung toi ranh dai).
+'============================================================
+Public Sub DC_XoaNhanTheoLevel()
+    Dim lvName As String, maxStr As String, maxDai As Double
+    lvName = InputBox("TEN level can xoa nhan:", "Xoa nhan", TenLevelActive())
+    If lvName = "" Then Exit Sub
+    maxStr = InputBox("Xoa them LINE ngan hon (don vi ban ve):" & vbCrLf & _
+                      "(De trong = chi xoa Text)", "Xoa nhan", "")
+    maxDai = val(maxStr)   ' "" -> 0 -> khong xoa line
+
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    If maxDai > 0 Then esc.IncludeType msdElementTypeLine
+
+    Dim lv As Level
+    On Error Resume Next
+    Set lv = ActiveModelReference.Levels(lvName)
+    On Error GoTo 0
+    If lv Is Nothing Then
+        MsgBox "Khong tim thay level: " & lvName, vbExclamation, "Xoa nhan"
+        Exit Sub
+    End If
+    esc.ExcludeAllLevels
+    esc.IncludeLevel lv
+
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+    Dim arr() As Element
+    arr = ee.BuildArrayFromContents()
+
+    Dim i As Long, dem As Long, el As Element
+    Dim pts() As Point3d, dai As Double
+    For i = LBound(arr) To UBound(arr)
+        Set el = arr(i)
+        If el.Type = msdElementTypeLine Then
+            pts = el.AsLineElement.GetVertices()
+            dai = Sqr((pts(1).x - pts(0).x) ^ 2 + (pts(1).y - pts(0).y) ^ 2)
+            If dai <= maxDai Then
+                ActiveModelReference.RemoveElement el
+                dem = dem + 1
+            End If
+        Else
+            ActiveModelReference.RemoveElement el
+            dem = dem + 1
+        End If
+    Next i
+
+    MsgBox "Da xoa " & dem & " phan tu tren level: " & lvName, _
+           vbInformation, "Xoa nhan"
+End Sub

@@ -1,0 +1,25 @@
+'============================================================
+' clsMenuTop - bat su kien cho 1 nhan tren thanh menu (frmDiaChinh)
+'============================================================
+Option Explicit
+
+Public WithEvents lbl As MSForms.Label
+Public Form As Object
+Public ma As String
+
+Private Sub lbl_MouseDown(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+    On Error GoTo Loi
+    If Button = 1 Then
+        If Not Form Is Nothing Then Form.MoMenuTop ma, lbl, X, Y
+    End If
+    Exit Sub
+Loi:
+    MsgBox "LOI menu '" & ma & "'" & vbCrLf & _
+           "So loi : " & Err.Number & vbCrLf & _
+           "Mo ta  : " & Err.Description, vbCritical, "Bat loi"
+End Sub
+
+Private Sub lbl_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+    On Error Resume Next
+    If Not Form Is Nothing Then Form.HoverTop ma
+End Sub

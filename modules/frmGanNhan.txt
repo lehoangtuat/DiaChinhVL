@@ -1,0 +1,85 @@
+Option Explicit
+ 
+Private mNut As New Collection
+ 
+Private Sub UserForm_Initialize()
+    Me.Caption = "Gan thong tin tu nhan / CSDL"
+    Me.Width = 400
+    Me.Height = 420
+ 
+    AddLabel "lblLv", "Lop ranh (tick chon):", 8, 6, 160
+    Dim lst As Object
+    Set lst = Me.Controls.Add("Forms.ListBox.1", "lstLevel", True)
+    lst.Left = 8: lst.Top = 22: lst.Width = 150: lst.Height = 340
+    lst.ListStyle = 1: lst.MultiSelect = 1
+    Dim i As Long
+    For i = 1 To 63
+        lst.AddItem "Level " & i
+    Next i
+ 
+    Dim x As Single: x = 175
+    AddLabel "lblH", "Level chua tung thong tin:", x, 6, 210
+    AddPair "To ban do:", "txtLvTo", "", x, 24
+    AddPair "So hieu thua:", "txtLvSo", "", x, 50
+    AddPair "Loai dat:", "txtLvLoai", "", x, 76
+    AddPair "Ten chu:", "txtLvChu", "", x, 102
+    AddPair "Dia chi:", "txtLvDiaChi", "", x, 128
+ 
+    AddPair "Snap:", "txtSnap", "0.05", x, 160
+    AddPair "Lop nhan:", "txtLvNhan", "Level 6", x, 186
+    AddPair "Co chu nhan:", "txtCao", "1", x, 212
+ 
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.CheckBox.1", "chkCSDL", True)
+    c.Caption = "Xuat CSDL (CSV)": c.Left = x: c.Top = 244: c.Width = 200: c.Height = 16
+    c.Value = True
+    AddPair "Duong dan CSDL:", "txtPath", "C:\DiaChinhVL\csdl.csv", x, 264
+ 
+    Dim b1 As Object, b2 As Object
+    Set b1 = Me.Controls.Add("Forms.CommandButton.1", "cmdOK", True)
+    b1.Caption = "Chap nhan": b1.Left = 195: b1.Top = 356: b1.Width = 95: b1.Height = 26
+    Set b2 = Me.Controls.Add("Forms.CommandButton.1", "cmdDong", True)
+    b2.Caption = "Dong": b2.Left = 298: b2.Top = 356: b2.Width = 80: b2.Height = 26
+    Dim h1 As clsNutTL, h2 As clsNutTL
+    Set h1 = New clsNutTL: Set h1.btn = b1: Set h1.Form = Me: h1.ma = "OK": mNut.Add h1
+    Set h2 = New clsNutTL: Set h2.btn = b2: Set h2.Form = Me: h2.ma = "DONG": mNut.Add h2
+End Sub
+ 
+Private Sub AddLabel(ByVal nm As String, ByVal cap As String, _
+                     ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 14
+End Sub
+ 
+' Nhan + o nhap tren cung 1 hang
+Private Sub AddPair(ByVal cap As String, ByVal nm As String, ByVal txt As String, _
+                    ByVal x As Single, ByVal y As Single)
+    AddLabel "lbl_" & nm, cap, x, y + 2, 95
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Text = txt: c.Left = x + 100: c.Top = y: c.Width = 110: c.Height = 16
+End Sub
+ 
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then Unload Me: Exit Sub
+ 
+    Dim lst As Object, csv As String, i As Long
+    Set lst = Me.Controls("lstLevel")
+    For i = 0 To lst.ListCount - 1
+        If lst.Selected(i) Then
+            If Len(csv) > 0 Then csv = csv & ","
+            csv = csv & lst.List(i)
+        End If
+    Next i
+    If Len(csv) = 0 Then MsgBox "Chua chon level ranh.", vbExclamation: Exit Sub
+ 
+    Me.Hide
+    ChayGanNhan csv, _
+                Me.Controls("txtLvTo").Text, Me.Controls("txtLvSo").Text, _
+                Me.Controls("txtLvLoai").Text, Me.Controls("txtLvChu").Text, _
+                Me.Controls("txtLvDiaChi").Text, val(Me.Controls("txtSnap").Text), _
+                Me.Controls("txtLvNhan").Text, val(Me.Controls("txtCao").Text), _
+                Me.Controls("chkCSDL").Value, Me.Controls("txtPath").Text
+    Me.Show vbModeless
+End Sub

@@ -1,0 +1,232 @@
+Option Explicit
+
+'============================================================
+' modCSDL - Co so du lieu tho ban do (giong .dvl cua Python)
+' Luu/mo toan bo thua (hinh hoc + thuoc tinh) ra 1 file text.
+' Quy trinh: (1) Tao CSDL (ghep vung -> luu)
+'            (2) Xem bang du lieu (mo CSDL -> Excel)
+'            (3) Gan nhan doc tu CSDL (buoc sau)
+'
+' Dinh dang file (UTF-8, tab):
+'   V  cx  cy  dt  soThua  soTo  loaiDat  tenChu  diaChi
+'   R  x0 y0 x1 y1 ...        (ring ngoai, vong kin)
+'   D  x0 y0 ...              (moi lo dao 1 dong)
+'============================================================
+
+' So -> chuoi dau "." (khong phu thuoc locale)
+Private Function S2(ByVal v As Double) As String
+    S2 = Trim$(Str$(v))
+End Function
+
+Private Function XoaTab(ByVal s As String) As String
+    XoaTab = Replace(Replace(Replace(s, vbTab, " "), vbCr, " "), vbLf, " ")
+End Function
+
+
+'============================================================
+' LUU CSDL
+'============================================================
+Public Function LuuCSDL(ByVal vungs As Collection, ByVal path As String) As Boolean
+    LuuCSDL = False
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    On Error GoTo 0
+    If st Is Nothing Then Exit Function
+    st.Type = 2: st.Charset = "utf-8": st.Open
+
+    Dim i As Long, v As clsVung, ring() As Double, n As Long, j As Long
+    Dim ln As String, k As Long, dr() As Double, m As Long
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        st.WriteText "V" & vbTab & S2(v.cx) & vbTab & S2(v.cy) & vbTab & S2(v.Dt) & vbTab & _
+                     XoaTab(v.soThua) & vbTab & XoaTab(v.SoTo) & vbTab & XoaTab(v.loaiDat) & vbTab & _
+                     XoaTab(v.TenChu) & vbTab & XoaTab(v.DiaChi) & vbCrLf
+        If v.HasRing Then
+            ring = v.ring
+            n = UBound(ring, 1)
+            ln = "R"
+            For j = 0 To n
+                ln = ln & vbTab & S2(ring(j, 0)) & vbTab & S2(ring(j, 1))
+            Next j
+            st.WriteText ln & vbCrLf
+        End If
+        For k = 1 To v.Dao.Count
+            dr = v.Dao.Item(k)
+            m = UBound(dr, 1)
+            ln = "D"
+            For j = 0 To m
+                ln = ln & vbTab & S2(dr(j, 0)) & vbTab & S2(dr(j, 1))
+            Next j
+            st.WriteText ln & vbCrLf
+        Next k
+    Next i
+
+    On Error Resume Next
+    st.SaveToFile path, 2
+    If Err.Number = 0 Then LuuCSDL = True
+    st.Close
+    On Error GoTo 0
+End Function
+
+
+'============================================================
+' MO CSDL -> Collection clsVung
+'============================================================
+Public Function MoCSDL(ByVal path As String) As Collection
+    Dim coll As New Collection
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    On Error GoTo 0
+    If st Is Nothing Then Set MoCSDL = coll: Exit Function
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    On Error Resume Next
+    st.LoadFromFile path
+    If Err.Number <> 0 Then st.Close: Set MoCSDL = coll: Exit Function
+    On Error GoTo 0
+    Dim txt As String
+    txt = st.ReadText(-1)
+    st.Close
+
+    Dim raw() As String, i As Long, parts() As String
+    raw = Split(txt, vbLf)
+    Dim v As clsVung
+    Set v = Nothing
+    Dim pairs As Long, j As Long
+    Dim ring() As Double
+    For i = LBound(raw) To UBound(raw)
+        If Len(Trim$(raw(i))) = 0 Then GoTo tt
+        parts = Split(raw(i), vbTab)
+        Select Case parts(0)
+            Case "V"
+                If Not v Is Nothing Then coll.Add v
+                Set v = New clsVung
+                v.cx = val(parts(1)): v.cy = val(parts(2)): v.Dt = val(parts(3))
+                If UBound(parts) >= 4 Then v.soThua = parts(4)
+                If UBound(parts) >= 5 Then v.SoTo = parts(5)
+                If UBound(parts) >= 6 Then v.loaiDat = parts(6)
+                If UBound(parts) >= 7 Then v.TenChu = parts(7)
+                If UBound(parts) >= 8 Then v.DiaChi = parts(8)
+            Case "R"
+                If Not v Is Nothing Then
+                    pairs = UBound(parts) \ 2
+                    ReDim ring(0 To pairs - 1, 0 To 1)
+                    For j = 0 To pairs - 1
+                        ring(j, 0) = val(parts(1 + 2 * j))
+                        ring(j, 1) = val(parts(2 + 2 * j))
+                    Next j
+                    v.ring = ring
+                    v.HasRing = True
+                End If
+            Case "D"
+                If Not v Is Nothing Then
+                    pairs = UBound(parts) \ 2
+                    ReDim ring(0 To pairs - 1, 0 To 1)
+                    For j = 0 To pairs - 1
+                        ring(j, 0) = val(parts(1 + 2 * j))
+                        ring(j, 1) = val(parts(2 + 2 * j))
+                    Next j
+                    v.Dao.Add ring
+                    v.NDao = v.Dao.Count
+                End If
+        End Select
+tt:
+    Next i
+    If Not v Is Nothing Then coll.Add v
+    Set MoCSDL = coll
+End Function
+
+
+Private Function TenLevelActive() As String
+    On Error Resume Next
+    TenLevelActive = ActiveSettings.Level.Name
+    On Error GoTo 0
+End Function
+
+
+'============================================================
+' (1) TAO CSDL: ghep vung tu ranh -> luu file + ve tam
+'============================================================
+Public Sub DC_TaoCSDL()
+    Dim lvRanh As String, snapStr As String, snap As Double, path As String
+    lvRanh = InputBox("TEN level RANH (nhieu level cach nhau dau phay):", _
+                      "Tao CSDL", TenLevelActive())
+    snapStr = InputBox("Snap:", "Tao CSDL", "0.05")
+    If snapStr = "" Then Exit Sub
+    snap = val(snapStr): If snap <= 0 Then snap = 0.05
+    path = InputBox("Duong dan file CSDL:", "Tao CSDL", "C:\DiaChinhVL\csdl_tobando.txt")
+    If path = "" Then Exit Sub
+
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayDoanNhieuLevel(lvRanh, snap, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then MsgBox "Khong doc duoc ranh.", vbExclamation: Exit Sub
+    Dim tia As Long, vungs As Collection
+    Set vungs = GhepVung(segs, snap, tia)
+    If vungs.Count = 0 Then MsgBox "Khong ghep duoc vung.", vbExclamation: Exit Sub
+
+    ' Ve tam de thay
+    Dim size As Double
+    size = ((maxX - minX) + (maxY - minY)) / 2# / 2000#
+    If size <= 0 Then size = 0.3
+    Dim i As Long, v As clsVung
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        VeTam v.cx, v.cy, size, 4
+    Next i
+
+    Dim ok As Boolean
+    ok = LuuCSDL(vungs, path)
+    MsgBox "So thua tao: " & vungs.Count & vbCrLf & _
+           IIf(ok, "Da luu CSDL: " & path, "KHONG luu duoc CSDL: " & path), _
+           vbInformation, "Tao CSDL"
+End Sub
+
+
+'============================================================
+' (2) XEM BANG DU LIEU: mo CSDL -> do ra Excel
+'============================================================
+Public Sub DC_XemBangDuLieu()
+    Dim path As String
+    path = InputBox("Duong dan file CSDL:", "Bang du lieu", "C:\DiaChinhVL\csdl_tobando.txt")
+    If path = "" Then Exit Sub
+    Dim vungs As Collection
+    Set vungs = MoCSDL(path)
+    If vungs.Count = 0 Then MsgBox "CSDL rong hoac khong doc duoc.", vbExclamation: Exit Sub
+
+    Dim xl As Object, wb As Object, ws As Object
+    On Error Resume Next
+    Set xl = CreateObject("Excel.Application")
+    On Error GoTo 0
+    If xl Is Nothing Then MsgBox "Khong mo duoc Excel.", vbExclamation: Exit Sub
+    xl.Visible = True
+    Set wb = xl.Workbooks.Add
+    Set ws = wb.Worksheets(1)
+    ws.Cells(1, 1).Value = "STT"
+    ws.Cells(1, 2).Value = "To ban do"
+    ws.Cells(1, 3).Value = "So thua"
+    ws.Cells(1, 4).Value = "Loai dat"
+    ws.Cells(1, 5).Value = "Dien tich (m2)"
+    ws.Cells(1, 6).Value = "Ten chu"
+    ws.Cells(1, 7).Value = "Dia chi"
+    ws.Range("A1:G1").Font.Bold = True
+
+    Dim i As Long, v As clsVung, r As Long
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        r = i + 1
+        ws.Cells(r, 1).Value = i
+        ws.Cells(r, 2).Value = v.SoTo
+        ws.Cells(r, 3).Value = v.soThua
+        ws.Cells(r, 4).Value = v.loaiDat
+        ws.Cells(r, 5).Value = Round(v.Dt, 1)
+        ws.Cells(r, 6).Value = v.TenChu
+        ws.Cells(r, 7).Value = v.DiaChi
+    Next i
+    ws.Cells(vungs.Count + 2, 4).Value = "Tong:"
+    ws.Cells(vungs.Count + 2, 5).Formula = "=SUM(E2:E" & (vungs.Count + 1) & ")"
+    ws.Columns("A:G").AutoFit
+
+    MsgBox "Da mo bang du lieu: " & vungs.Count & " thua.", vbInformation, "Bang du lieu"
+End Sub

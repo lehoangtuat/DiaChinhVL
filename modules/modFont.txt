@@ -1,0 +1,53 @@
+'============================================================
+' modFont - Dat font TrueType co chu Viet cho chu do tool ve
+'   May moi cai: font mac dinh cua MicroStation (font so 0/1) KHONG co
+'   chu Viet -> chu co dau bi mat. Ham nay dat thang Times New Roman
+'   (khong co thi Arial, Tahoma). Goi truoc moi lan ve trich luc.
+'   (Module KHONG dung Option Explicit de an toan neu ten hang so
+'    msdFontTypeWindowsTrueType khac giua cac ban V8i.)
+'============================================================
+
+Public Const DC_FONT_VIET As String = "Times New Roman"
+
+Public Function DC_DatFontViet() As Boolean
+    ' Thu lan luot cac font TrueType co san tren moi may Windows
+    Dim ds As Variant, i As Long
+    ds = Array(DC_FONT_VIET, "Arial", "Tahoma")
+    For i = LBound(ds) To UBound(ds)
+        If DatMotFont(CStr(ds(i))) Then DC_DatFontViet = True: Exit For
+    Next i
+    ' doi font co the bat hop "Change Text Attributes" -> tra ve cong cu chon
+    On Error Resume Next
+    CadInputQueue.SendKeyin "CHOOSE ELEMENT"
+End Function
+
+Private Function DatMotFont(ByVal ten As String) As Boolean
+    Dim f As Object
+    On Error Resume Next
+    Set f = ActiveDesignFile.Fonts.Find(msdFontTypeWindowsTrueType, ten)
+    If f Is Nothing Then Set f = TimFont(ten)
+    If f Is Nothing Then Exit Function
+    Err.Clear
+    Set ActiveSettings.TextStyle.Font = f       ' font cua chu tool ve (quan trong)
+    If Err.Number <> 0 Then
+        Err.Clear
+        ActiveSettings.TextStyle.Font = f
+    End If
+    DatMotFont = (Err.Number = 0)
+End Function
+
+Private Function TimFont(ByVal ten As String) As Object
+    Dim fs As Object, f As Object, i As Long
+    On Error Resume Next
+    Set fs = ActiveDesignFile.Fonts
+    For Each f In fs
+        If StrComp(f.Name, ten, vbTextCompare) = 0 Then Set TimFont = f: Exit Function
+    Next f
+    For i = 0 To 1023
+        Set f = Nothing
+        Set f = fs.Item(i)
+        If Not f Is Nothing Then
+            If StrComp(f.Name, ten, vbTextCompare) = 0 Then Set TimFont = f: Exit Function
+        End If
+    Next i
+End Function

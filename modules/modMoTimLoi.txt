@@ -1,0 +1,8 @@
+Option Explicit
+
+'============================================================
+' Mo hop thoai tim loi
+'============================================================
+Public Sub DC_MoTimLoi()
+    frmTimLoi2.Show vbModeless
+End Sub

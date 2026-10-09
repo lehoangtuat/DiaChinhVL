@@ -1,0 +1,373 @@
+Option Explicit
+
+'============================================================
+' modDoc - Doc ranh tu DGN & ve len ban do (MicroStation V8i)
+' Port tu DiaChinhVL_GUI.py: lay_cac_doan, ve_line, ve_tam,
+'                            ve_danh_dau_loi + 2 lenh menu.
+'
+' Dung bo doi tuong MicroStationDGN (COM) cua V8i:
+'   ElementScanCriteria + ActiveModelReference.Scan -> ElementEnumerator
+'   Current.AsLineElement.GetVertices() -> Point3d()
+'   CreateLineElement2(Nothing, p1, p2) + AddElement
+'============================================================
+
+
+'============================================================
+' LAY CAC DOAN RANH TU MODEL DANG MO
+'   snap      : dung vua de loc doan qua ngan
+'   levelRanh : "" = doc tat ca line/linestring moi level;
+'               ten level (vd "Level 10") = chi doc level do
+'   Tra ve Collection cac Seg (Double 0..3). Bounding box tra ve ByRef.
+'============================================================
+' Tim Level theo TEN ("Level 10") hoac theo SO (10). Tra Nothing neu khong co.
+Private Function TimLevel(ByVal ten As String) As Level
+    On Error Resume Next
+    Set TimLevel = ActiveModelReference.Levels(Trim$(ten))   ' 1) thu theo ten
+    On Error GoTo 0
+    If Not TimLevel Is Nothing Then Exit Function
+    ' 2) lay chu so trong chuoi -> tim theo Level.Number
+    Dim s As String, i As Long, c As String
+    For i = 1 To Len(ten)
+        c = Mid$(ten, i, 1)
+        If c >= "0" And c <= "9" Then s = s & c
+    Next i
+    If Len(s) = 0 Then Exit Function
+    Dim num As Long: num = CLng(s)
+    Dim L As Level
+    On Error Resume Next
+    For Each L In ActiveModelReference.Levels
+        If L.Number = num Then Set TimLevel = L: Exit For
+    Next L
+    On Error GoTo 0
+End Function
+
+' So level tu chuoi ("Level 10" hoac "10" -> 10). "" / khong co so -> -1 (tat ca).
+Private Function SoLevel(ByVal ten As String) As Long
+    Dim s As String, i As Long, c As String
+    If Len(Trim$(ten)) = 0 Then SoLevel = -1: Exit Function
+    For i = 1 To Len(ten)
+        c = Mid$(ten, i, 1)
+        If c >= "0" And c <= "9" Then s = s & c
+    Next i
+    If Len(s) = 0 Then SoLevel = -1 Else SoLevel = CLng(s)
+End Function
+
+' Kiem tra mau c co nam trong danh sach mauCSV (vd "0,5"). "" = nhan moi mau.
+Private Function MauKhop(ByVal c As Long, ByVal mauCSV As String) As Boolean
+    If Len(Trim$(mauCSV)) = 0 Then MauKhop = True: Exit Function
+    Dim A() As String, i As Long
+    A = Split(mauCSV, ",")
+    For i = LBound(A) To UBound(A)
+        If Len(Trim$(A(i))) > 0 Then
+            If CLng(val(A(i))) = c Then MauKhop = True: Exit Function
+        End If
+    Next i
+    MauKhop = False
+End Function
+
+' Them cac doan tu mang dinh pts() vao segs + cap nhat bbox.
+' khepKin = True -> them them doan noi dinh cuoi ve dinh dau (cho Shape/ComplexShape).
+Private Sub ThemDinhVaoSegs(ByRef pts() As Point3d, ByVal snap As Double, _
+                            ByVal segs As Collection, ByRef first As Boolean, _
+                            ByRef minX As Double, ByRef minY As Double, _
+                            ByRef maxX As Double, ByRef maxY As Double, _
+                            ByVal khepKin As Boolean)
+    Dim i As Long, dx As Double, dy As Double, lo As Long, hi As Long
+    On Error GoTo Thoat
+    lo = LBound(pts): hi = UBound(pts)
+    If hi <= lo Then Exit Sub
+    For i = lo To hi
+        If first Then
+            minX = pts(i).x: maxX = pts(i).x: minY = pts(i).y: maxY = pts(i).y: first = False
+        Else
+            If pts(i).x < minX Then minX = pts(i).x
+            If pts(i).x > maxX Then maxX = pts(i).x
+            If pts(i).y < minY Then minY = pts(i).y
+            If pts(i).y > maxY Then maxY = pts(i).y
+        End If
+    Next i
+    For i = lo To hi - 1
+        dx = pts(i + 1).x - pts(i).x: dy = pts(i + 1).y - pts(i).y
+        If Sqr(dx * dx + dy * dy) > snap Then segs.Add NewSeg(pts(i).x, pts(i).y, pts(i + 1).x, pts(i + 1).y)
+    Next i
+    If khepKin Then
+        dx = pts(lo).x - pts(hi).x: dy = pts(lo).y - pts(hi).y
+        If Sqr(dx * dx + dy * dy) > snap Then segs.Add NewSeg(pts(hi).x, pts(hi).y, pts(lo).x, pts(lo).y)
+    End If
+Thoat:
+End Sub
+
+Public Function LayCacDoan(ByVal snap As Double, ByVal levelRanh As String, _
+                           ByRef minX As Double, ByRef minY As Double, _
+                           ByRef maxX As Double, ByRef maxY As Double, _
+                           Optional ByVal mauCSV As String = "") As Collection
+    Dim segs As New Collection
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    esc.IncludeType msdElementTypeShape
+    esc.IncludeType msdElementTypeComplexString    ' duong phuc (complex chain)
+    esc.IncludeType msdElementTypeComplexShape
+
+    ' Loc theo SO LEVEL doc THANG tren tung doi tuong. lvNum = -1 -> doc tat ca.
+    Dim lvNum As Long
+    lvNum = SoLevel(levelRanh)
+
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+
+    Dim first As Boolean: first = True
+    Dim pts() As Point3d
+    Dim el As Element, sub_ As Element, subs As ElementEnumerator
+    Dim okLv As Boolean, okMau As Boolean, tp As Long
+
+    Do While ee.MoveNext
+        Set el = ee.Current
+        okLv = (lvNum < 0)
+        okMau = True
+        On Error Resume Next
+        If Not okLv Then okLv = (el.Level.Number = lvNum)
+        okMau = MauKhop(el.color, mauCSV)
+        On Error GoTo 0
+        If okLv And okMau Then
+            Select Case el.Type
+                Case msdElementTypeLine, msdElementTypeLineString
+                    On Error Resume Next
+                    pts = el.AsLineElement.GetVertices()
+                    On Error GoTo 0
+                    ThemDinhVaoSegs pts, snap, segs, first, minX, minY, maxX, maxY, False
+                Case msdElementTypeShape
+                    On Error Resume Next
+                    pts = el.AsShapeElement.GetVertices()
+                    On Error GoTo 0
+                    ThemDinhVaoSegs pts, snap, segs, first, minX, minY, maxX, maxY, True
+                Case msdElementTypeComplexString, msdElementTypeComplexShape
+                    Set subs = Nothing
+                    On Error Resume Next
+                    If el.Type = msdElementTypeComplexString Then
+                        Set subs = el.AsComplexStringElement.GetSubElements
+                    Else
+                        Set subs = el.AsComplexShapeElement.GetSubElements
+                    End If
+                    On Error GoTo 0
+                    If Not subs Is Nothing Then
+                        Do While subs.MoveNext
+                            Set sub_ = subs.Current
+                            tp = sub_.Type
+                            If tp = msdElementTypeLine Or tp = msdElementTypeLineString Then
+                                On Error Resume Next
+                                pts = sub_.AsLineElement.GetVertices()
+                                On Error GoTo 0
+                                ThemDinhVaoSegs pts, snap, segs, first, minX, minY, maxX, maxY, False
+                            ElseIf tp = msdElementTypeShape Then
+                                On Error Resume Next
+                                pts = sub_.AsShapeElement.GetVertices()
+                                On Error GoTo 0
+                                ThemDinhVaoSegs pts, snap, segs, first, minX, minY, maxX, maxY, True
+                            End If
+                        Loop
+                    End If
+            End Select
+        End If
+        Set el = Nothing
+    Loop
+
+    Set LayCacDoan = segs
+End Function
+
+
+'============================================================
+' VE PRIMITIVE
+'============================================================
+
+' CHAN DOAN: dem so Line/LineString theo tung Level.Number + theo mau.
+' Chay: Tools > Macros > DC_ChanDoanLevel. Cho biet ranh thua nam level nao / mau gi.
+Public Sub DC_ChanDoanLevel()
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+    Dim cntLv(0 To 255) As Long, ln As Long, mxLv As Long
+    Dim d As Object
+    Set d = CreateObject("Scripting.Dictionary")   ' key = lv & "|" & mau -> count
+    Do While ee.MoveNext
+        ln = -1
+        On Error Resume Next
+        ln = ee.Current.Level.Number
+        On Error GoTo 0
+        Dim mau As Long: mau = -1
+        On Error Resume Next
+        mau = ee.Current.color
+        On Error GoTo 0
+        If ln >= 0 And ln <= 255 Then
+            cntLv(ln) = cntLv(ln) + 1
+            If ln > mxLv Then mxLv = ln
+        End If
+        Dim key As String: key = ln & "|" & mau
+        If d.Exists(key) Then d(key) = d(key) + 1 Else d.Add key, 1
+    Loop
+    Dim s As String, i As Long
+    s = "SO LINE THEO LEVEL:" & vbCrLf
+    For i = 0 To mxLv
+        If cntLv(i) > 0 Then s = s & "  Level " & i & " : " & cntLv(i) & vbCrLf
+    Next i
+    s = s & vbCrLf & "CHI TIET Level|Mau : so luong" & vbCrLf
+    Dim kk As Variant
+    For Each kk In d.Keys
+        s = s & "  " & kk & " : " & d(kk) & vbCrLf
+    Next kk
+    MsgBox s, vbInformation, "Chan doan level/mau"
+End Sub
+
+' Ve mot doan thang. color = -1 nghia la giu mau/level dang active.
+Public Sub VeLine(ByVal ax As Double, ByVal ay As Double, _
+                  ByVal bx As Double, ByVal by As Double, _
+                  Optional ByVal color As Long = -1)
+    Dim p1 As Point3d, p2 As Point3d
+    p1.x = ax: p1.y = ay: p1.Z = 0#
+    p2.x = bx: p2.y = by: p2.Z = 0#
+    Dim oLine As LineElement
+    Set oLine = CreateLineElement2(Nothing, p1, p2)
+    If color >= 0 Then oLine.color = color
+    ' EP CUNG be day net = 0 (khong phu thuoc active weight tren thanh cong cu)
+    ' Style de ACTIVE STYLE 0 (DC_MacDinh) lo - vi Element.LineStyle chi-doc, gan = 0 loi bien dich.
+    On Error Resume Next
+    oLine.LineWeight = 0
+    On Error GoTo 0
+    ActiveModelReference.AddElement oLine
+End Sub
+
+' Ve dau chu thap (tam thua) tai (x,y)
+Public Sub VeTam(ByVal x As Double, ByVal y As Double, _
+                 ByVal size As Double, Optional ByVal color As Long = -1)
+    VeLine x - size, y, x + size, y, color
+    VeLine x, y - size, x, y + size, color
+End Sub
+
+' Ve dau X do + o vuong quanh diem ho (giong ve_danh_dau_loi Python, mau 3 = do)
+Public Sub VeDanhDauLoi(ByVal x As Double, ByVal y As Double, ByVal size As Double)
+    VeLine x - size, y - size, x + size, y + size, 3
+    VeLine x - size, y + size, x + size, y - size, 3
+    VeLine x - size, y - size, x + size, y - size, 3
+    VeLine x + size, y - size, x + size, y + size, 3
+    VeLine x + size, y + size, x - size, y + size, 3
+    VeLine x - size, y + size, x - size, y - size, 3
+End Sub
+
+
+'============================================================
+' TRO GIUP
+'============================================================
+
+' Uoc luong kich thuoc dau danh dau tu bounding box du lieu
+Private Function KichThuocDau(ByVal minX As Double, ByVal minY As Double, _
+                              ByVal maxX As Double, ByVal maxY As Double) As Double
+    Dim w As Double, h As Double, s As Double
+    w = maxX - minX: h = maxY - minY
+    s = (w + h) / 2# / 2000#
+    If s <= 0# Then s = 1#
+    KichThuocDau = s
+End Function
+
+' Lay ten level dang active (de goi y trong hop nhap)
+Private Function TenLevelActive() As String
+    On Error Resume Next
+    TenLevelActive = ActiveSettings.Level.Name
+    On Error GoTo 0
+End Function
+
+
+'============================================================
+' LENH CHAY DUOC #1: TIM LOI HO RANH
+'============================================================
+Public Sub DC_TimLoiHoRanh()
+    Dim lvName As String, snapStr As String, snap As Double
+    lvName = InputBox("Nhap TEN level chua ranh thua." & vbCrLf & _
+                      "(De trong = doc tat ca line/linestring)", _
+                      "Tim loi ho ranh", TenLevelActive())
+    snapStr = InputBox("Dung sai noi diem (snap), don vi ban ve:", _
+                       "Tim loi ho ranh", "0.05")
+    If snapStr = "" Then Exit Sub
+    snap = val(snapStr)
+    If snap <= 0 Then snap = 0.05
+
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayCacDoan(snap, lvName, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc doan ranh nao. Kiem tra lai ten level.", _
+               vbExclamation, "Tim loi ho ranh"
+        Exit Sub
+    End If
+
+    Dim ho As Collection
+    Set ho = TimDiemHo(segs, snap)
+
+    Dim size As Double
+    Dim sizeStr As String
+    size = KichThuocDau(minX, minY, maxX, maxY)
+    sizeStr = InputBox("Kich thuoc dau X (don vi ban ve):", _
+                       "Tim loi ho ranh", Format$(size, "0.###"))
+    If sizeStr <> "" Then size = val(sizeStr)
+    If size <= 0 Then size = 1
+
+    Dim i As Long, p() As Double
+    For i = 1 To ho.Count
+        p = ho.Item(i)
+        VeDanhDauLoi p(0), p(1), size
+    Next i
+
+    MsgBox "So doan ranh doc duoc: " & segs.Count & vbCrLf & _
+           "So diem ho ranh (danh dau X do): " & ho.Count, _
+           vbInformation, "Tim loi ho ranh"
+End Sub
+
+
+'============================================================
+' LENH CHAY DUOC #2: TAO TAM VUNG
+'============================================================
+Public Sub DC_TaoTamVung()
+    Dim lvName As String, snapStr As String, snap As Double
+    lvName = InputBox("Nhap TEN level chua ranh thua." & vbCrLf & _
+                      "(De trong = doc tat ca line/linestring)", _
+                      "Tao tam vung", TenLevelActive())
+    snapStr = InputBox("Dung sai noi diem (snap), don vi ban ve:", _
+                       "Tao tam vung", "0.05")
+    If snapStr = "" Then Exit Sub
+    snap = val(snapStr)
+    If snap <= 0 Then snap = 0.05
+
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayCacDoan(snap, lvName, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc doan ranh nao.", vbExclamation, "Tao tam vung"
+        Exit Sub
+    End If
+
+    Dim soTia As Long
+    Dim vungs As Collection
+    Set vungs = GhepVung(segs, snap, soTia)
+
+    Dim size As Double
+    size = KichThuocDau(minX, minY, maxX, maxY)
+
+    Dim i As Long, v As clsVung, tong As Double
+    tong = 0#
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        VeTam v.cx, v.cy, size, 4   ' mau 4 (thuong la vang) cho de thay
+        tong = tong + v.Dt
+    Next i
+
+    MsgBox "So doan ranh: " & segs.Count & vbCrLf & _
+           "So vung (thua) tao duoc: " & vungs.Count & vbCrLf & _
+           "So canh cut da tia: " & soTia & vbCrLf & _
+           "Tong dien tich: " & Format$(tong, "#,##0.0"), _
+           vbInformation, "Tao tam vung"
+End Sub

@@ -1,0 +1,134 @@
+'============================================================
+' modCapNhat - Tu dong nap code moi vao project DiaChinhVL
+'   (khong can mo VBA IDE copy/dan bang tay nua)
+'
+' Cach dung: key-in
+'   vba run [DiaChinhVL]modCapNhat.DC_CapNhatCode
+'
+' Lam gi:
+'   - Doc moi file <TenModule>.txt trong D:\Claude\vba_v8\capnhat\
+'   - Thay toan bo code cua module/class/form trung ten
+'     (chua co module/class -> tu tao moi; form thi phai co san)
+'   - Co DiaChinhVL.ico -> chep vao C:\DiaChinhVL\
+'   - File da nap -> chuyen vao capnhat\_danap\ (lan sau khong nap lai)
+'   - Luu project (vba save)
+'============================================================
+Option Explicit
+
+Public Const DC_CAPNHAT As String = "D:\Claude\vba_v8\capnhat"
+Private Const DC_DICH As String = "C:\DiaChinhVL"
+
+Public Sub DC_CapNhatCode()
+    Dim vbe As Object, prj As Object, p As Object, c As Object
+    Dim ds As New Collection, f As Variant, ten As String, code As String
+    Dim kq As String, i As Long, kieu As Long, nOK As Long
+
+    '--- 1. Lay project DiaChinhVL qua VBE
+    On Error Resume Next
+    Set vbe = Application.VBE
+    On Error GoTo 0
+    If vbe Is Nothing Then
+        MsgBox "Khong truy cap duoc VBE (Application.VBE)." & vbCrLf & _
+               "Phai cap nhat bang tay (copy/dan).", vbCritical, "Cap nhat code"
+        Exit Sub
+    End If
+    For Each p In vbe.VBProjects
+        If StrComp(p.Name, "DiaChinhVL", vbTextCompare) = 0 Then Set prj = p: Exit For
+    Next p
+    If prj Is Nothing Then
+        MsgBox "Khong thay project DiaChinhVL. Hay vba load truoc.", vbCritical, "Cap nhat code"
+        Exit Sub
+    End If
+
+    '--- 2. Dong cac form dang mo (tranh sua code form dang chay)
+    On Error Resume Next
+    For i = UserForms.Count - 1 To 0 Step -1
+        Unload UserForms(i)
+    Next i
+    On Error GoTo 0
+
+    '--- 3. Chep logo
+    If Len(Dir$(DC_CAPNHAT & "\DiaChinhVL.ico")) > 0 Then
+        On Error Resume Next
+        If Len(Dir$(DC_DICH, vbDirectory)) = 0 Then MkDir DC_DICH
+        FileCopy DC_CAPNHAT & "\DiaChinhVL.ico", DC_DICH & "\DiaChinhVL.ico"
+        If Err.Number = 0 Then kq = kq & "  [OK] logo -> " & DC_DICH & "\DiaChinhVL.ico" & vbCrLf _
+                          Else kq = kq & "  [LOI] khong chep duoc logo: " & Err.Description & vbCrLf
+        On Error GoTo 0
+    End If
+
+    '--- 4. Gom danh sach file .txt
+    f = Dir$(DC_CAPNHAT & "\*.txt")
+    Do While Len(f) > 0
+        ds.Add CStr(f)
+        f = Dir$()
+    Loop
+
+    '--- 5. Nap tung file
+    For Each f In ds
+        ten = Left$(f, Len(f) - 4)
+        If StrComp(ten, "modCapNhat", vbTextCompare) = 0 Then
+            kq = kq & "  [BO QUA] " & ten & " (khong tu thay chinh no)" & vbCrLf
+            GoTo TiepTuc
+        End If
+
+        Set c = Nothing
+        On Error Resume Next
+        Set c = prj.VBComponents(ten)
+        On Error GoTo 0
+
+        If c Is Nothing Then
+            Select Case LCase$(Left$(ten, 3))
+            Case "frm"
+                kq = kq & "  [LOI] " & ten & ": form chua co -> phai tao form trong IDE truoc" & vbCrLf
+                GoTo TiepTuc
+            Case "cls": kieu = 2      ' class module
+            Case Else:  kieu = 1      ' standard module
+            End Select
+            Set c = prj.VBComponents.Add(kieu)
+            c.Name = ten
+            kq = kq & "  [MOI] " & ten & vbCrLf
+        End If
+
+        code = DocFile(DC_CAPNHAT & "\" & f)
+        With c.CodeModule
+            If .CountOfLines > 0 Then .DeleteLines 1, .CountOfLines
+            .AddFromString code
+        End With
+        kq = kq & "  [OK] " & ten & vbCrLf
+        nOK = nOK + 1
+        DaNap CStr(f)
+TiepTuc:
+    Next f
+
+    '--- 6. Luu project
+    On Error Resume Next
+    CadInputQueue.SendKeyin "vba save DiaChinhVL"
+    On Error GoTo 0
+
+    If Len(kq) = 0 Then kq = "  (khong co file nao trong " & DC_CAPNHAT & ")" & vbCrLf
+    MsgBox "Ket qua cap nhat (" & nOK & " module):" & vbCrLf & vbCrLf & kq & vbCrLf & _
+           "Mo lai menu: vba run [DiaChinhVL]modMoGiaoDien.DC_MoGiaoDien" & vbCrLf & _
+           "(Neu sau do dong MicroStation ma hoi luu project -> chon Yes)", _
+           vbInformation, "Cap nhat code"
+End Sub
+
+Private Function DocFile(ByVal path As String) As String
+    Dim n As Integer, s As String
+    n = FreeFile
+    Open path For Binary Access Read As #n
+    s = Space$(LOF(n))
+    Get #n, , s
+    Close #n
+    DocFile = s
+End Function
+
+'--- chuyen file da nap vao _danap\ (ghi de neu trung ten)
+Private Sub DaNap(ByVal f As String)
+    On Error Resume Next
+    Dim thu As String
+    thu = DC_CAPNHAT & "\_danap"
+    If Len(Dir$(thu, vbDirectory)) = 0 Then MkDir thu
+    If Len(Dir$(thu & "\" & f)) > 0 Then Kill thu & "\" & f
+    Name DC_CAPNHAT & "\" & f As thu & "\" & f
+End Sub

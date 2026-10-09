@@ -1,0 +1,144 @@
+'============================================================
+' frmDonViHC - Thiet lap don vi hanh chinh (menu He thong)
+'   Luu vao C:\DiaChinhVL\DiaChinhVL.ini -> Trich luc tu dien san.
+'   Can clsNutTL, clsComboEvent, modMaXa, modCauHinh.
+'============================================================
+Option Explicit
+
+Private Const MAXA_PATH As String = "C:\DiaChinhVL\MaXaVN.txt"
+
+Private mNut As New Collection
+Private mCbo As clsComboEvent
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Thiet lap don vi hanh chinh"
+    Me.Font.Name = "Arial"
+    Me.Font.size = 8
+    Me.Width = 340
+    Me.Height = 222
+
+    Const x As Single = 10
+    Dim tg As Object
+    Set tg = Me.Controls.Add("Forms.Label.1", "lblTieuDe", True)
+    tg.Caption = ChrW(272) & ChrW(416) & "N V" & ChrW(7882) & " H" & ChrW(192) & "NH CH" & ChrW(205) & "NH (d" & ChrW(249) & "ng khi xu" & ChrW(7845) & "t tr" & ChrW(237) & "ch l" & ChrW(7909) & "c)"
+    tg.Left = x: tg.Top = 8: tg.Width = 310: tg.Height = 14
+    tg.Font.Name = "Arial": tg.Font.size = 8: tg.Font.Bold = True
+
+    AddLbl "lblTinh", "T" & ChrW(7881) & "nh / th" & ChrW(224) & "nh ph" & ChrW(7889) & ":", x, 34
+    Dim cboT As Object
+    Set cboT = Me.Controls.Add("Forms.ComboBox.1", "cboTinh", True)
+    cboT.Left = x + 104: cboT.Top = 32: cboT.Width = 200: cboT.Height = 18
+    cboT.Font.Name = "Arial": cboT.Font.size = 8
+
+    AddLbl "lblXa", "X" & ChrW(227) & " / ph" & ChrW(432) & ChrW(7901) & "ng:", x, 60
+    Dim cboX As Object
+    Set cboX = Me.Controls.Add("Forms.ComboBox.1", "cboXa", True)
+    cboX.Left = x + 104: cboX.Top = 58: cboX.Width = 200: cboX.Height = 18
+    cboX.Font.Name = "Arial": cboX.Font.size = 8
+
+    AddLbl "lblHuyen", "Huy" & ChrW(7879) & "n (n" & ChrW(7871) & "u c" & ChrW(243) & "):", x, 86
+    Dim tH As Object
+    Set tH = Me.Controls.Add("Forms.TextBox.1", "txtHuyen", True)
+    tH.Left = x + 104: tH.Top = 84: tH.Width = 200: tH.Height = 16
+    tH.Font.Name = "Arial": tH.Font.size = 8
+
+    AddLbl "lblKTT", "Kinh tuy" & ChrW(7871) & "n tr" & ChrW(7909) & "c:", x, 110
+    Dim cK As Object
+    Set cK = Me.Controls.Add("Forms.ComboBox.1", "cboKTT", True)
+    cK.Left = x + 104: cK.Top = 108: cK.Width = 200: cK.Height = 18
+    cK.Font.Name = "Arial": cK.Font.size = 8
+    cK.AddItem "105.5  (105" & ChrW(176) & "30' - V" & ChrW(297) & "nh Long, Tr" & ChrW(224) & " Vinh c" & ChrW(361) & ")"
+    cK.AddItem "105.75 (105" & ChrW(176) & "45' - B" & ChrW(7871) & "n Tre c" & ChrW(361) & ")"
+    cK.AddItem "105.0  (105" & ChrW(176) & "00')"
+    cK.AddItem "104.75 (104" & ChrW(176) & "45')"
+    cK.AddItem "106.0  (106" & ChrW(176) & "00')"
+    cK.AddItem "106.25 (106" & ChrW(176) & "15')"
+
+    Dim gc As Object
+    Set gc = Me.Controls.Add("Forms.Label.1", "lblGhiChu", True)
+    gc.Caption = "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c t" & ChrW(7921) & " " & ChrW(273) & "i" & ChrW(7873) & "n s" & ChrW(7861) & "n; kinh tuy" & ChrW(7871) & "n tr" & ChrW(7909) & "c d" & ChrW(249) & "ng khi xem " & ChrW(7843) & "nh v" & ChrW(7879) & " tinh."
+    gc.Left = x: gc.Top = 134: gc.Width = 310: gc.Height = 14
+    gc.Font.Name = "Arial": gc.Font.size = 8: gc.Font.Italic = True
+
+    ThemNut "LUU", "L" & ChrW(432) & "u", 150, 154
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 238, 154
+
+    ' Nap danh sach Tinh/Xa
+    Dim tinh As String, xa As String, ds As Collection, i As Long
+    If NapMaXa(MAXA_PATH) Then
+        Set ds = DsTinh()
+        For i = 1 To ds.Count
+            cboT.AddItem ds.Item(i)
+        Next i
+    End If
+    tinh = DC_DocCauHinh("TINH", "T" & ChrW(7881) & "nh V" & ChrW(297) & "nh Long")
+    cboT.Value = tinh
+    FillXa tinh
+    xa = DC_DocCauHinh("XA", "")
+    If Len(xa) > 0 Then cboX.Value = xa
+    tH.Text = DC_DocCauHinh("HUYEN", "")
+    Dim k As String, i2 As Long
+    k = DC_DocCauHinh("KTT", "105.5")
+    cK.Value = k
+    For i2 = 0 To cK.ListCount - 1
+        If Val(cK.List(i2)) = Val(k) Then cK.ListIndex = i2: Exit For
+    Next i2
+
+    Set mCbo = New clsComboEvent
+    Set mCbo.cbo = cboT
+    Set mCbo.Form = Me
+End Sub
+
+' Goi tu clsComboEvent khi doi Tinh
+Public Sub TinhDoi()
+    FillXa CStr(Me.Controls("cboTinh").Value)
+End Sub
+
+Private Sub FillXa(ByVal tinh As String)
+    Dim cboX As Object, ds As Collection, i As Long
+    Set cboX = Me.Controls("cboXa")
+    cboX.Clear
+    If Not DaNapMaXa() Then Exit Sub
+    Set ds = DsXa(tinh)
+    For i = 1 To ds.Count
+        cboX.AddItem ds.Item(i)
+    Next i
+    If ds.Count > 0 Then cboX.ListIndex = 0
+End Sub
+
+Private Sub AddLbl(ByVal nm As String, ByVal cap As String, ByVal x As Single, ByVal y As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = 100: c.Height = 14
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub ThemNut(ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single)
+    Dim b As Object, hd As clsNutTL
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = 80: b.Height = 24
+    b.Font.Name = "Arial": b.Font.size = 8
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
+    mNut.Add hd
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then Unload Me: Exit Sub
+    If ma = "LUU" Then
+        If Len(Trim$(CStr(Me.Controls("cboXa").Value))) = 0 Then
+            DC_ThongBao "Ch" & ChrW(432) & "a ch" & ChrW(7885) & "n x" & ChrW(227) & " / ph" & ChrW(432) & ChrW(7901) & "ng.", ChrW(272) & ChrW(417) & "n v" & ChrW(7883) & " h" & ChrW(224) & "nh ch" & ChrW(237) & "nh", vbExclamation
+            Exit Sub
+        End If
+        DC_GhiCauHinh "TINH", Trim$(CStr(Me.Controls("cboTinh").Value))
+        DC_GhiCauHinh "XA", Trim$(CStr(Me.Controls("cboXa").Value))
+        DC_GhiCauHinh "HUYEN", Trim$(Me.Controls("txtHuyen").Text)
+        If Val(CStr(Me.Controls("cboKTT").Value)) >= 100 Then
+            DC_GhiCauHinh "KTT", CStr(Val(CStr(Me.Controls("cboKTT").Value)))
+        End If
+        DC_ThongBao ChrW(272) & ChrW(227) & " l" & ChrW(432) & "u " & ChrW(273) & ChrW(417) & "n v" & ChrW(7883) & " h" & ChrW(224) & "nh ch" & ChrW(237) & "nh:" & vbCrLf & _
+                    Me.Controls("cboXa").Value & " - " & Me.Controls("cboTinh").Value, _
+                    ChrW(272) & ChrW(417) & "n v" & ChrW(7883) & " h" & ChrW(224) & "nh ch" & ChrW(237) & "nh"
+        Unload Me
+    End If
+End Sub

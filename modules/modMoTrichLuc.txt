@@ -1,0 +1,246 @@
+Option Explicit
+
+' Khung mau Phu luc 19 (doc tu file mau): o so do (level 24) + bao ngoai (dong H)
+Private mBoxW As Double, mBoxH As Double, mBoxCX As Double, mBoxCY As Double
+Private mHx1 As Double, mHy1 As Double, mHx2 As Double, mHy2 As Double
+
+' View de zoom sau khi xuat (clsChonThuaTL dat = view vua bam)
+Public gViewTL As View
+
+Public Sub DC_MoTrichLuc()
+    frmTrichLuc.Show vbModeless
+End Sub
+
+'============================================================
+' Chay trich luc: doc thua tu CSDL theo so thua -> ve
+'   cheDoMau = True  : chen khung Phu luc 19
+'   cheDoMau = False : chi so do + bang toa do tu ve
+'============================================================
+Public Sub ChayTrichLuc(ByVal csdlPath As String, ByVal soThua As String, _
+                        ByVal mauPath As String, ByVal kieu As String, _
+                        ByVal toBanDo As String, ByVal tenXa As String, _
+                        ByVal tenHuyen As String, ByVal tenTinh As String, _
+                        ByVal lvXuat As String, ByVal cao As Double, _
+                        ByVal cheDoMau As Boolean, ByVal tyLe As Double)
+
+    Dim vungs As Collection
+    Set vungs = MoCSDL(csdlPath)
+    If vungs.Count = 0 Then
+        DC_ThongBao "CSDL r" & ChrW(7895) & "ng / kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c: " & csdlPath, "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c", vbExclamation
+        Exit Sub
+    End If
+
+    Dim i As Long, v As clsVung, found As clsVung
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        If Trim$(v.soThua) = Trim$(soThua) Then Set found = v: Exit For
+    Next i
+    If found Is Nothing Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y th" & ChrW(7917) & "a s" & ChrW(7889) & " " & soThua & " trong CSDL." & vbCrLf & _
+                    "(Th" & ChrW(7917) & "a ch" & ChrW(432) & "a g" & ChrW(225) & "n s" & ChrW(7889) & ": d" & ChrW(249) & "ng n" & ChrW(250) & "t Ch" & ChrW(7885) & "n th" & ChrW(7917) & "a tr" & ChrW(234) & "n b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ")", "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c", vbExclamation
+        Exit Sub
+    End If
+
+    ChayTrichLucThua found, mauPath, kieu, toBanDo, tenXa, tenHuyen, tenTinh, lvXuat, cao, cheDoMau, tyLe
+End Sub
+
+'============================================================
+' Trich luc 1 thua da co san (vung topology). Thua chua gan thong tin
+' van xuat duoc: so thua = 0, loai dat = 0, dien tich tu tinh.
+'============================================================
+Public Sub ChayTrichLucThua(ByVal found As clsVung, _
+                            ByVal mauPath As String, ByVal kieu As String, _
+                            ByVal toBanDo As String, ByVal tenXa As String, _
+                            ByVal tenHuyen As String, ByVal tenTinh As String, _
+                            ByVal lvXuat As String, ByVal cao As Double, _
+                            ByVal cheDoMau As Boolean, ByVal tyLe As Double)
+
+    ' File mau .dgn (kieu gCadas) -> bat mau ra .txt (co cache)
+    mauPath = DC_ChuanBiMau(mauPath)
+
+    ' Bat buoc font TrueType co chu Viet (may moi chua dat font -> mat chu)
+    If Not DC_DatFontViet() Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7863) & "t " & ChrW(273) & ChrW(432) & ChrW(7907) & "c font " & DC_FONT_VIET & " cho ch" & ChrW(7919) & "." & vbCrLf & _
+                    "Ch" & ChrW(7919) & " ti" & ChrW(7871) & "ng Vi" & ChrW(7879) & "t tr" & ChrW(234) & "n tr" & ChrW(237) & "ch l" & ChrW(7909) & "c c" & ChrW(243) & " th" & ChrW(7875) & " kh" & ChrW(244) & "ng hi" & ChrW(7879) & "n.", "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c", vbExclamation
+    End If
+
+    ' Thua chua gan thong tin -> gia tri mac dinh
+    If Len(Trim$(found.soThua)) = 0 Then found.soThua = "0"
+    If Len(Trim$(found.loaiDat)) = 0 Then found.loaiDat = "0"
+    If found.Dt <= 0 Then found.Dt = DienTichVung(found)
+
+    ' Dat level xuat (go so "50" hoac ten "Level 50")
+    If Len(Trim$(lvXuat)) > 0 Then
+        On Error Resume Next
+        Set ActiveSettings.Level = DC_TimLevel(lvXuat)
+        On Error GoTo 0
+    End If
+
+    If Len(Trim$(toBanDo)) = 0 Then toBanDo = found.SoTo
+    If Len(Trim$(toBanDo)) = 0 Then toBanDo = "0"
+    If cao <= 0 Then cao = 1
+
+    ' Ty le tu dong (tyLe = 0): ty le chuan nho nhat de thua vua o so do
+    Dim tuDong As Boolean
+    If tyLe <= 0 And cheDoMau Then
+        tyLe = TyLeTuDong(found, mauPath)
+        tuDong = True
+    End If
+
+    Dim zx1 As Double, zy1 As Double, zx2 As Double, zy2 As Double
+    If cheDoMau Then
+        ChenKhungTuThua found, mauPath, kieu, toBanDo, tenXa, tenHuyen, tenTinh, tyLe
+        ' pham vi khung vua ve (khung dat tam o so do tai tam thua)
+        If DocKhungMau(mauPath) Then
+            zx1 = gTLCx + (mHx1 - mBoxCX) * tyLe / 20000#
+            zx2 = gTLCx + (mHx2 - mBoxCX) * tyLe / 20000#
+            zy1 = gTLCy + (mHy1 - mBoxCY) * tyLe / 20000#
+            zy2 = gTLCy + (mHy2 - mBoxCY) * tyLe / 20000#
+        End If
+    Else
+        Dim kx2 As Double, ky2 As Double, le As Double
+        le = cao * 6#
+        VeKhungTrichLuc found, le, kx2, ky2, 0
+        VeSoDoThua found, cao, 0
+        VeNhanThuaDayDu found, cao, "mau"
+        VeBangToaDo found, kx2 + cao * 3#, ky2, cao, 0
+    End If
+    If zx2 <= zx1 Then
+        ' so do tu ve / khong doc duoc mau: zoom quanh thua
+        BaoThua found, zx1, zy1, zx2, zy2
+        Dim r As Double
+        r = (zx2 - zx1) + (zy2 - zy1)
+        zx1 = zx1 - r: zx2 = zx2 + r * 2#: zy1 = zy1 - r: zy2 = zy2 + r
+    End If
+    DC_ZoomVung zx1, zy1, zx2, zy2
+
+    DC_ThongBao ChrW(272) & ChrW(227) & " tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a s" & ChrW(7889) & " " & found.soThua & _
+           " (di" & ChrW(7879) & "n t" & ChrW(237) & "ch " & Format$(Round(found.Dt, 1), "0.0") & " m2)." & vbCrLf & _
+           IIf(cheDoMau, "Ki" & ChrW(7875) & "u: khung Ph" & ChrW(7909) & " l" & ChrW(7909) & "c 19 - t" & ChrW(7927) & " l" & ChrW(7879) & " 1:" & CStr(tyLe) & IIf(tuDong, " (t" & ChrW(7921) & " " & ChrW(273) & ChrW(7897) & "ng)", ""), "Ki" & ChrW(7875) & "u: s" & ChrW(417) & " " & ChrW(273) & ChrW(7891) & " t" & ChrW(7921) & " v" & ChrW(7869)), "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c"
+End Sub
+
+'--- dien tich tu ranh (cong thuc Gauss), tru dien tich dao
+Private Function DienTichVung(ByVal v As clsVung) As Double
+    Dim r() As Double, s As Double, k As Long
+    On Error Resume Next
+    If Not v.HasRing Then Exit Function
+    r = v.ring
+    s = Abs(DtMang(r))
+    For k = 1 To v.Dao.Count
+        s = s - Abs(DtMang(v.Dao.Item(k)))
+    Next k
+    DienTichVung = s
+End Function
+
+'============================================================
+' TY LE TU DONG: ty le chuan nho nhat de thua nam vua o so do (90%)
+' o ty le that (kp = 1). O so do = level 24 cua mau, quy doi
+' kich thuoc that = kich thuoc mau * tyLe / 20000 (xem modKhungMau).
+'============================================================
+Private Function TyLeTuDong(ByVal v As clsVung, ByVal mauPath As String) As Double
+    Dim ds As Variant, i As Long, pw As Double, ph As Double
+    Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+    ds = Array(200#, 500#, 1000#, 2000#, 5000#, 10000#)
+    If Not DocKhungMau(mauPath) Then mBoxW = 989.8: mBoxH = 1048#
+    BaoThua v, x1, y1, x2, y2
+    pw = x2 - x1: ph = y2 - y1
+    For i = LBound(ds) To UBound(ds)
+        If pw <= mBoxW * ds(i) / 20000# * 0.9 And ph <= mBoxH * ds(i) / 20000# * 0.9 Then
+            TyLeTuDong = ds(i): Exit Function
+        End If
+    Next i
+    TyLeTuDong = 10000#      ' qua lon: giu 1:10000, so do tu thu nho
+End Function
+
+' Doc o so do (L 24) va bao ngoai (H) tu file mau
+Private Function DocKhungMau(ByVal path As String) As Boolean
+    Dim st As Object, txt As String, dong() As String, p() As String
+    Dim i As Long, j As Long, co As Boolean
+    Dim bx1 As Double, by1 As Double, bx2 As Double, by2 As Double, x As Double, y As Double
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.LoadFromFile path
+    If Err.Number <> 0 Then Exit Function
+    txt = st.ReadText(-1): st.Close
+    On Error GoTo 0
+    dong = Split(txt, vbLf)
+    For i = LBound(dong) To UBound(dong)
+        p = Split(Replace(dong(i), vbCr, ""), vbTab)
+        If UBound(p) >= 5 Then
+            If p(0) = "H" Then
+                mHx1 = SoD(p(2)): mHy1 = SoD(p(3)): mHx2 = SoD(p(4)): mHy2 = SoD(p(5))
+            ElseIf p(0) = "L" And p(1) = "24" Then
+                For j = 2 To UBound(p) - 1 Step 2
+                    x = SoD(p(j)): y = SoD(p(j + 1))
+                    If Not co Then
+                        bx1 = x: bx2 = x: by1 = y: by2 = y: co = True
+                    Else
+                        If x < bx1 Then bx1 = x
+                        If x > bx2 Then bx2 = x
+                        If y < by1 Then by1 = y
+                        If y > by2 Then by2 = y
+                    End If
+                Next j
+            End If
+        End If
+    Next i
+    If Not co Then Exit Function
+    mBoxW = bx2 - bx1: mBoxH = by2 - by1
+    mBoxCX = (bx1 + bx2) / 2#: mBoxCY = (by1 + by2) / 2#
+    DocKhungMau = (mHx2 > mHx1)
+End Function
+
+Private Function SoD(ByVal s As String) As Double
+    SoD = Val(Replace(Trim$(s), ",", "."))
+End Function
+
+' Hinh bao ngoai cua thua
+Private Sub BaoThua(ByVal v As clsVung, ByRef x1 As Double, ByRef y1 As Double, _
+                    ByRef x2 As Double, ByRef y2 As Double)
+    Dim r() As Double, i As Long
+    r = v.ring
+    x1 = r(0, 0): x2 = r(0, 0): y1 = r(0, 1): y2 = r(0, 1)
+    For i = LBound(r, 1) To UBound(r, 1)
+        If r(i, 0) < x1 Then x1 = r(i, 0)
+        If r(i, 0) > x2 Then x2 = r(i, 0)
+        If r(i, 1) < y1 Then y1 = r(i, 1)
+        If r(i, 1) > y2 Then y2 = r(i, 1)
+    Next i
+End Sub
+
+'============================================================
+' Zoom view vao vung (x1,y1)-(x2,y2), chua le 8%, giu ti le khung view
+'============================================================
+Public Sub DC_ZoomVung(ByVal x1 As Double, ByVal y1 As Double, _
+                       ByVal x2 As Double, ByVal y2 As Double)
+    Dim vw As View, ex As Point3d, og As Point3d, w As Double, h As Double, asp As Double
+    On Error Resume Next
+    If x2 <= x1 Or y2 <= y1 Then Exit Sub
+    Set vw = gViewTL
+    If vw Is Nothing Then Set vw = CommandState.LastView
+    If vw Is Nothing Then Set vw = ActiveDesignFile.Views(1)
+    If vw Is Nothing Then Exit Sub
+    ex = vw.Extents
+    asp = 1#
+    If ex.X > 0 Then asp = ex.Y / ex.X
+    w = (x2 - x1) * 1.08: h = (y2 - y1) * 1.08
+    If h > w * asp Then w = h / asp Else h = w * asp
+    og = vw.Origin
+    og.X = (x1 + x2) / 2# - w / 2#: og.Y = (y1 + y2) / 2# - h / 2#
+    vw.Origin = og
+    ex.X = w: ex.Y = h
+    vw.Extents = ex
+    vw.Redraw
+    Set gViewTL = Nothing
+End Sub
+
+Private Function DtMang(ByVal r As Variant) As Double
+    Dim i As Long, j As Long, n0 As Long, n1 As Long, s As Double
+    n0 = LBound(r, 1): n1 = UBound(r, 1)
+    For i = n0 To n1
+        j = i + 1: If j > n1 Then j = n0
+        s = s + r(i, 0) * r(j, 1) - r(j, 0) * r(i, 1)
+    Next i
+    DtMang = s / 2#
+End Function

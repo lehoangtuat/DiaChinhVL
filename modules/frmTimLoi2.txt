@@ -1,0 +1,123 @@
+'============================================================
+' frmTimLoi2 - Tim loi du lieu (Viet hoa ChrW, Arial)
+'   Tieu de thanh de ASCII (font he thong).
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Tim loi du lieu"
+    Me.Font.Name = "Arial"
+    Me.Font.size = 8
+    Me.Width = 380
+    Me.Height = 440
+
+    ' Danh sach level (tick chon)
+    AddLabel "lblLv", "L" & ChrW(7899) & "p c" & ChrW(7841) & "nh (tick ch" & ChrW(7885) & "n):", 8, 6, 160
+    Dim lst As Object
+    Set lst = Me.Controls.Add("Forms.ListBox.1", "lstLevel", True)
+    lst.Left = 8: lst.Top = 22: lst.Width = 150: lst.Height = 300
+    lst.ListStyle = 1
+    lst.MultiSelect = 1
+    lst.Font.Name = "Arial": lst.Font.size = 8
+    Dim i As Long
+    For i = 1 To 63
+        lst.AddItem "Level " & i
+    Next i
+
+    ' Loai loi
+    Dim x As Single: x = 175
+    AddLabel "lblLoai", "Lo" & ChrW(7841) & "i l" & ChrW(7895) & "i c" & ChrW(7847) & "n " & ChrW(273) & ChrW(225) & "nh d" & ChrW(7845) & "u:", x, 6, 190
+    AddCheck "chkD", "(D) " & ChrW(272) & ChrW(7881) & "nh treo / h" & ChrW(7903) & " ranh", x, 24, True
+    AddCheck "chkS", "(S) C" & ChrW(7841) & "nh ng" & ChrW(7855) & "n", x, 44, False
+    AddCheck "chkA", "(A) Th" & ChrW(7917) & "a nh" & ChrW(7887), x, 64, False
+    AddCheck "chkX", "(X) Giao " & ChrW(273) & "i" & ChrW(7875) & "m", x, 84, False
+    AddCheck "chkO", "(O) Ch" & ChrW(7891) & "ng " & ChrW(273) & ChrW(232), x, 104, False
+    AddCheck "chkE", "(E) C" & ChrW(7841) & "nh sai", x, 124, False
+
+    ' Nguong
+    AddLabel "lblCN", "Gi" & ChrW(7899) & "i h" & ChrW(7841) & "n c" & ChrW(7841) & "nh ng" & ChrW(7855) & "n (m):", x, 152, 190
+    AddText "txtCanhNgan", "0.05", x, 168
+    AddLabel "lblTN", "Gi" & ChrW(7899) & "i h" & ChrW(7841) & "n th" & ChrW(7917) & "a nh" & ChrW(7887) & " (m" & ChrW(178) & "):", x, 192, 190
+    AddText "txtThuaNho", "0.3", x, 208
+    AddLabel "lblSnap", ChrW(272) & ChrW(7897) & " ch" & ChrW(237) & "nh x" & ChrW(225) & "c (snap):", x, 232, 190
+    AddText "txtSnap", "0.05", x, 248
+    AddLabel "lblLoi", "L" & ChrW(7899) & "p th" & ChrW(244) & "ng b" & ChrW(225) & "o l" & ChrW(7895) & "i:", x, 272, 190
+    AddText "txtLevelLoi", "Level 40", x, 288
+
+    AddLabel "lblMau", "M" & ChrW(224) & "u ranh (tr" & ChrW(7889) & "ng=h" & ChrW(7871) & "t):", x, 312, 190
+    AddText "txtMauRanh", "", x, 328
+
+    ' Hai nut
+    Dim b1 As Object, b2 As Object
+    Set b1 = Me.Controls.Add("Forms.CommandButton.1", "cmdOK", True)
+    b1.Caption = "Ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n": b1.Left = 175: b1.Top = 360: b1.Width = 95: b1.Height = 28
+    b1.Font.Name = "Arial": b1.Font.size = 8
+    Set b2 = Me.Controls.Add("Forms.CommandButton.1", "cmdDong", True)
+    b2.Caption = ChrW(272) & ChrW(243) & "ng": b2.Left = 278: b2.Top = 360: b2.Width = 80: b2.Height = 28
+    b2.Font.Name = "Arial": b2.Font.size = 8
+
+    Dim h1 As clsNutTL, h2 As clsNutTL
+    Set h1 = New clsNutTL: Set h1.btn = b1: Set h1.Form = Me: h1.ma = "OK": mNut.Add h1
+    Set h2 = New clsNutTL: Set h2.btn = b2: Set h2.Form = Me: h2.ma = "DONG": mNut.Add h2
+End Sub
+
+Private Sub AddLabel(ByVal nm As String, ByVal cap As String, _
+                     ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 14
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub AddCheck(ByVal nm As String, ByVal cap As String, _
+                     ByVal x As Single, ByVal y As Single, ByVal v As Boolean)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.CheckBox.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = 190: c.Height = 16
+    c.Value = v
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub AddText(ByVal nm As String, ByVal txt As String, _
+                    ByVal x As Single, ByVal y As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Text = txt: c.Left = x: c.Top = y: c.Width = 95: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then
+        Unload Me
+        Exit Sub
+    End If
+
+    Dim lst As Object, csv As String, i As Long
+    Set lst = Me.Controls("lstLevel")
+    For i = 0 To lst.ListCount - 1
+        If lst.Selected(i) Then
+            If Len(csv) > 0 Then csv = csv & ","
+            csv = csv & lst.List(i)
+        End If
+    Next i
+    If Len(csv) = 0 Then
+        MsgBox "Ch" & ChrW(432) & "a ch" & ChrW(7885) & "n level c" & ChrW(7841) & "nh n" & ChrW(224) & "o.", vbExclamation, "Tim loi"
+        Exit Sub
+    End If
+
+    Dim canhNgan As Double, thuaNho As Double, snap As Double
+    canhNgan = val(Me.Controls("txtCanhNgan").Text)
+    thuaNho = val(Me.Controls("txtThuaNho").Text)
+    snap = val(Me.Controls("txtSnap").Text)
+
+    Me.Hide
+    ChayTimLoi csv, _
+               Me.Controls("chkD").Value, Me.Controls("chkS").Value, _
+               Me.Controls("chkA").Value, Me.Controls("chkX").Value, _
+               Me.Controls("chkO").Value, Me.Controls("chkE").Value, _
+               canhNgan, thuaNho, snap, Me.Controls("txtLevelLoi").Text, _
+               Me.Controls("txtMauRanh").Text
+    Me.Show vbModeless
+End Sub

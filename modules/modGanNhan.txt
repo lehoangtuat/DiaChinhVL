@@ -1,0 +1,190 @@
+Option Explicit
+
+'============================================================
+' modGanNhan - Gan thong tin tu nhan (To, So thua, Loai dat, Ten chu,
+'   Dia chi) + ve nhan dia chinh + xuat CSDL ra CSV.
+'============================================================
+
+Private Function DocMotText(ByVal el As Element, ByRef x As Double, _
+                            ByRef y As Double, ByRef s As String) As Boolean
+    DocMotText = False
+    s = ""
+    Dim o As Point3d
+    If el.Type = msdElementTypeText Then
+        Dim oT As TextElement
+        Set oT = el
+        o = oT.Origin: x = o.x: y = o.y
+        s = Trim$(oT.Text)
+        DocMotText = True
+    ElseIf el.Type = msdElementTypeTextNode Then
+        Dim oNode As TextNodeElement
+        Set oNode = el
+        o = oNode.Origin: x = o.x: y = o.y
+        Dim subs As ElementEnumerator
+        Set subs = oNode.GetSubElements
+        Do While subs.MoveNext
+            If subs.Current.Type = msdElementTypeText Then
+                s = Trim$(subs.Current.AsTextElement.Text)
+                If Len(s) > 0 Then Exit Do
+            End If
+        Loop
+        DocMotText = True
+    End If
+End Function
+
+Private Function LayTruong(ByVal v As clsVung, ByVal t As String) As String
+    Select Case t
+        Case "so_thua": LayTruong = v.soThua
+        Case "so_to": LayTruong = v.SoTo
+        Case "loai_dat": LayTruong = v.loaiDat
+        Case "ten_chu": LayTruong = v.TenChu
+        Case "dia_chi": LayTruong = v.DiaChi
+    End Select
+End Function
+
+Private Sub DatTruong(ByVal v As clsVung, ByVal t As String, ByVal g As String)
+    Select Case t
+        Case "so_thua": v.soThua = g
+        Case "so_to": v.SoTo = g
+        Case "loai_dat": v.loaiDat = g
+        Case "ten_chu": v.TenChu = g
+        Case "dia_chi": v.DiaChi = g
+    End Select
+End Sub
+
+' Gan text tren 1 level vao 1 truong cua thua chua no. Tra ve so gan duoc.
+Private Function GanTruongMR(ByVal vungs As Collection, ByVal levelName As String, _
+                             ByVal truong As String) As Long
+    If Len(Trim$(levelName)) = 0 Then Exit Function
+    Dim esc As ElementScanCriteria
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    Dim lv As Level
+    On Error Resume Next
+    Set lv = ActiveModelReference.Levels(Trim$(levelName))
+    On Error GoTo 0
+    If lv Is Nothing Then Exit Function
+    esc.ExcludeAllLevels
+    esc.IncludeLevel lv
+
+    Dim ee As ElementEnumerator
+    Set ee = ActiveModelReference.Scan(esc)
+    Dim x As Double, y As Double, s As String, v As clsVung, dem As Long
+    Do While ee.MoveNext
+        If DocMotText(ee.Current, x, y, s) Then
+            If Len(s) > 0 Then
+                Set v = TimThuaChua(vungs, x, y)
+                If Not v Is Nothing Then
+                    If Len(LayTruong(v, truong)) = 0 Then
+                        DatTruong v, truong, s
+                        dem = dem + 1
+                    End If
+                End If
+            End If
+        End If
+    Loop
+    GanTruongMR = dem
+End Function
+
+
+'============================================================
+' CHAY GAN NHAN + (tuy chon) XUAT CSDL
+'============================================================
+Public Sub ChayGanNhan(ByVal lvRanhCSV As String, _
+                       ByVal lvTo As String, ByVal lvSo As String, _
+                       ByVal lvLoai As String, ByVal lvChu As String, _
+                       ByVal lvDiaChi As String, ByVal snap As Double, _
+                       ByVal lvNhan As String, ByVal cao As Double, _
+                       ByVal xuatCSDL As Boolean, ByVal pathCSDL As String)
+
+    If snap <= 0 Then snap = 0.05
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayDoanNhieuLevel(lvRanhCSV, snap, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc ranh.", vbExclamation, "Gan nhan": Exit Sub
+    End If
+    Dim tia As Long, vungs As Collection
+    Set vungs = GhepVung(segs, snap, tia)
+    If vungs.Count = 0 Then MsgBox "Khong ghep duoc vung.", vbExclamation: Exit Sub
+
+    Dim nTo As Long, nSo As Long, nLoai As Long, nChu As Long, nDC As Long
+    nTo = GanTruongMR(vungs, lvTo, "so_to")
+    nSo = GanTruongMR(vungs, lvSo, "so_thua")
+    nLoai = GanTruongMR(vungs, lvLoai, "loai_dat")
+    nChu = GanTruongMR(vungs, lvChu, "ten_chu")
+    nDC = GanTruongMR(vungs, lvDiaChi, "dia_chi")
+
+    ' Ve nhan (so thua / dien tich / loai dat), to mau theo loai dat
+    If Len(Trim$(lvNhan)) > 0 Then
+        On Error Resume Next
+        ActiveSettings.Level = ActiveModelReference.Levels(Trim$(lvNhan))
+        On Error GoTo 0
+    End If
+    If cao <= 0 Then cao = 1
+    Dim i As Long, v As clsVung
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        VeNhanThuaDayDu v, cao, "mau"
+    Next i
+
+    ' Xuat CSDL
+    Dim msgCSDL As String
+    If xuatCSDL And Len(Trim$(pathCSDL)) > 0 Then
+        If GhiCSV(vungs, pathCSDL) Then
+            msgCSDL = vbCrLf & "Da xuat CSDL: " & pathCSDL
+        Else
+            msgCSDL = vbCrLf & "(Khong ghi duoc CSDL: " & pathCSDL & ")"
+        End If
+    End If
+
+    MsgBox "So thua: " & vungs.Count & vbCrLf & _
+           "Gan To ban do: " & nTo & vbCrLf & _
+           "Gan So thua: " & nSo & vbCrLf & _
+           "Gan Loai dat: " & nLoai & vbCrLf & _
+           "Gan Ten chu: " & nChu & vbCrLf & _
+           "Gan Dia chi: " & nDC & msgCSDL, _
+           vbInformation, "Gan nhan / CSDL"
+End Sub
+
+' Ghi CSDL ra CSV (UTF-8, mo bang Excel)
+Private Function GhiCSV(ByVal vungs As Collection, ByVal path As String) As Boolean
+    GhiCSV = False
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    On Error GoTo 0
+    If st Is Nothing Then Exit Function
+
+    st.Type = 2
+    st.Charset = "utf-8"
+    st.Open
+
+    st.WriteText "STT,To ban do,So thua,Loai dat,Dien tich(m2),Ten chu,Dia chi" & vbCrLf
+    Dim i As Long, v As clsVung, dong As String
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        dong = i & "," & _
+               CsvO(v.SoTo) & "," & CsvO(v.soThua) & "," & CsvO(v.loaiDat) & "," & _
+               Format$(Round(v.Dt, 1), "0.0") & "," & _
+               CsvO(v.TenChu) & "," & CsvO(v.DiaChi)
+        st.WriteText dong & vbCrLf
+    Next i
+
+    On Error Resume Next
+    st.SaveToFile path, 2      ' 2 = ghi de
+    If Err.Number = 0 Then GhiCSV = True
+    st.Close
+    On Error GoTo 0
+End Function
+
+' Boc 1 o CSV (them nhay neu co dau phay/nhay)
+Private Function CsvO(ByVal s As String) As String
+    If InStr(s, ",") > 0 Or InStr(s, """") > 0 Or InStr(s, vbLf) > 0 Then
+        CsvO = """" & Replace(s, """", """""") & """"
+    Else
+        CsvO = s
+    End If
+End Function

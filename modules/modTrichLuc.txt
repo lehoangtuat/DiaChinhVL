@@ -1,0 +1,248 @@
+Option Explicit
+
+'============================================================
+' modTrichLuc - Trich luc TT26 (muc 1): so do thua + bang toa do + khung
+' Toa do doc theo met (uor_m = 1). Bang toa do VN2000:
+'   cot X = northing = Y ban ve ; cot Y = easting = X ban ve.
+'============================================================
+
+
+' Moc dinh thua: o vuong nho
+Public Sub VeMoc(ByVal x As Double, ByVal y As Double, ByVal r As Double, _
+                 Optional ByVal color As Long = -1)
+    VeLine x - r, y - r, x + r, y - r, color
+    VeLine x + r, y - r, x + r, y + r, color
+    VeLine x + r, y + r, x - r, y + r, color
+    VeLine x - r, y + r, x - r, y - r, color
+End Sub
+
+
+' Ve so do thua: canh + moc + so hieu dinh + chieu dai canh
+Public Sub VeSoDoThua(ByVal v As clsVung, ByVal cao As Double, _
+                      Optional ByVal color As Long = -1)
+    Dim ring() As Double, n As Long, i As Long
+    ring = v.ring
+    n = UBound(ring, 1)             ' so dinh phan biet
+    If n < 3 Then Exit Sub
+
+    Dim rMoc As Double, off As Double
+    rMoc = cao * 0.5
+    off = rMoc * 1.6
+
+    ' Canh thua
+    For i = 0 To n - 1
+        VeLine ring(i, 0), ring(i, 1), ring(i + 1, 0), ring(i + 1, 1), color
+    Next i
+    ' Canh cac lo dao
+    Dim k As Long, dr() As Double, m As Long
+    For k = 1 To v.Dao.Count
+        dr = v.Dao.Item(k)
+        m = UBound(dr, 1)
+        For i = 0 To m - 1
+            VeLine dr(i, 0), dr(i, 1), dr(i + 1, 0), dr(i + 1, 1), color
+        Next i
+    Next k
+
+    ' Moc + so hieu dinh
+    For i = 0 To n - 1
+        VeMoc ring(i, 0), ring(i, 1), rMoc, color
+        VeText ring(i, 0) + off, ring(i, 1) + off, CStr(i + 1), cao, color
+    Next i
+
+    ' Chieu dai canh (giua canh)
+    Dim mx As Double, my As Double, dai As Double
+    For i = 0 To n - 1
+        mx = (ring(i, 0) + ring(i + 1, 0)) / 2#
+        my = (ring(i, 1) + ring(i + 1, 1)) / 2#
+        dai = Sqr((ring(i + 1, 0) - ring(i, 0)) ^ 2 + (ring(i + 1, 1) - ring(i, 1)) ^ 2)
+        VeText mx, my, Format$(dai, "0.00"), cao, color
+    Next i
+End Sub
+
+
+' Ve bang toa do: STT | X | Y | Canh. Goc tren-trai tai (x0, y0).
+Public Sub VeBangToaDo(ByVal v As clsVung, ByVal X0 As Double, ByVal Y0 As Double, _
+                       ByVal cao As Double, Optional ByVal color As Long = -1)
+    Dim ring() As Double, n As Long, i As Long
+    ring = v.ring
+    n = UBound(ring, 1)
+    If n < 3 Then Exit Sub
+
+    Dim dong As Double
+    dong = cao * 1.8
+    Dim cols(0 To 3) As Double
+    cols(0) = cao * 3#      ' TT
+    cols(1) = cao * 9#      ' X
+    cols(2) = cong_X_Y(cao) ' Y
+    cols(3) = cao * 6#      ' Canh
+    Dim tongRong As Double, c As Long
+    tongRong = 0
+    For c = 0 To 3
+        tongRong = tongRong + cols(c)
+    Next c
+    Dim soDong As Long
+    soDong = n + 1          ' 1 tieu de + n dinh
+
+    ' Duong ngang
+    Dim y As Double, r As Long
+    y = Y0
+    For r = 0 To soDong
+        VeLine X0, y, X0 + tongRong, y, color
+        y = y - dong
+    Next r
+    ' Duong doc
+    Dim x As Double
+    x = X0
+    For c = 0 To 4
+        VeLine x, Y0, x, Y0 - soDong * dong, color
+        If c < 4 Then x = x + cols(c)
+    Next c
+
+    ' Tieu de
+    Dim TieuDe(0 To 3) As String
+    TieuDe(0) = "TT": TieuDe(1) = "X (m)": TieuDe(2) = "Y (m)": TieuDe(3) = "Canh (m)"
+    OText X0, Y0, cols, 0, TieuDe, dong, cao, color
+
+    ' Cac dinh
+    Dim gia(0 To 3) As String, dai As Double
+    For i = 0 To n - 1
+        gia(0) = CStr(i + 1)
+        gia(1) = Format$(ring(i, 1), "0.00")   ' X_vn = Y ban ve (northing)
+        gia(2) = Format$(ring(i, 0), "0.00")   ' Y_vn = X ban ve (easting)
+        dai = Sqr((ring(i + 1, 0) - ring(i, 0)) ^ 2 + (ring(i + 1, 1) - ring(i, 1)) ^ 2)
+        gia(3) = Format$(dai, "0.00")
+        OText X0, Y0, cols, i + 1, gia, dong, cao, color
+    Next i
+End Sub
+
+Private Function cong_X_Y(ByVal cao As Double) As Double
+    cong_X_Y = cao * 9#
+End Function
+
+' Ghi 1 hang o bang (canh giua tung o). rowIndex 0 = tieu de.
+Private Sub OText(ByVal X0 As Double, ByVal Y0 As Double, ByRef cols() As Double, _
+                  ByVal rowIndex As Long, ByRef vals() As String, _
+                  ByVal dong As Double, ByVal cao As Double, ByVal color As Long)
+    Dim cx As Double, cyRow As Double, ci As Long
+    cx = X0
+    cyRow = Y0 - rowIndex * dong - dong / 2#     ' giua o hang
+    For ci = 0 To UBound(vals)
+        VeText cx + cols(ci) / 2#, cyRow, vals(ci), cao, color
+        cx = cx + cols(ci)
+    Next ci
+End Sub
+
+
+' Ve khung bao quanh thua (co le). Tra ve goc tren-phai qua ByRef.
+Public Sub VeKhungTrichLuc(ByVal v As clsVung, ByVal le As Double, _
+                           ByRef x2 As Double, ByRef y2 As Double, _
+                           Optional ByVal color As Long = -1)
+    Dim ring() As Double, n As Long, i As Long
+    ring = v.ring
+    n = UBound(ring, 1)
+    Dim xmin As Double, xmax As Double, ymin As Double, ymax As Double
+    xmin = ring(0, 0): xmax = ring(0, 0): ymin = ring(0, 1): ymax = ring(0, 1)
+    For i = 1 To n - 1
+        If ring(i, 0) < xmin Then xmin = ring(i, 0)
+        If ring(i, 0) > xmax Then xmax = ring(i, 0)
+        If ring(i, 1) < ymin Then ymin = ring(i, 1)
+        If ring(i, 1) > ymax Then ymax = ring(i, 1)
+    Next i
+    Dim x1 As Double, y1 As Double
+    x1 = xmin - le: y1 = ymin - le
+    x2 = xmax + le: y2 = ymax + le
+    VeLine x1, y1, x2, y1, color
+    VeLine x2, y1, x2, y2, color
+    VeLine x2, y2, x1, y2, color
+    VeLine x1, y2, x1, y1, color
+End Sub
+
+
+Private Function TenLevelActive() As String
+    On Error Resume Next
+    TenLevelActive = ActiveSettings.Level.Name
+    On Error GoTo 0
+End Function
+
+
+'============================================================
+' LENH: TRICH LUC 1 THUA THEO SO THUA
+'============================================================
+Public Sub DC_TrichLucThua()
+    Dim lvRanh As String, lvSo As String, snapStr As String, snap As Double
+    lvRanh = InputBox("TEN level RANH thua:", "Trich luc", TenLevelActive())
+    lvSo = InputBox("TEN level SO THUA:", "Trich luc", "")
+    snapStr = InputBox("Dung sai noi diem (snap):", "Trich luc", "0.05")
+    If snapStr = "" Then Exit Sub
+    snap = val(snapStr)
+    If snap <= 0 Then snap = 0.05
+
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayCacDoan(snap, lvRanh, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc ranh.", vbExclamation, "Trich luc": Exit Sub
+    End If
+    Dim soTia As Long, vungs As Collection
+    Set vungs = GhepVung(segs, snap, soTia)
+    GanTruong vungs, lvSo, "so_thua"
+
+    Dim st As String
+    st = Trim$(InputBox("So thua can trich luc:", "Trich luc", ""))
+    If st = "" Then Exit Sub
+
+    Dim i As Long, v As clsVung, found As clsVung
+    Set found = Nothing
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        If Trim$(v.soThua) = st Then Set found = v: Exit For
+    Next i
+    If found Is Nothing Then
+        MsgBox "Khong tim thay thua so: " & st, vbExclamation, "Trich luc": Exit Sub
+    End If
+
+    ' Co chu
+    Dim caoStr As String, cao As Double
+    Dim r() As Double, w As Double, h As Double
+    r = found.ring
+    w = maxX - minX: h = maxY - minY
+    cao = ((found_w(found)) + (found_h(found))) / 2# / 40#
+    If cao <= 0 Then cao = 1
+    caoStr = InputBox("Co chu trich luc:", "Trich luc", Format$(cao, "0.###"))
+    If caoStr <> "" Then cao = val(caoStr)
+    If cao <= 0 Then cao = 1
+
+    ' Ve: khung -> so do -> nhan -> bang toa do (ben phai khung)
+    Dim kx2 As Double, ky2 As Double, le As Double
+    le = cao * 6#
+    VeKhungTrichLuc found, le, kx2, ky2, 0
+    VeSoDoThua found, cao, 0
+    VeNhanThuaDayDu found, cao, "khong"
+    VeBangToaDo found, kx2 + cao * 3#, ky2, cao, 0
+
+    MsgBox "Da trich luc thua so " & st & _
+           " (dien tich " & Format$(Round(found.Dt, 1), "0.0") & " m2).", _
+           vbInformation, "Trich luc"
+End Sub
+
+Private Function found_w(ByVal v As clsVung) As Double
+    Dim r() As Double, n As Long, i As Long, A As Double, b As Double
+    r = v.ring: n = UBound(r, 1)
+    A = r(0, 0): b = r(0, 0)
+    For i = 1 To n - 1
+        If r(i, 0) < A Then A = r(i, 0)
+        If r(i, 0) > b Then b = r(i, 0)
+    Next i
+    found_w = b - A
+End Function
+
+Private Function found_h(ByVal v As clsVung) As Double
+    Dim r() As Double, n As Long, i As Long, A As Double, b As Double
+    r = v.ring: n = UBound(r, 1)
+    A = r(0, 1): b = r(0, 1)
+    For i = 1 To n - 1
+        If r(i, 1) < A Then A = r(i, 1)
+        If r(i, 1) > b Then b = r(i, 1)
+    Next i
+    found_h = b - A
+End Function

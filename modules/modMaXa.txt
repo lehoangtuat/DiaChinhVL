@@ -1,0 +1,70 @@
+Option Explicit
+
+'============================================================
+' modMaXa - Nap danh sach Tinh/Xa tu file MaXaVN.txt (UTF-8)
+' Moi dong: tenTinh <TAB> tenXa
+'============================================================
+Private gTinh() As String
+Private gXa() As String
+Private gN As Long
+Private gDaNap As Boolean
+
+Public Function NapMaXa(ByVal path As String) As Boolean
+    NapMaXa = False
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    On Error GoTo 0
+    If st Is Nothing Then Exit Function
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    On Error Resume Next
+    st.LoadFromFile path
+    If Err.Number <> 0 Then st.Close: Exit Function
+    On Error GoTo 0
+    Dim txt As String
+    txt = st.ReadText(-1): st.Close
+
+    Dim raw() As String, i As Long, p As Long
+    raw = Split(txt, vbLf)
+    ReDim gTinh(0 To UBound(raw))
+    ReDim gXa(0 To UBound(raw))
+    gN = 0
+    For i = LBound(raw) To UBound(raw)
+        If Len(Trim$(raw(i))) > 0 Then
+            p = InStr(raw(i), vbTab)
+            If p > 0 Then
+                gTinh(gN) = Left$(raw(i), p - 1)
+                gXa(gN) = Trim$(Mid$(raw(i), p + 1))
+                gN = gN + 1
+            End If
+        End If
+    Next i
+    gDaNap = (gN > 0)
+    NapMaXa = gDaNap
+End Function
+
+' Danh sach tinh (khong trung, giu thu tu xuat hien)
+Public Function DsTinh() As Collection
+    Dim c As New Collection, d As Object, i As Long
+    Set d = CreateObject("Scripting.Dictionary")
+    For i = 0 To gN - 1
+        If Not d.Exists(gTinh(i)) Then
+            d.Add gTinh(i), True
+            c.Add gTinh(i)
+        End If
+    Next i
+    Set DsTinh = c
+End Function
+
+' Danh sach xa cua 1 tinh
+Public Function DsXa(ByVal tinh As String) As Collection
+    Dim c As New Collection, i As Long
+    For i = 0 To gN - 1
+        If gTinh(i) = tinh Then c.Add gXa(i)
+    Next i
+    Set DsXa = c
+End Function
+
+Public Function DaNapMaXa() As Boolean
+    DaNapMaXa = gDaNap
+End Function

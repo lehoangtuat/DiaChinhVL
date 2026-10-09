@@ -1,0 +1,30 @@
+Option Explicit
+
+'============================================================
+' modMoGiaoDien - Lenh mo menu + Gioi thieu + thiet lap mac dinh
+'============================================================
+Public Sub DC_MoGiaoDien()
+    DC_MacDinh                       ' dat mac dinh moi lan mo tool
+    frmDiaChinh.Show vbModeless
+End Sub
+
+'============================================================
+' DAT MAC DINH KHI CHAY:
+'   - Line Style = 0 , Line Weight = 0
+'   - Font chu = Times New Roman (TrueType Unicode) -> go/ve duoc tieng Viet
+' Dung SendKeyin cho chac (ap cho ca ve tay lan code cua tool, vi code
+' tao Line/Text deu ke thua ActiveSettings).
+'============================================================
+Public Sub DC_MacDinh()
+    On Error Resume Next
+    CadInputQueue.SendKeyin "ACTIVE STYLE 0"
+    CadInputQueue.SendKeyin "ACTIVE WEIGHT 0"
+    CadInputQueue.SendKeyin "ACTIVE FONT " & Chr$(34) & "Times New Roman" & Chr$(34)
+    DC_DatFontViet                   ' dat truc tiep (key-in tren chi chay sau khi macro xong)
+    On Error GoTo 0
+End Sub
+
+Public Sub DC_GioiThieu()
+    frmGioiThieu.Show vbModeless
+End Sub
+

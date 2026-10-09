@@ -1,0 +1,17 @@
+Option Explicit
+
+Public WithEvents btn As MSForms.CommandButton
+Public Form As Object
+Public ma As String
+
+Private Sub btn_Click()
+    On Error GoTo Loi
+    If Not Form Is Nothing Then Form.XuLyNut ma
+    Exit Sub
+Loi:
+    MsgBox "LOI khi chay '" & ma & "'" & vbCrLf & vbCrLf & _
+           "So loi : " & Err.Number & vbCrLf & _
+           "Mo ta  : " & Err.Description & vbCrLf & _
+           "Nguon  : " & Err.Source, _
+           vbCritical, "Bat loi"
+End Sub

@@ -1,0 +1,141 @@
+Option Explicit
+
+'============================================================
+' modNhan - Ve nhan chu len ban do (MicroStation V8i)
+' Port dan tu ve_nhan_thua / tao_text (Python).
+'
+' Tao chu bang: CreateTextElement1(Nothing, chuoi, origin, Matrix3dIdentity)
+' Dat co chu / can le qua ActiveSettings.TextStyle truoc khi tao.
+'============================================================
+
+
+'============================================================
+' VE MOT DOAN CHU tai (x, y)
+'   cao   : chieu cao chu (don vi ban ve)
+'   color : -1 = giu mau active
+'   justif: -1 = can giua giua (center-center)
+'============================================================
+Public Sub VeText(ByVal x As Double, ByVal y As Double, ByVal noiDung As String, _
+                  ByVal cao As Double, Optional ByVal color As Long = -1, _
+                  Optional ByVal justif As Long = -1)
+    If Len(noiDung) = 0 Then Exit Sub
+
+    On Error Resume Next
+    ActiveSettings.TextStyle.Height = cao
+    ActiveSettings.TextStyle.Width = cao
+    If justif < 0 Then
+        ActiveSettings.TextStyle.Justification = msdTextJustificationCenterCenter
+    Else
+        ActiveSettings.TextStyle.Justification = justif
+    End If
+    On Error GoTo 0
+
+    Dim OText As TextElement
+    Set OText = CreateTextElement1(Nothing, noiDung, Point3dFromXYZ(x, y, 0#), Matrix3dIdentity)
+    If color >= 0 Then OText.color = color
+    On Error Resume Next
+    OText.LineWeight = 0
+    On Error GoTo 0
+    ActiveModelReference.AddElement OText
+End Sub
+
+
+'============================================================
+' VE NHAN PHAN SO: dong tren / gach ngang / dong duoi
+'   (giong kieu "102 / 3509.2" tren ban do dia chinh)
+'============================================================
+Public Sub VeNhanPhanSo(ByVal x As Double, ByVal y As Double, _
+                        ByVal tren As String, ByVal duoi As String, _
+                        ByVal cao As Double, Optional ByVal color As Long = -1)
+    Dim w As Double, wt As Double, wd As Double
+    ' Uoc luong be rong de ve gach ngang (0.6 * cao * so ky tu)
+    wt = Len(tren) * cao * 0.6
+    wd = Len(duoi) * cao * 0.6
+    w = wt
+    If wd > w Then w = wd
+    If w <= 0 Then w = cao
+
+    If Len(tren) > 0 Then VeText x, y + cao * 0.75, tren, cao, color
+    If Len(duoi) > 0 Then VeText x, y - cao * 0.75, duoi, cao, color
+    ' gach ngang giua hai dong
+    VeLine x - w / 2#, y, x + w / 2#, y, color
+End Sub
+
+
+'============================================================
+' Noi dung nhan tu mot truong (giong _noi_dung_field Python)
+'============================================================
+Public Function NoiDungTruong(ByVal v As clsVung, ByVal truong As String) As String
+    Select Case truong
+        Case "so_thua":  NoiDungTruong = v.soThua
+        Case "loai_dat": NoiDungTruong = v.loaiDat
+        Case "ten_chu":  NoiDungTruong = v.TenChu
+        Case "dt":       NoiDungTruong = Format$(Round(v.Dt, 1), "0.0")
+        Case Else:       NoiDungTruong = ""
+    End Select
+End Function
+
+
+'============================================================
+' Uoc luong co chu tu bounding box (nho hon dau danh dau)
+'============================================================
+Private Function CoChuUocLuong(ByVal minX As Double, ByVal minY As Double, _
+                               ByVal maxX As Double, ByVal maxY As Double) As Double
+    Dim s As Double
+    s = ((maxX - minX) + (maxY - minY)) / 2# / 1500#
+    If s <= 0# Then s = 1#
+    CoChuUocLuong = s
+End Function
+
+Private Function TenLevelActive() As String
+    On Error Resume Next
+    TenLevelActive = ActiveSettings.Level.Name
+    On Error GoTo 0
+End Function
+
+
+'============================================================
+' LENH CHAY DUOC: GAN NHAN DIEN TICH tai tam moi thua
+'============================================================
+Public Sub DC_GanNhanDienTich()
+    Dim lvName As String, snapStr As String, snap As Double
+    lvName = InputBox("Nhap TEN level chua ranh thua." & vbCrLf & _
+                      "(De trong = doc tat ca line/linestring)", _
+                      "Gan nhan dien tich", TenLevelActive())
+    snapStr = InputBox("Dung sai noi diem (snap):", "Gan nhan dien tich", "0.05")
+    If snapStr = "" Then Exit Sub
+    snap = val(snapStr)
+    If snap <= 0 Then snap = 0.05
+
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Dim segs As Collection
+    Set segs = LayCacDoan(snap, lvName, minX, minY, maxX, maxY)
+    If segs.Count = 0 Then
+        MsgBox "Khong doc duoc doan ranh nao.", vbExclamation, "Gan nhan dien tich"
+        Exit Sub
+    End If
+
+    ' Hoi co chu
+    Dim caoStr As String, cao As Double
+    cao = CoChuUocLuong(minX, minY, maxX, maxY)
+    caoStr = InputBox("Co chu (chieu cao, don vi ban ve):", _
+                      "Gan nhan dien tich", Format$(cao, "0.###"))
+    If caoStr <> "" Then cao = val(caoStr)
+    If cao <= 0 Then cao = 1
+
+    Dim soTia As Long
+    Dim vungs As Collection
+    Set vungs = GhepVung(segs, snap, soTia)
+
+    Dim i As Long, v As clsVung, tong As Double
+    tong = 0#
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        VeText v.cx, v.cy, Format$(Round(v.Dt, 1), "0.0"), cao, 2   ' mau 2 cho de thay
+        tong = tong + v.Dt
+    Next i
+
+    MsgBox "So thua gan nhan: " & vungs.Count & vbCrLf & _
+           "Tong dien tich: " & Format$(tong, "#,##0.0"), _
+           vbInformation, "Gan nhan dien tich"
+End Sub

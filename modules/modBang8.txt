@@ -1,0 +1,289 @@
+'============================================================
+' modBang8 - GHI BANG TOA DO DINH THUA (muc 8) - Phu luc 19
+' Du an: DiaChinhVL  (MicroStation V8i - MVBA)
+'
+' Thay the doan ghi bang muc 8 cu. Sua 3 loi:
+'   1. Cot X(m) va Y(m) de len nhau  -> moi cot co TAM X rieng
+'   2. Cot "Kich thuoc canh" lech nua dong -> canh giua dung dong
+'   3. Tieu de "Toa do dinh thua" va "Kich thuoc canh (m)" de nhau
+'
+' Nguyen tac: KHONG dat chu theo offset cong don nua.
+' Moi chu duoc dat CenterCenter vao TAM O = giua 2 duong ke.
+' Chu qua dai se TU DONG thu nho de vua be rong cot.
+'============================================================
+Option Explicit
+
+'==================================================================
+' PHAN 1 - HINH HOC BANG   (CHI CAN SUA O DAY)
+'------------------------------------------------------------------
+' Tat ca so do la KHOANG CACH tinh tu GOC CHEN KHUNG MAU (dOx, dOy),
+' don vi: met (master unit).
+'
+' CACH DO 1 LAN CHO XONG:
+'   1. Mo 1 to .dgn da chen khung mau.
+'   2. Dung menu Utilities > Key-in, danh: ANALYZE ELEMENT  (hoac
+'      dung Tools > Primary > "ID point") roi bam vao cac GIAO DIEM
+'      duong ke cua bang muc 8, ghi lai toa do X, Y.
+'   3. Lay toa do do TRU DI toa do goc chen khung -> dien vao duoi.
+'
+' Neu khung mau cua ban luon chen tai cung mot cho, co the goi
+' GhiBangDinhThua ring, 0, 0  va dien truc tiep toa do that.
+'==================================================================
+
+' --- X: 5 duong ke DOC cua bang (tu trai sang phai) ---
+Private Const C_BIEN0 As Double = 60#    ' bien TRAI cot "Dinh"
+Private Const C_BIEN1 As Double = 68#    ' vach  Dinh | X(m)
+Private Const C_BIEN2 As Double = 92#    ' vach  X(m) | Y(m)
+Private Const C_BIEN3 As Double = 116#   ' vach  Y(m) | Canh
+Private Const C_BIEN4 As Double = 140#   ' bien PHAI cot Canh
+
+' --- Y: cac duong ke NGANG ---
+Private Const C_YDAU As Double = -40#    ' duong ke TREN cua DONG DU LIEU 1
+Private Const C_CAODONG As Double = 4#   ' chieu cao 1 dong du lieu
+Private Const C_SODONG As Long = 18      ' so dong trong bang mau
+
+' --- Y: hai dong tieu de (nam PHIA TREN C_YDAU) ---
+Private Const C_CAO_TD2 As Double = 4#   ' dong "X(m) | Y(m)"
+Private Const C_CAO_TD1 As Double = 5#   ' dong "Toa do dinh thua"
+
+' --- Chu ---
+Private Const C_CAOCHU As Double = 2#    ' chieu cao chu trong bang
+Private Const C_CAOCHU_TD As Double = 2# ' chieu cao chu tieu de
+Private Const C_LEVEL As Long = 24       ' level ghi bang (nhu so do thua)
+
+' Uoc luong be rong 1 ky tu = C_TILE_RONG * chieu cao chu.
+' Times New Roman chu so ~ 0.5 ; de 0.62 cho an toan.
+Private Const C_TILE_RONG As Double = 0.62
+
+' True  = so canh nam GIUA hai dong (dinh i va dinh i+1)  <- kieu bang cu
+' False = so canh canh giua DUNG dong cua dinh i          <- MAC DINH (da sua)
+Private Const C_CANH_GIUA_HAI_DONG As Boolean = False
+
+' True = ghi ca tieu de bang. Neu khung mau da co san tieu de
+'        (chu in san trong file mau) thi de False cho khoi de chu.
+Private Const C_GHI_TIEU_DE As Boolean = True
+
+' True = dung chu co dau (can font Times New Roman + Save Settings)
+Private Const C_CO_DAU As Boolean = False
+
+
+'==================================================================
+' PHAN 2 - HAM CHINH
+'------------------------------------------------------------------
+' ring()  : mang 2 chieu Double, ring(i,0)=X  ring(i,1)=Y  (met, VN2000)
+'           Chap nhan ca ring DONG (diem cuoi = diem dau) - se tu bo
+'           diem trung lap.
+' dOx,dOy : toa do GOC CHEN KHUNG MAU cua to nay.
+'==================================================================
+Public Sub GhiBangDinhThua(ring() As Double, ByVal dOx As Double, ByVal dOy As Double)
+
+    Dim lo As Long, hi As Long, soDinh As Long
+    Dim i As Long, j As Long
+    Dim xTam(1 To 4) As Double, rongCot(1 To 4) As Double
+    Dim yTam As Double, yCanh As Double
+    Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+    Dim dCanh As Double
+
+    On Error GoTo LoiRoi
+
+    '--- 2.1 Xac dinh so dinh (bo diem dong vong) ---
+    lo = LBound(ring, 1)
+    hi = UBound(ring, 1)
+    If hi - lo + 1 < 3 Then
+        MsgBox "Ranh thua khong du 3 dinh, khong ghi duoc bang toa do.", _
+               vbExclamation, "Bang toa do"
+        Exit Sub
+    End If
+    If Abs(ring(hi, 0) - ring(lo, 0)) < 0.001 And _
+       Abs(ring(hi, 1) - ring(lo, 1)) < 0.001 Then
+        hi = hi - 1                     ' ring dong -> bo diem cuoi
+    End If
+    soDinh = hi - lo + 1
+
+    If soDinh > C_SODONG Then
+        MsgBox "Thua co " & soDinh & " dinh nhung bang mau chi co " & _
+               C_SODONG & " dong." & vbCrLf & _
+               "Se ghi " & C_SODONG & " dinh dau tien.", _
+               vbExclamation, "Bang toa do"
+        soDinh = C_SODONG
+    End If
+
+    '--- 2.2 Tam X va be rong tung cot (day la cho sua loi X/Y de nhau) ---
+    xTam(1) = dOx + (C_BIEN0 + C_BIEN1) / 2#
+    xTam(2) = dOx + (C_BIEN1 + C_BIEN2) / 2#
+    xTam(3) = dOx + (C_BIEN2 + C_BIEN3) / 2#
+    xTam(4) = dOx + (C_BIEN3 + C_BIEN4) / 2#
+
+    rongCot(1) = C_BIEN1 - C_BIEN0
+    rongCot(2) = C_BIEN2 - C_BIEN1
+    rongCot(3) = C_BIEN3 - C_BIEN2
+    rongCot(4) = C_BIEN4 - C_BIEN3
+
+    '--- 2.3 Tieu de ---
+    If C_GHI_TIEU_DE Then GhiTieuDe dOx, dOy, xTam, rongCot
+
+    '--- 2.4 Tung dong du lieu ---
+    For i = 1 To soDinh
+
+        ' tam dong thu i (Y giam dan xuong duoi)
+        yTam = dOy + C_YDAU - (CDbl(i) - 0.5) * C_CAODONG
+
+        x1 = ring(lo + i - 1, 0)
+        y1 = ring(lo + i - 1, 1)
+
+        ' cot 1: so dinh
+        DatChuGiuaO CStr(i), xTam(1), yTam, rongCot(1), C_CAOCHU
+
+        ' cot 2: X(m)   |   cot 3: Y(m)   -> hai TAM X KHAC NHAU
+        DatChuGiuaO So2(x1), xTam(2), yTam, rongCot(2), C_CAOCHU
+        DatChuGiuaO So2(y1), xTam(3), yTam, rongCot(3), C_CAOCHU
+
+        ' cot 4: chieu dai canh tu dinh i den dinh i+1
+        j = lo + i                      ' dinh ke tiep
+        If i = soDinh Then j = lo       ' dinh cuoi noi ve dinh dau
+        x2 = ring(j, 0)
+        y2 = ring(j, 1)
+        dCanh = Sqr((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+
+        If C_CANH_GIUA_HAI_DONG Then
+            yCanh = yTam - C_CAODONG / 2#      ' nam tren vach giua 2 dong
+        Else
+            yCanh = yTam                        ' canh giua dung dong (mac dinh)
+        End If
+        DatChuGiuaO So2(dCanh), xTam(4), yCanh, rongCot(4), C_CAOCHU
+
+    Next i
+
+    Exit Sub
+
+LoiRoi:
+    MsgBox "Loi khi ghi bang toa do: " & Err.Description, _
+           vbCritical, "Bang toa do"
+End Sub
+
+
+'==================================================================
+' PHAN 3 - TIEU DE BANG
+'==================================================================
+Private Sub GhiTieuDe(ByVal dOx As Double, ByVal dOy As Double, _
+                      xTam() As Double, rongCot() As Double)
+
+    Dim yTD2 As Double, yTD1 As Double
+    Dim xTamXY As Double, rongXY As Double
+    Dim s1 As String, S2 As String
+
+    ' tam hai dong tieu de
+    yTD2 = dOy + C_YDAU + C_CAO_TD2 / 2#
+    yTD1 = dOy + C_YDAU + C_CAO_TD2 + C_CAO_TD1 / 2#
+
+    ' "Toa do dinh thua" nam GIUA hai cot X va Y  (khong lan sang cot canh)
+    xTamXY = (xTam(2) + xTam(3)) / 2#
+    rongXY = rongCot(2) + rongCot(3)
+
+    If C_CO_DAU Then
+        s1 = "To" & ChrW(&HE1) & ChrW(&H1EA1) & " " & ChrW(&H111) & _
+             ChrW(&HF4) & ChrW(&H323) & "..."      ' de trong, xem ghi chu duoi
+        s1 = "Toa do dinh thua"
+    Else
+        s1 = "Toa do dinh thua"
+    End If
+
+    DatChuGiuaO s1, xTamXY, yTD1, rongXY, C_CAOCHU_TD
+    DatChuGiuaO "X(m)", xTam(2), yTD2, rongCot(2), C_CAOCHU_TD
+    DatChuGiuaO "Y(m)", xTam(3), yTD2, rongCot(3), C_CAOCHU_TD
+
+    ' cot canh: tieu de 2 dong, dat trong pham vi RIENG cua cot 4
+    ' -> het de vao chu "Toa do dinh thua"
+    S2 = "Kich thuoc canh"
+    DatChuGiuaO S2, xTam(4), yTD1 + C_CAOCHU_TD * 0.35, rongCot(4), C_CAOCHU_TD
+    DatChuGiuaO "(m)", xTam(4), yTD1 - C_CAOCHU_TD * 0.9, rongCot(4), C_CAOCHU_TD
+
+End Sub
+
+
+'==================================================================
+' PHAN 4 - DAT CHU CANH GIUA O (co tu dong thu nho cho vua cot)
+'------------------------------------------------------------------
+' Neu du an ban da co ham dat chu rieng, co the thay ruot ham nay
+' bang ham do - mien la giu dung 2 diem: CenterCenter va tam o.
+'==================================================================
+Private Sub DatChuGiuaO(ByVal s As String, ByVal xTam As Double, _
+                        ByVal yTam As Double, ByVal rongO As Double, _
+                        ByVal caoChu As Double)
+
+    Dim oT As TextElement
+    Dim pt As Point3d
+    Dim ts As TextStyle
+    Dim cao As Double, rongChu As Double
+
+    If Len(Trim$(s)) = 0 Then Exit Sub
+
+    '--- tu dong thu nho neu chuoi rong hon o (chan tuyet doi viec de chu) ---
+    cao = caoChu
+    rongChu = Len(s) * cao * C_TILE_RONG
+    If rongChu > rongO * 0.92 Then
+        cao = cao * (rongO * 0.92) / rongChu
+    End If
+
+    Set ts = ActiveSettings.TextStyle
+    ts.Height = cao
+    ts.Width = cao * 0.9
+    ts.Justification = msdTextJustificationCenterCenter
+    ActiveSettings.TextStyle = ts
+
+    pt.x = xTam
+    pt.y = yTam
+    pt.Z = 0#
+
+    Set oT = CreateTextElement1(Nothing, s, pt, Matrix3dIdentity)
+    Set oT.Level = LayLevel(C_LEVEL)
+    ActiveModelReference.AddElement oT
+
+End Sub
+
+Private Function LayLevel(ByVal SoLevel As Long) As Level
+    On Error Resume Next
+    Set LayLevel = ActiveDesignFile.Levels(SoLevel)
+    If LayLevel Is Nothing Then Set LayLevel = ActiveSettings.Level
+    On Error GoTo 0
+End Function
+
+' So thuc -> chuoi 2 so le, dau thap phan la DAU PHAY (kieu VN)
+Private Function So2(ByVal v As Double) As String
+    Dim s As String
+    s = Format$(v, "0.00")
+    So2 = Replace(s, ".", ",")
+End Function
+
+
+'==================================================================
+' PHAN 5 - SUB TEST (chay rieng de can hinh hoc bang cho nhanh)
+'------------------------------------------------------------------
+' Chay Sub nay tren to .dgn DA CHEN KHUNG MAU. No ghi 4 dinh gia
+' vao bang -> xem co dung o hay khong, roi sua lai cac hang so
+' PHAN 1. Khong can chay ca quy trinh trich luc.
+'
+' Sua dOx, dOy thanh toa do goc chen khung that cua to dang mo.
+'==================================================================
+Public Sub TestBang8()
+
+    Dim r(0 To 4, 0 To 1) As Double
+    Dim dOx As Double, dOy As Double
+
+    dOx = 0#        '<<< SUA: toa do X goc chen khung
+    dOy = 0#        '<<< SUA: toa do Y goc chen khung
+
+    ' hinh chu nhat 10 x 20 (giong to test cua ban)
+    r(0, 0) = 530725.1: r(0, 1) = 1099628.52
+    r(1, 0) = 530733.1: r(1, 1) = 1099621.54
+    r(2, 0) = 530746.85: r(2, 1) = 1099603.34
+    r(3, 0) = 530738.85: r(3, 1) = 1099610.32
+    r(4, 0) = r(0, 0):   r(4, 1) = r(0, 1)      ' dong ring
+
+    GhiBangDinhThua r, dOx, dOy
+
+    MsgBox "Da ghi bang test. Kiem tra chu co nam giua o chua," & vbCrLf & _
+           "neu lech thi sua cac hang so PHAN 1 trong modBang8.", _
+           vbInformation, "Test bang muc 8"
+
+End Sub

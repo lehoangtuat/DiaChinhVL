@@ -1,0 +1,123 @@
+'============================================================
+' frmTaoThua - Tao Topology / CSDL (Viet hoa ChrW, Arial)
+'   Co nut Xoa nhan. Tieu de thanh de ASCII (font he thong).
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Tao Topology / CSDL"
+    Me.Font.Name = "Arial"
+    Me.Font.size = 8
+    Me.Width = 320
+    Me.Height = 400
+
+    ' Danh sach level (tick chon)
+    AddLabel "lblLv", "L" & ChrW(7899) & "p ranh (tick):", 8, 6, 130
+    Dim lst As Object
+    Set lst = Me.Controls.Add("Forms.ListBox.1", "lstLevel", True)
+    lst.Left = 8: lst.Top = 20: lst.Width = 120: lst.Height = 250
+    lst.ListStyle = 1: lst.MultiSelect = 1
+    lst.Font.Name = "Arial": lst.Font.size = 8
+    Dim i As Long
+    For i = 1 To 63
+        lst.AddItem "Level " & i
+    Next i
+
+    Dim x As Single: x = 140
+    AddPair "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t:", "txtLoaiDat", "LUC", x, 20
+    AddPair "T" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ":", "txtToBanDo", "", x, 44
+    AddPair "S" & ChrW(7889) & " l" & ChrW(7867) & " DT:", "txtSoLe", "1", x, 68
+    AddPair "B" & ChrW(7887) & " v" & ChrW(249) & "ng <(m" & ChrW(178) & "):", "txtBoNho", "0", x, 92
+    AddPair "Snap:", "txtSnap", "0.05", x, 116
+    AddPair "L" & ChrW(7899) & "p t" & ChrW(226) & "m:", "txtLevelTam", "Level 11", x, 140
+    AddPair "M" & ChrW(224) & "u t" & ChrW(226) & "m:", "txtMau", "4", x, 164
+    AddPair "KT t" & ChrW(226) & "m (m):", "txtKT", "0.3", x, 188
+    AddPair "File CSDL:", "txtCSDL", "", x, 212
+    AddPair "M" & ChrW(224) & "u ranh (tr" & ChrW(7889) & "ng=h" & ChrW(7871) & "t):", "txtMauRanh", "", x, 236
+    AddPair "B" & ChrW(7855) & "t h" & ChrW(7903) & " (m):", "txtBatHo", "0", x, 260
+
+    ' Mac dinh CSDL theo ten file .dgn dang mo
+    Me.Controls("txtCSDL").Text = CsdlMacDinh()
+
+    Dim b1 As Object, b2 As Object, b3 As Object
+    Set b1 = Me.Controls.Add("Forms.CommandButton.1", "cmdOK", True)
+    b1.Caption = "Ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n": b1.Left = 140: b1.Top = 300: b1.Width = 80: b1.Height = 24
+    b1.Font.Name = "Arial": b1.Font.size = 8
+    Set b2 = Me.Controls.Add("Forms.CommandButton.1", "cmdDong", True)
+    b2.Caption = ChrW(272) & ChrW(243) & "ng": b2.Left = 226: b2.Top = 300: b2.Width = 70: b2.Height = 24
+    b2.Font.Name = "Arial": b2.Font.size = 8
+    Set b3 = Me.Controls.Add("Forms.CommandButton.1", "cmdXoaNhan", True)
+    b3.Caption = "X" & ChrW(243) & "a nh" & ChrW(227) & "n": b3.Left = 8: b3.Top = 332: b3.Width = 120: b3.Height = 24
+    b3.Font.Name = "Arial": b3.Font.size = 8
+
+    Dim ck As Object
+    Set ck = Me.Controls.Add("Forms.CheckBox.1", "chkTheoDiem", True)
+    ck.Caption = "T" & ChrW(7841) & "o theo " & ChrW(273) & "i" & ChrW(7875) & "m b" & ChrW(7845) & "m"
+    ck.Left = 8: ck.Top = 300: ck.Width = 128: ck.Height = 16
+    ck.Font.Name = "Arial": ck.Font.size = 8
+
+    Dim h1 As clsNutTL, h2 As clsNutTL, h3 As clsNutTL
+    Set h1 = New clsNutTL: Set h1.btn = b1: Set h1.Form = Me: h1.ma = "OK": mNut.Add h1
+    Set h2 = New clsNutTL: Set h2.btn = b2: Set h2.Form = Me: h2.ma = "DONG": mNut.Add h2
+    Set h3 = New clsNutTL: Set h3.btn = b3: Set h3.Form = Me: h3.ma = "XOANHAN": mNut.Add h3
+End Sub
+
+Private Sub AddLabel(ByVal nm As String, ByVal cap As String, _
+                     ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 12
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub AddPair(ByVal cap As String, ByVal nm As String, ByVal txt As String, _
+                    ByVal x As Single, ByVal y As Single)
+    AddLabel "lbl_" & nm, cap, x, y + 2, 70
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Text = txt: c.Left = x + 72: c.Top = y: c.Width = 96: c.Height = 15
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then Unload Me: Exit Sub
+    If ma = "XOANHAN" Then
+        Me.Hide
+        DC_XoaNhanTheoLevel
+        Me.Show vbModeless
+        Exit Sub
+    End If
+
+    ' ma = "OK"
+    Dim lst As Object, csv As String, i As Long
+    Set lst = Me.Controls("lstLevel")
+    For i = 0 To lst.ListCount - 1
+        If lst.Selected(i) Then
+            If Len(csv) > 0 Then csv = csv & ","
+            csv = csv & lst.List(i)
+        End If
+    Next i
+    If Len(csv) = 0 Then MsgBox "Ch" & ChrW(432) & "a ch" & ChrW(7885) & "n level ranh.", vbExclamation: Exit Sub
+
+    ' Che do TAO THEO DIEM BAM -> giao cho cong cu bat diem, an form
+    If Me.Controls("chkTheoDiem").Value Then
+        Me.Hide
+        DC_TaoVungTheoDiem csv, Me.Controls("txtLoaiDat").Text, Me.Controls("txtToBanDo").Text, _
+                val(Me.Controls("txtSnap").Text), Me.Controls("txtLevelTam").Text, _
+                CLng(val(Me.Controls("txtMau").Text)), val(Me.Controls("txtKT").Text), _
+                Me.Controls("txtCSDL").Text, Me.Controls("txtMauRanh").Text, _
+                val(Me.Controls("txtBatHo").Text)
+        Exit Sub
+    End If
+
+    Me.Hide
+    ChayTaoThua csv, Me.Controls("txtLoaiDat").Text, Me.Controls("txtToBanDo").Text, _
+                CLng(val(Me.Controls("txtSoLe").Text)), val(Me.Controls("txtBoNho").Text), _
+                val(Me.Controls("txtSnap").Text), Me.Controls("txtLevelTam").Text, _
+                CLng(val(Me.Controls("txtMau").Text)), val(Me.Controls("txtKT").Text), _
+                Me.Controls("txtCSDL").Text, Me.Controls("txtMauRanh").Text, _
+                val(Me.Controls("txtBatHo").Text)
+    Me.Show vbModeless
+End Sub

@@ -1,0 +1,598 @@
+'============================================================
+' modMauDgn - Dung file MAU .dgn (kieu gCadas) cho trich luc
+'   - DC_ChuanBiMau: "File mau" la .dgn -> tu bat mau ra
+'       C:\DiaChinhVL\Mau\<ten>_mau_v3.txt (chi lam lai khi .dgn/.ini doi)
+'   - Doc .dgn bang OpenDesignFileForProgram (khong mo len man hinh)
+'   - Lay TOAN BO file mau (moi trang: KQ do dac, Trich luc, Ho so...).
+'     Trang Trich luc (co o so do level LevelKhungSoDoHinhThe) duoc dien
+'     so do + bang toa do; cac trang khac ve nguyen de nguoi dung tu lam.
+'   - Placeholder (soHieuThua, dienTich, tttl...) -> TAG o moi trang
+'   - Chu font VnTime (TCVN3) -> doi sang Unicode
+'   - Quy doi kich thuoc ve chuan mau cu (o so do rong 989.8 don vi)
+'   - Cau hinh: file .ini kieu gCadas ([Levels])
+'============================================================
+Option Explicit
+
+Private Type OPENFILENAME
+    lStructSize As Long
+    hwndOwner As Long
+    hInstance As Long
+    lpstrFilter As String
+    lpstrCustomFilter As String
+    nMaxCustFilter As Long
+    nFilterIndex As Long
+    lpstrFile As String
+    nMaxFile As Long
+    lpstrFileTitle As String
+    nMaxFileTitle As Long
+    lpstrInitialDir As String
+    lpstrTitle As String
+    flags As Long
+    nFileOffset As Integer
+    nFileExtension As Integer
+    lpstrDefExt As String
+    lCustData As Long
+    lpfnHook As Long
+    lpTemplateName As String
+End Type
+Private Declare Function GetOpenFileNameA Lib "comdlg32.dll" (pOpenfilename As OPENFILENAME) As Long
+
+Private Const BOX_CHUAN As Double = 989.8      ' be rong o so do mau chuan (TT26)
+Private Const TCVN_MAP As String = "A10102,A200C2,A300CA,A400D4,A501A0,A601AF,A70110,A80103,A900E2,AA00EA,AB00F4,AC01A1,AD01B0,AE0111,B500E0,B61EA3,B700E3,B800E1,B91EA1,BB1EB1,BC1EB3,BD1EB5,BE1EAF,C61EB7,C71EA7,C81EA9,C91EAB,CA1EA5,CB1EAD,CC00E8,CE1EBB,CF1EBD,D000E9,D11EB9,D21EC1,D31EC3,D41EC5,D51EBF,D61EC7,D700EC,D81EC9,DC0129,DD00ED,DE1ECB,DF00F2,E11ECF,E200F5,E300F3,E41ECD,E51ED3,E61ED5,E71ED7,E81ED1,E91ED9,EA1EDD,EB1EDF,EC1EE1,ED1EDB,EE1EE3,EF00F9,F11EE7,F20169,F300FA,F41EE5,F51EEB,F61EED,F71EEF,F81EE9,F91EF1,FA1EF3,FB1EF7,FC1EF9,FD00FD,FE1EF5"
+
+Private mBuf() As String, mN As Long
+Private mS As Double                            ' he so quy doi
+Private mLvND As Long, mLvBox As Long
+Private mWx1 As Double, mWy1 As Double, mWx2 As Double, mWy2 As Double
+Private mBx1 As Double, mBy1 As Double, mBx2 As Double, mBy2 As Double
+Private mMinX As Double, mMinY As Double, mMaxX As Double, mMaxY As Double
+Private mNL As Long, mNT As Long, mCoBB As Boolean
+Private mTcvn(0 To 255) As Long, mTcvnNap As Boolean
+
+'============================================================
+' Hop thoai chon file (Windows)
+'   loc vd: "File mau (*.dgn;*.txt)|*.dgn;*.txt"
+'============================================================
+Public Function DC_ChonFile(ByVal loc As String, ByVal tieuDe As String, _
+                            Optional ByVal fileCu As String = "") As String
+    Dim o As OPENFILENAME, r As Long, p As Long
+    o.lStructSize = Len(o)
+    o.lpstrFilter = Replace(loc, "|", vbNullChar) & vbNullChar & vbNullChar
+    o.lpstrFile = String$(1024, vbNullChar)
+    o.nMaxFile = 1024
+    If Len(fileCu) > 0 Then
+        p = InStrRev(fileCu, "\")
+        If p > 0 Then o.lpstrInitialDir = Left$(fileCu, p - 1)
+    End If
+    o.lpstrTitle = tieuDe
+    o.flags = &H1000 Or &H800 Or &H4             ' FILEMUSTEXIST, PATHMUSTEXIST, HIDEREADONLY
+    r = GetOpenFileNameA(o)
+    If r <> 0 Then
+        p = InStr(o.lpstrFile, vbNullChar)
+        If p > 0 Then DC_ChonFile = Left$(o.lpstrFile, p - 1) Else DC_ChonFile = o.lpstrFile
+    End If
+End Function
+
+'============================================================
+' Tra ve duong dan file mau .txt de ve khung.
+'   .txt -> giu nguyen ; .dgn -> bat mau (co cache)
+'============================================================
+Public Function DC_ChuanBiMau(ByVal mauPath As String) As String
+    Dim ini As String, outF As String, ten As String, p As Long
+    DC_ChuanBiMau = mauPath
+    If LCase$(Right$(Trim$(mauPath), 4)) <> ".dgn" Then Exit Function
+    If Len(Dir$(mauPath)) = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng th" & ChrW(7845) & "y file m" & ChrW(7851) & "u: " & mauPath, "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c", vbExclamation
+        Exit Function
+    End If
+    ini = DC_DocCauHinh("INI_TL", "")
+    If Len(ini) > 0 And Len(Dir$(ini)) = 0 Then ini = ""
+
+    ten = Mid$(mauPath, InStrRev(mauPath, "\") + 1)
+    p = InStrRev(ten, "."): If p > 0 Then ten = Left$(ten, p - 1)
+    On Error Resume Next
+    If Len(Dir$(DC_THUMUC, vbDirectory)) = 0 Then MkDir DC_THUMUC
+    If Len(Dir$(DC_THUMUC & "\Mau", vbDirectory)) = 0 Then MkDir DC_THUMUC & "\Mau"
+    On Error GoTo 0
+    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v3.txt"
+
+    ' Cache: file .txt moi hon .dgn va .ini -> dung lai
+    If Len(Dir$(outF)) > 0 Then
+        If FileDateTime(outF) >= FileDateTime(mauPath) Then
+            If Len(ini) = 0 Then
+                DC_ChuanBiMau = outF: Exit Function
+            ElseIf FileDateTime(outF) >= FileDateTime(ini) Then
+                DC_ChuanBiMau = outF: Exit Function
+            End If
+        End If
+    End If
+
+    If BatMauDgn(mauPath, ini, outF) Then DC_ChuanBiMau = outF
+End Function
+
+' Bat lai mau ngay (menu / nut "Bat lai mau")
+Public Sub DC_BatLaiMau()
+    Dim mau As String, outF As String, ten As String, p As Long
+    mau = DC_DocCauHinh("MAU_TL", "")
+    If LCase$(Right$(mau, 4)) <> ".dgn" Then
+        DC_ThongBao "File m" & ChrW(7851) & "u hi" & ChrW(7879) & "n t" & ChrW(7841) & "i kh" & ChrW(244) & "ng ph" & ChrW(7843) & "i .dgn.", "B" & ChrW(7855) & "t m" & ChrW(7851) & "u", vbExclamation
+        Exit Sub
+    End If
+    ten = Mid$(mau, InStrRev(mau, "\") + 1)
+    p = InStrRev(ten, "."): If p > 0 Then ten = Left$(ten, p - 1)
+    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v3.txt"
+    On Error Resume Next
+    If Len(Dir$(outF)) > 0 Then Kill outF
+    On Error GoTo 0
+    If DC_ChuanBiMau(mau) = outF Then
+        DC_ThongBao ChrW(272) & ChrW(227) & " b" & ChrW(7855) & "t m" & ChrW(7851) & "u: " & mNL & " " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng, " & mNT & " ch" & ChrW(7919) & "." & vbCrLf & outF, "B" & ChrW(7855) & "t m" & ChrW(7851) & "u"
+    End If
+End Sub
+
+'============================================================
+Private Function BatMauDgn(ByVal dgn As String, ByVal ini As String, ByVal outF As String) As Boolean
+    Dim f As DesignFile, md As ModelReference
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator
+
+    mLvND = SoLevel(DocIni(ini, "Levels", "LevelNoiDung", "Level 56"), 56)
+    mLvBox = SoLevel(DocIni(ini, "Levels", "LevelKhungSoDoHinhThe", "Level 24"), 24)
+
+    On Error Resume Next
+    Set f = Application.OpenDesignFileForProgram(dgn, True)
+    On Error GoTo 0
+    If f Is Nothing Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file m" & ChrW(7851) & "u .dgn:" & vbCrLf & dgn, "B" & ChrW(7855) & "t m" & ChrW(7851) & "u", vbExclamation
+        Exit Function
+    End If
+    Set md = f.DefaultModelReference
+
+    ' 1) Tim o so do (shape lon nhat tren level o so do) -> cua so trang Trich luc
+    Dim bx1 As Double, by1 As Double, bx2 As Double, by2 As Double
+    If Not TimOSoDo(md, bx1, by1, bx2, by2) Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y " & ChrW(244) & " s" & ChrW(417) & " " & ChrW(273) & ChrW(7891) & " (level " & mLvBox & ") trong file m" & ChrW(7851) & "u.", "B" & ChrW(7855) & "t m" & ChrW(7851) & "u", vbExclamation
+        f.Close
+        Exit Function
+    End If
+    Dim bw As Double, bh As Double
+    bw = bx2 - bx1: bh = by2 - by1
+    mS = BOX_CHUAN / bw                      ' quy doi ve chuan mau cu
+    mBx1 = bx1: mBy1 = by1: mBx2 = bx2: mBy2 = by2
+    ' lay toan bo file (khong gioi han cua so)
+    mWx1 = -1E+30: mWx2 = 1E+30: mWy1 = -1E+30: mWy2 = 1E+30
+
+    ' 2) Quet tat ca phan tu trong cua so
+    mN = 0: ReDim mBuf(0 To 1023)
+    mNL = 0: mNT = 0: mCoBB = False
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    esc.IncludeType msdElementTypeShape
+    esc.IncludeType msdElementTypeComplexString
+    esc.IncludeType msdElementTypeComplexShape
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    esc.IncludeType msdElementTypeCellHeader
+    Set ee = md.Scan(esc)
+    Do While ee.MoveNext
+        ThemPhanTu ee.Current, -1
+    Loop
+    f.Close
+
+    If mNL = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng n" & ChrW(224) & "o trong trang Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c c" & ChrW(7911) & "a file m" & ChrW(7851) & "u.", "B" & ChrW(7855) & "t m" & ChrW(7851) & "u", vbExclamation
+        Exit Function
+    End If
+
+    ' 3) Ghi file
+    Dim txt As String
+    ' H: ... DGN <he so quy doi> <duong dan .dgn>  (modKhungMau chep thang phan tu tu .dgn)
+    txt = "H" & vbTab & "100.0" & vbTab & S2(mMinX) & vbTab & S2(mMinY) & vbTab & _
+          S2(mMaxX) & vbTab & S2(mMaxY) & vbTab & "DGN" & vbTab & S2(mS) & vbTab & dgn & vbLf & JoinBuf()
+    BatMauDgn = GhiUtf8(outF, txt)
+End Function
+
+' Shape lon nhat tren level o so do (gom ca line tao thanh hinh chu nhat)
+Private Function TimOSoDo(ByVal md As ModelReference, ByRef x1 As Double, ByRef y1 As Double, _
+                          ByRef x2 As Double, ByRef y2 As Double) As Boolean
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator, el As Element
+    Dim rg As Range3d, a As Double, best As Double
+    Dim ax As Double, ay As Double, bx As Double, by As Double
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeShape
+    esc.IncludeType msdElementTypeLineString
+    esc.IncludeType msdElementTypeComplexShape
+    Set ee = md.Scan(esc)
+    best = 0
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If DC_LevelSo(el) = mLvBox Then
+            On Error Resume Next
+            Err.Clear
+            rg = el.Range
+            ax = rg.Low.X: ay = rg.Low.Y
+            bx = rg.High.X: by = rg.High.Y
+            If Err.Number = 0 Then
+                a = (bx - ax) * (by - ay)
+                If a > best Then
+                    best = a: x1 = ax: y1 = ay: x2 = bx: y2 = by
+                End If
+            End If
+            On Error GoTo 0
+        End If
+    Loop
+    TimOSoDo = (best > 0)
+End Function
+
+Private Sub ThemPhanTu(ByVal el As Element, ByVal lvCha As Long)
+    Dim lv As Long, subs As ElementEnumerator
+    lv = DC_LevelSo(el)
+    If lv <= 0 Then lv = lvCha
+    On Error Resume Next
+
+    If el.Type = msdElementTypeText Then
+        ThemText el, lv
+        Exit Sub
+    End If
+    If el.IsComplexElement Then
+        Set subs = el.AsComplexElement.GetSubElements
+        Do While subs.MoveNext
+            ThemPhanTu subs.Current, lv
+        Loop
+        Exit Sub
+    End If
+    If el.IsVertexList Then ThemDuong el, lv
+End Sub
+
+Private Sub ThemDuong(ByVal el As Element, ByVal lv As Long)
+    Dim pts() As Point3d, i As Long, s As String
+    On Error Resume Next
+    Err.Clear
+    pts = el.AsVertexList.GetVertices
+    If Err.Number <> 0 Then Exit Sub
+    On Error GoTo 0
+    For i = LBound(pts) To UBound(pts)
+        If Not TrongCuaSo(pts(i).X, pts(i).Y) Then Exit Sub
+    Next i
+    ' O so do trang Trich luc -> level 24 (modKhungMau tim o nay);
+    ' phan tu khac tren level o so do (trang khac) -> doi level 25 cho khoi nham
+    If lv = mLvBox Or lv = 24 Then
+        If LaOSoDo(pts) Then lv = 24 Else lv = 25
+    End If
+    s = "L" & vbTab & lv
+    For i = LBound(pts) To UBound(pts)
+        s = s & vbTab & S2(pts(i).X * mS) & vbTab & S2(pts(i).Y * mS)
+        CapNhatBB pts(i).X * mS, pts(i).Y * mS
+    Next i
+    ThemBuf s
+    mNL = mNL + 1
+End Sub
+
+Private Function LaOSoDo(pts() As Point3d) As Boolean
+    Dim i As Long, x1 As Double, y1 As Double, x2 As Double, y2 As Double, tol As Double
+    x1 = pts(LBound(pts)).X: x2 = x1: y1 = pts(LBound(pts)).Y: y2 = y1
+    For i = LBound(pts) To UBound(pts)
+        If pts(i).X < x1 Then x1 = pts(i).X
+        If pts(i).X > x2 Then x2 = pts(i).X
+        If pts(i).Y < y1 Then y1 = pts(i).Y
+        If pts(i).Y > y2 Then y2 = pts(i).Y
+    Next i
+    tol = (mBx2 - mBx1) * 0.01
+    LaOSoDo = (Abs(x1 - mBx1) < tol And Abs(x2 - mBx2) < tol And _
+               Abs(y1 - mBy1) < tol And Abs(y2 - mBy2) < tol)
+End Function
+
+Private Sub ThemText(ByVal el As Element, ByVal lv As Long)
+    Dim oT As TextElement, s As String, fn As String, h As Double
+    Dim ox As Double, oy As Double, lx As Double, ly As Double, hy As Double
+    Dim og As Point3d, rg As Range3d
+    On Error Resume Next
+    Set oT = el
+    s = Trim$(oT.Text)
+    If Len(s) = 0 Then Exit Sub
+    fn = LCase$(oT.TextStyle.Font.Name)
+    If Left$(fn, 2) = "vn" Or Left$(fn, 3) = ".vn" Then s = Tcvn3SangUnicode(s)
+    h = oT.TextStyle.Height
+    og = oT.Origin: rg = el.Range
+    ox = og.X: oy = og.Y
+    lx = rg.Low.X: ly = rg.Low.Y: hy = rg.High.Y
+    On Error GoTo 0
+    If h <= 0 Then h = hy - ly
+    ' Diem dat chu = goc trai duoi (mau ve chu can le trai)
+    If Abs(ox - lx) > h * 0.3 Then ox = lx
+    If oy > ly + h * 0.6 Then oy = ly
+    If Not TrongCuaSo(ox, oy) Then Exit Sub
+
+    Dim kind As String
+    If LaTag(s) Then kind = "TAG" Else kind = "TEXT"
+    ' Tag bang toa do: luu TAM chu (modKhungMau dat chu can giua o)
+    Select Case s
+        Case "tttl", "tamXtl", "tamYtl", "cdtl"
+            If hy > ly Then oy = (ly + hy) / 2#
+    End Select
+    s = Replace(Replace(Replace(s, vbTab, " "), vbCr, " "), vbLf, " ")
+    ThemBuf "T" & vbTab & lv & vbTab & kind & vbTab & S2(h * mS) & vbTab & _
+            S2(ox * mS) & vbTab & S2(oy * mS) & vbTab & s
+    CapNhatBB ox * mS, oy * mS
+    mNT = mNT + 1
+End Sub
+
+' Placeholder dien gia tri (giu dung ten modKhungMau/GiaTriTag dang dung)
+Private Function LaTag(ByVal s As String) As Boolean
+    Select Case Trim$(s)
+        Case "soHieuThua", "toBanDo", "dienTich", "mdsd", "chuSuDung", _
+             "tenXa", "tenHuyen", "tenTinh", "gcn", "tinhhinhthaydoiranhgioi", _
+             "hinhThucSuDung", "diaChiChu", "diaChiThua", _
+             "tttl", "tamXtl", "tamYtl", "cdtl", _
+             "ttkq", "tamxkq", "tamykq", "cdkq", "tths", "tamxhs", "tamyhs", "cdhs"
+            LaTag = True      ' tag trang khac chua dien -> de trong
+    End Select
+End Function
+
+Private Function TrongCuaSo(ByVal x As Double, ByVal y As Double) As Boolean
+    TrongCuaSo = (x >= mWx1 And x <= mWx2 And y >= mWy1 And y <= mWy2)
+End Function
+
+Private Sub CapNhatBB(ByVal x As Double, ByVal y As Double)
+    If Not mCoBB Then
+        mMinX = x: mMaxX = x: mMinY = y: mMaxY = y: mCoBB = True
+    Else
+        If x < mMinX Then mMinX = x
+        If x > mMaxX Then mMaxX = x
+        If y < mMinY Then mMinY = y
+        If y > mMaxY Then mMaxY = y
+    End If
+End Sub
+
+'============================================================
+' CHEP NGUYEN PHAN TU TU FILE MAU .dgn vao ban ve (giu font, can le,
+' chi so tren, mau...) - giong gCadas. Bien doi: P' = P * sc + (tx, ty).
+'   - Tag bang toa do (tttl, tamXtl...) : bo qua (modKhungMau tu dien)
+'   - Tag thong tin (soHieuThua, dienTich...) : chep roi thay noi dung
+'============================================================
+Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
+                         ByVal tx As Double, ByVal ty As Double, ByVal v As clsVung, _
+                         ByVal toBanDo As String, ByVal tenXa As String, _
+                         ByVal tenHuyen As String, ByVal tenTinh As String)
+    Dim f As DesignFile, md As ModelReference
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator, el As Element, e2 As Element
+    Dim tr As Transform3d, s As String, gt As String, laTagBang As Boolean
+
+    On Error Resume Next
+    Set f = Application.OpenDesignFileForProgram(dgn, True)
+    On Error GoTo 0
+    If f Is Nothing Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file m" & ChrW(7851) & "u .dgn:" & vbCrLf & dgn, "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c", vbExclamation
+        Exit Sub
+    End If
+    Set md = f.DefaultModelReference
+    tr = Transform3dFromMatrix3dPoint3d(Matrix3dFromScale(sc), Point3dFromXYZ(tx, ty, 0#))
+
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    esc.IncludeType msdElementTypeShape
+    esc.IncludeType msdElementTypeComplexString
+    esc.IncludeType msdElementTypeComplexShape
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    esc.IncludeType msdElementTypeCellHeader
+    esc.IncludeType msdElementTypeEllipse
+    esc.IncludeType msdElementTypeArc
+    Set ee = md.Scan(esc)
+    Do While ee.MoveNext
+        Set el = ee.Current
+        gt = "": laTagBang = False
+        If el.Type = msdElementTypeText Then
+            s = ""
+            On Error Resume Next
+            s = Trim$(el.AsTextElement.Text)
+            On Error GoTo 0
+            If LaTag(s) Then
+                Select Case s
+                    Case "tttl", "tamXtl", "tamYtl", "cdtl", "ttkq", "tamxkq", "tamykq", "cdkq", _
+                         "tths", "tamxhs", "tamyhs", "cdhs"
+                        laTagBang = True
+                    Case Else
+                        gt = GiaTri(s, v, toBanDo, tenXa, tenHuyen, tenTinh)
+                        If Len(gt) = 0 Then laTagBang = True     ' khong co gia tri -> bo
+                End Select
+                If laTagBang Then GoTo Tiep
+            End If
+        End If
+
+        Set e2 = Nothing
+        On Error Resume Next
+        Set e2 = ActiveModelReference.CopyElement(el)
+        On Error GoTo 0
+        If Not e2 Is Nothing Then
+            On Error Resume Next
+            If Len(gt) > 0 Then
+                If LaFontVn(e2) Then gt = UnicodeSangTcvn3(gt)
+                e2.AsTextElement.Text = gt
+            End If
+            e2.Transform tr
+            ' Kieu net tuy bien (co do rong tuyet doi) khong co dan theo ty le
+            ' -> mui ten huong Bac thanh vach day. Doi ve net lien 0.
+            BoNetTuyBien e2
+            Err.Clear
+            e2.Rewrite
+            If Err.Number <> 0 Then Err.Clear: ActiveModelReference.AddElement e2
+            On Error GoTo 0
+        End If
+Tiep:
+    Loop
+    f.Close
+End Sub
+
+Private Sub BoNetTuyBien(ByVal e As Element)
+    Dim ten As String, ls As LineStyle
+    On Error Resume Next
+    If e.IsTextElement Then Exit Sub
+    ten = e.LineStyle.Name
+    If Err.Number <> 0 Then Err.Clear: Exit Sub
+    If Len(ten) = 1 And ten >= "0" And ten <= "7" Then Exit Sub
+    Set ls = ActiveDesignFile.LineStyles.Find("0")
+    If ls Is Nothing Then Set ls = ActiveDesignFile.LineStyles(1)
+    If Not ls Is Nothing Then
+        Set e.LineStyle = ls
+        If Err.Number <> 0 Then Err.Clear: e.LineStyle = ls
+    End If
+    Err.Clear
+End Sub
+
+Private Function GiaTri(ByVal tag As String, ByVal v As clsVung, ByVal toBanDo As String, _
+                        ByVal tenXa As String, ByVal tenHuyen As String, ByVal tenTinh As String) As String
+    Select Case tag
+        Case "soHieuThua": GiaTri = v.soThua
+        Case "toBanDo":    GiaTri = toBanDo
+        Case "dienTich":   GiaTri = Replace(Format$(Round(v.Dt, 1), "0.0"), ".", ",")
+        Case "mdsd":       GiaTri = v.loaiDat
+        Case "chuSuDung":  GiaTri = v.TenChu
+        Case "diaChiChu":  GiaTri = v.DiaChi
+        Case "tenXa":      GiaTri = tenXa
+        Case "tenHuyen":   GiaTri = tenHuyen
+        Case "tenTinh":    GiaTri = tenTinh
+    End Select
+End Function
+
+Private Function LaFontVn(ByVal e As Element) As Boolean
+    Dim fn As String
+    On Error Resume Next
+    fn = LCase$(e.AsTextElement.TextStyle.Font.Name)
+    LaFontVn = (Left$(fn, 2) = "vn" Or Left$(fn, 3) = ".vn")
+End Function
+
+' Unicode -> TCVN3 (khi o mau dung font VnTime)
+Private Function UnicodeSangTcvn3(ByVal s As String) As String
+    Dim i As Long, j As Long, c As Long, r As String, gap As Boolean
+    NapTcvn
+    For i = 1 To Len(s)
+        c = AscW(Mid$(s, i, 1)) And &HFFFF&
+        gap = False
+        If c >= 128 Then
+            For j = 161 To 255
+                If mTcvn(j) = c Then r = r & ChrW(j): gap = True: Exit For
+            Next j
+        End If
+        If Not gap Then r = r & ChrW(c)
+    Next i
+    UnicodeSangTcvn3 = r
+End Function
+
+'------------------------------------------------------------ TCVN3 -> Unicode
+Private Function Tcvn3SangUnicode(ByVal s As String) As String
+    Dim i As Long, c As Long, b As Long, r As String
+    NapTcvn
+    For i = 1 To Len(s)
+        c = AscW(Mid$(s, i, 1)) And &HFFFF&
+        b = ByteGoc(c)
+        If b >= 0 And b <= 255 Then
+            If mTcvn(b) <> 0 Then r = r & ChrW(mTcvn(b)) Else r = r & ChrW(c)
+        Else
+            r = r & ChrW(c)
+        End If
+    Next i
+    Tcvn3SangUnicode = r
+End Function
+
+' Ma byte goc cua ky tu (may dung bang ma 1252 hoac 1258)
+Private Function ByteGoc(ByVal c As Long) As Long
+    If c < 256 Then ByteGoc = c: Exit Function
+    Select Case c
+        Case &H102: ByteGoc = &HC3
+        Case &H300: ByteGoc = &HCC
+        Case &H309: ByteGoc = &HD2
+        Case &H1AF: ByteGoc = &HDD
+        Case &H303: ByteGoc = &HDE
+        Case &H103: ByteGoc = &HE3
+        Case &H301: ByteGoc = &HEC
+        Case &H323: ByteGoc = &HF2
+        Case &H1B0: ByteGoc = &HFD
+        Case &H20AB: ByteGoc = &HFE
+        Case Else: ByteGoc = -1
+    End Select
+End Function
+
+Private Sub NapTcvn()
+    Dim a() As String, i As Long
+    If mTcvnNap Then Exit Sub
+    a = Split(TCVN_MAP, ",")
+    For i = LBound(a) To UBound(a)
+        mTcvn(CLng("&H" & Left$(a(i), 2))) = CLng("&H" & Mid$(a(i), 3, 4))
+    Next i
+    mTcvnNap = True
+End Sub
+
+'------------------------------------------------------------ INI kieu gCadas
+Private Function DocIni(ByVal path As String, ByVal sec As String, _
+                        ByVal khoa As String, ByVal macDinh As String) As String
+    Dim n As Integer, ln As String, trongSec As Boolean, p As Long
+    DocIni = macDinh
+    If Len(path) = 0 Then Exit Function
+    If Len(Dir$(path)) = 0 Then Exit Function
+    On Error GoTo Xong
+    n = FreeFile
+    Open path For Input As #n
+    Do While Not EOF(n)
+        Line Input #n, ln
+        ln = Trim$(ln)
+        If Left$(ln, 1) = "[" Then
+            trongSec = (StrComp(ln, "[" & sec & "]", vbTextCompare) = 0)
+        ElseIf trongSec Then
+            p = InStr(ln, "=")
+            If p > 1 Then
+                If StrComp(Trim$(Left$(ln, p - 1)), khoa, vbTextCompare) = 0 Then
+                    DocIni = Trim$(Mid$(ln, p + 1))
+                    Exit Do
+                End If
+            End If
+        End If
+    Loop
+Xong:
+    On Error Resume Next
+    Close #n
+End Function
+
+Private Function SoLevel(ByVal s As String, ByVal macDinh As Long) As Long
+    Dim t As String
+    t = Trim$(s)
+    If LCase$(Left$(t, 6)) = "level " Then t = Trim$(Mid$(t, 7))
+    If IsNumeric(t) Then SoLevel = CLng(Val(t)) Else SoLevel = macDinh
+End Function
+
+'------------------------------------------------------------ tien ich
+Private Function S2(ByVal v As Double) As String
+    S2 = Trim$(Str$(v))
+End Function
+
+Private Sub ThemBuf(ByVal s As String)
+    If mN > UBound(mBuf) Then ReDim Preserve mBuf(0 To UBound(mBuf) * 2 + 1)
+    mBuf(mN) = s
+    mN = mN + 1
+End Sub
+
+Private Function JoinBuf() As String
+    Dim r() As String, i As Long
+    If mN = 0 Then Exit Function
+    ReDim r(0 To mN - 1)
+    For i = 0 To mN - 1: r(i) = mBuf(i): Next i
+    JoinBuf = Join(r, vbLf) & vbLf
+End Function
+
+Private Function GhiUtf8(ByVal path As String, ByVal txt As String) As Boolean
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.WriteText txt
+    st.SaveToFile path, 2
+    st.Close
+    If Err.Number <> 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng ghi " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file m" & ChrW(7851) & "u: " & path & vbCrLf & Err.Description, "B" & ChrW(7855) & "t m" & ChrW(7851) & "u", vbExclamation
+        Exit Function
+    End If
+    GhiUtf8 = True
+End Function
