@@ -6,6 +6,11 @@
 '============================================================
 Option Explicit
 
+' Mac dinh giong gCadas: Level ho so = cac level cua file mau,
+' Level so do = canh thua, so hieu dinh, nhan thua
+Public Const DC_LV_HS_MD As String = "24,56,60,61"
+Public Const DC_LV_SD_MD As String = "37,38,30"
+
 Public Function DC_TimLevel(ByVal s As String) As Level
     Dim t As String, lv As Level, n As Long
     t = Trim$(s)
@@ -38,4 +43,42 @@ Private Function TimTheoSo(ByVal n As Long) As Level
     For Each lv In ActiveModelReference.Levels
         If lv.Number = n Then Set TimTheoSo = lv: Exit Function
     Next lv
+End Function
+
+'--- Level theo SO; chua co thi tao moi "Level n"
+Public Function DC_LevelTheoSo(ByVal n As Long) As Level
+    Dim lv As Level
+    If n <= 0 Then Exit Function
+    Set lv = TimTheoSo(n)
+    If lv Is Nothing Then
+        On Error Resume Next
+        Set lv = ActiveDesignFile.AddNewLevel("Level " & n)
+        If Not lv Is Nothing Then
+            lv.Number = n
+            ActiveDesignFile.Levels.Rewrite
+        End If
+        Err.Clear
+        Set lv = TimTheoSo(n)
+        If lv Is Nothing Then Set lv = ActiveModelReference.Levels("Level " & n)
+        Err.Clear
+        On Error GoTo 0
+    End If
+    Set DC_LevelTheoSo = lv
+End Function
+
+'--- "24,56,60,61" / "Level 37; Level 38" -> mang so level, tra ve so phan tu
+Public Function DC_DsSoLevel(ByVal s As String, ByRef ds() As Long) As Long
+    Dim t As String, a() As String, i As Long, c As Long, v As String
+    t = LCase$(s)
+    t = Replace(t, "level", " ")
+    t = Replace(t, ";", ","): t = Replace(t, "/", ",")
+    a = Split(t, ",")
+    ReDim ds(0 To UBound(a) + 1)
+    For i = 0 To UBound(a)
+        v = Trim$(a(i))
+        If Len(v) > 0 And IsNumeric(v) Then
+            If CLng(Val(v)) > 0 Then ds(c) = CLng(Val(v)): c = c + 1
+        End If
+    Next i
+    DC_DsSoLevel = c
 End Function
