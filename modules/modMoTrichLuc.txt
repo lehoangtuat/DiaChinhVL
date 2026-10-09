@@ -7,6 +7,14 @@ Private mHx1 As Double, mHy1 As Double, mHx2 As Double, mHy2 As Double
 ' View de zoom sau khi xuat (clsChonThuaTL dat = view vua bam)
 Public gViewTL As View
 
+' Pham vi + ten trich luc vua xuat (nut "Luu file ho so")
+Public gTLx1 As Double, gTLy1 As Double, gTLx2 As Double, gTLy2 As Double
+Public gTLTen As String
+
+' Trang thai truoc khi "Tat lop ban do" (de "Bat lop ban do" tra lai dung nhu cu)
+Private mLvTat As Collection      ' "chiSoView|tenLevel"
+Private mAttTat As Collection     ' ten file tham chieu da tat
+
 Public Sub DC_MoTrichLuc()
     frmTrichLuc.Show vbModeless
 End Sub
@@ -112,6 +120,8 @@ Public Sub ChayTrichLucThua(ByVal found As clsVung, _
         r = (zx2 - zx1) + (zy2 - zy1)
         zx1 = zx1 - r: zx2 = zx2 + r * 2#: zy1 = zy1 - r: zy2 = zy2 + r
     End If
+    gTLx1 = zx1: gTLy1 = zy1: gTLx2 = zx2: gTLy2 = zy2
+    gTLTen = "TL_To" & toBanDo & "_Thua" & found.soThua
     DC_ZoomVung zx1, zy1, zx2, zy2
 
     DC_ThongBao ChrW(272) & ChrW(227) & " tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a s" & ChrW(7889) & " " & found.soThua & _
@@ -243,4 +253,246 @@ Private Function DtMang(ByVal r As Variant) As Double
         s = s + r(i, 0) * r(j, 1) - r(j, 0) * r(i, 1)
     Next i
     DtMang = s / 2#
+End Function
+
+
+'============================================================
+' Nut "Xoa" canh Level ho so / Level so do: xoa MOI phan tu tren cac level
+' do trong ban ve dang mo (hoi lai truoc khi xoa).
+'============================================================
+Public Sub DC_XoaTheoLevel(ByVal dsLv As String)
+    Dim esc As ElementScanCriteria, co As Boolean
+    Set esc = TaoLocLevel(dsLv, co)
+    If Not co Then
+        DC_ThongBao "B" & ChrW(7843) & "n v" & ChrW(7869) & " ch" & ChrW(432) & "a c" & ChrW(243) & " level n" & ChrW(224) & "o trong: " & dsLv, "X" & ChrW(243) & "a", vbExclamation
+        Exit Sub
+    End If
+    Dim ee As ElementEnumerator, arr() As Element, n As Long, i As Long
+    Set ee = ActiveModelReference.Scan(esc)
+    n = DemMang(ee, arr)
+    If n = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng c" & ChrW(243) & " " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng n" & ChrW(224) & "o tr" & ChrW(234) & "n level " & dsLv & ".", "X" & ChrW(243) & "a"
+        Exit Sub
+    End If
+    If DC_ThongBao("X" & ChrW(243) & "a " & n & " " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng tr" & ChrW(234) & "n level " & dsLv & " ?", "X" & ChrW(243) & "a", vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
+    On Error Resume Next
+    For i = 0 To n - 1
+        ActiveModelReference.RemoveElement arr(i)
+    Next i
+    On Error GoTo 0
+    RedrawAllViews
+End Sub
+
+'============================================================
+' Nut "Luu file ho so": luu trich luc VUA XUAT ra file .dgn rieng.
+' Chi lay phan tu tren Level ho so + Level so do, trong pham vi khung
+' vua xuat. File moi lay ban ve dang mo lam seed (giu don vi, level),
+' xoa sach noi dung roi chep phan tu trich luc sang.
+'============================================================
+Public Sub DC_LuuFileHoSo(ByVal dsHS As String, ByVal dsSD As String)
+    If gTLx2 <= gTLx1 Or gTLy2 <= gTLy1 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a xu" & ChrW(7845) & "t tr" & ChrW(237) & "ch l" & ChrW(7909) & "c n" & ChrW(224) & "o. H" & ChrW(227) & "y b" & ChrW(7845) & "m Ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n (ho" & ChrW(7863) & "c Ch" & ChrW(7885) & "n th" & ChrW(7917) & "a) tr" & ChrW(432) & ChrW(7899) & "c.", "L" & ChrW(432) & "u file h" & ChrW(7891) & " s" & ChrW(417), vbExclamation
+        Exit Sub
+    End If
+    Dim esc As ElementScanCriteria, co As Boolean
+    Set esc = TaoLocLevel(dsHS & "," & dsSD, co)
+    If Not co Then
+        DC_ThongBao "B" & ChrW(7843) & "n v" & ChrW(7869) & " ch" & ChrW(432) & "a c" & ChrW(243) & " level h" & ChrW(7891) & " s" & ChrW(417) & " / s" & ChrW(417) & " " & ChrW(273) & ChrW(7891) & ": " & dsHS & " ; " & dsSD, "L" & ChrW(432) & "u file h" & ChrW(7891) & " s" & ChrW(417), vbExclamation
+        Exit Sub
+    End If
+    Dim rg As Range3d
+    rg.Low.X = gTLx1: rg.Low.Y = gTLy1: rg.Low.Z = -1E+20
+    rg.High.X = gTLx2: rg.High.Y = gTLy2: rg.High.Z = 1E+20
+    esc.IncludeOnlyWithinRange rg
+
+    Dim ee As ElementEnumerator, arr() As Element, n As Long, i As Long
+    Set ee = ActiveModelReference.Scan(esc)
+    n = DemMang(ee, arr)
+    If n = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng c" & ChrW(243) & " " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng tr" & ChrW(237) & "ch l" & ChrW(7909) & "c tr" & ChrW(234) & "n level " & dsHS & " ; " & dsSD & ".", "L" & ChrW(432) & "u file h" & ChrW(7891) & " s" & ChrW(417), vbExclamation
+        Exit Sub
+    End If
+
+    ' Chon noi luu
+    Dim thuMuc As String, f As String
+    thuMuc = DC_DocCauHinh("LUU_TL_DIR", "")
+    If Len(thuMuc) = 0 Then thuMuc = ActiveDesignFile.Path
+    f = DC_LuuFile("MicroStation DGN (*.dgn)|*.dgn", "Luu file ho so", thuMuc & "\" & gTLTen & ".dgn", "dgn")
+    If Len(f) = 0 Then Exit Sub
+    If LCase$(Right$(f, 4)) <> ".dgn" Then f = f & ".dgn"
+    If LCase$(f) = LCase$(ActiveDesignFile.FullName) Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(432) & ChrW(7907) & "c l" & ChrW(432) & "u " & ChrW(273) & ChrW(232) & " l" & ChrW(234) & "n b" & ChrW(7843) & "n v" & ChrW(7869) & " " & ChrW(273) & "ang m" & ChrW(7903) & ".", "L" & ChrW(432) & "u file h" & ChrW(7891) & " s" & ChrW(417), vbExclamation
+        Exit Sub
+    End If
+    DC_GhiCauHinh "LUU_TL_DIR", Left$(f, InStrRev(f, "\") - 1)
+
+    On Error Resume Next
+    If Len(Dir$(f)) > 0 Then Kill f
+    If Len(Dir$(f)) > 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng ghi " & ChrW(273) & ChrW(232) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file (" & ChrW(273) & "ang m" & ChrW(7903) & "?): " & f, "L" & ChrW(432) & "u file h" & ChrW(7891) & " s" & ChrW(417), vbExclamation
+        Exit Sub
+    End If
+    Err.Clear
+
+    ' Tao file moi tu ban ve dang mo (seed) roi xoa sach
+    Dim df As DesignFile, md As ModelReference
+    Application.CreateDesignFile ActiveDesignFile.FullName, f, False
+    Err.Clear
+    Set df = Application.OpenDesignFileForProgram(f, False)
+    If df Is Nothing Or Err.Number <> 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(7841) & "o " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file: " & f & vbCrLf & Err.Description, "L" & ChrW(432) & "u file h" & ChrW(7891) & " s" & ChrW(417), vbExclamation
+        Exit Sub
+    End If
+    Set md = df.DefaultModelReference
+
+    Dim escX As New ElementScanCriteria, eX As ElementEnumerator, cu() As Element, nCu As Long
+    escX.ExcludeNonGraphical
+    Set eX = md.Scan(escX)
+    nCu = DemMang(eX, cu)
+    For i = 0 To nCu - 1
+        md.RemoveElement cu(i)
+    Next i
+    For i = md.Attachments.Count To 1 Step -1
+        md.Attachments.Remove md.Attachments(i)
+    Next i
+    Err.Clear
+
+    ' Chep phan tu trich luc
+    Dim nOk As Long
+    For i = 0 To n - 1
+        Err.Clear
+        md.CopyElement arr(i)
+        If Err.Number = 0 Then nOk = nOk + 1
+    Next i
+    Err.Clear
+    df.Save
+    df.Close
+    On Error GoTo 0
+
+    DC_ThongBao ChrW(272) & ChrW(227) & " l" & ChrW(432) & "u " & nOk & " " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng tr" & ChrW(237) & "ch l" & ChrW(7909) & "c v" & ChrW(224) & "o:" & vbCrLf & f, "L" & ChrW(432) & "u file h" & ChrW(7891) & " s" & ChrW(417)
+End Sub
+
+'--- Bo loc theo danh sach so level (chi level da co trong ban ve)
+Private Function TaoLocLevel(ByVal dsLv As String, ByRef co As Boolean) As ElementScanCriteria
+    Dim esc As New ElementScanCriteria, ds() As Long, c As Long, i As Long, lv As Level
+    esc.ExcludeNonGraphical
+    esc.ExcludeAllLevels
+    c = DC_DsSoLevel(dsLv, ds)
+    For i = 0 To c - 1
+        Set lv = Nothing
+        Set lv = DC_TimLevel(CStr(ds(i)))
+        If Not lv Is Nothing Then esc.IncludeLevel lv: co = True
+    Next i
+    Set TaoLocLevel = esc
+End Function
+
+'--- Dua ket qua quet vao mang (tranh sua ban ve trong luc dang quet)
+Private Function DemMang(ByVal ee As ElementEnumerator, ByRef arr() As Element) As Long
+    Dim n As Long
+    ReDim arr(0 To 255)
+    Do While ee.MoveNext
+        If n > UBound(arr) Then ReDim Preserve arr(0 To n * 2)
+        Set arr(n) = ee.Current
+        n = n + 1
+    Loop
+    DemMang = n
+End Function
+
+
+'============================================================
+' TAT LOP BAN DO: chi chua Level ho so + Level so do (trich luc) trong
+' moi view dang mo, tat ca file tham chieu (ban do nen).
+' BAT LOP BAN DO: bat lai dung cac level / tham chieu vua tat
+' (chua tat lan nao -> bat het moi level).
+'============================================================
+Public Sub DC_TatLopBanDo(ByVal dsHS As String, ByVal dsSD As String)
+    Dim giu As Object, ds() As Long, c As Long, i As Long
+    Set giu = CreateObject("Scripting.Dictionary")
+    c = DC_DsSoLevel(dsHS & "," & dsSD, ds)
+    For i = 0 To c - 1
+        giu(CStr(ds(i))) = True
+    Next i
+    If c = 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p Level h" & ChrW(7891) & " s" & ChrW(417) & " / Level s" & ChrW(417) & " " & ChrW(273) & ChrW(7891) & ".", "T" & ChrW(7855) & "t l" & ChrW(7899) & "p b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891), vbExclamation
+        Exit Sub
+    End If
+
+    ' bam Tat nhieu lan lien tiep: giu danh sach cu de Bat tra lai du
+    If mLvTat Is Nothing Then Set mLvTat = New Collection
+    If mAttTat Is Nothing Then Set mAttTat = New Collection
+    Dim vw As View, vi As Long, lv As Level
+    On Error Resume Next
+    For vi = 1 To 8
+        Set vw = ActiveDesignFile.Views(vi)
+        If Not vw Is Nothing Then
+            If vw.IsOpen Then
+                For Each lv In ActiveDesignFile.Levels
+                    If Not giu.Exists(CStr(lv.Number)) Then
+                        If lv.IsDisplayedInView(vw) Then
+                            lv.IsDisplayedInView(vw) = False
+                            mLvTat.Add vi & "|" & lv.Name
+                        End If
+                    End If
+                Next lv
+            End If
+        End If
+        Set vw = Nothing
+    Next vi
+    Dim att As Attachment
+    For Each att In ActiveModelReference.Attachments
+        If att.DisplayFlag Then
+            att.DisplayFlag = False
+            att.Rewrite
+            mAttTat.Add att.AttachName
+        End If
+    Next att
+    On Error GoTo 0
+    RedrawAllViews
+End Sub
+
+Public Sub DC_BatLopBanDo()
+    Dim vw As View, vi As Long, lv As Level, i As Long, p As Long, it As String
+    On Error Resume Next
+    If mLvTat Is Nothing Then
+        ' chua tat lan nao: bat het
+        For vi = 1 To 8
+            Set vw = ActiveDesignFile.Views(vi)
+            If Not vw Is Nothing Then
+                If vw.IsOpen Then
+                    For Each lv In ActiveDesignFile.Levels
+                        lv.IsDisplayedInView(vw) = True
+                    Next lv
+                End If
+            End If
+            Set vw = Nothing
+        Next vi
+    Else
+        For i = 1 To mLvTat.Count
+            it = mLvTat(i): p = InStr(it, "|")
+            Set vw = ActiveDesignFile.Views(CLng(Left$(it, p - 1)))
+            Set lv = ActiveDesignFile.Levels(Mid$(it, p + 1))
+            If Not vw Is Nothing And Not lv Is Nothing Then lv.IsDisplayedInView(vw) = True
+            Set vw = Nothing: Set lv = Nothing
+        Next i
+    End If
+    Dim att As Attachment
+    For Each att In ActiveModelReference.Attachments
+        If Not att.DisplayFlag Then
+            If mAttTat Is Nothing Then
+                att.DisplayFlag = True: att.Rewrite
+            ElseIf CoTrong(mAttTat, att.AttachName) Then
+                att.DisplayFlag = True: att.Rewrite
+            End If
+        End If
+    Next att
+    On Error GoTo 0
+    Set mLvTat = Nothing: Set mAttTat = Nothing
+    RedrawAllViews
+End Sub
+
+Private Function CoTrong(ByVal col As Collection, ByVal s As String) As Boolean
+    Dim i As Long
+    For i = 1 To col.Count
+        If col(i) = s Then CoTrong = True: Exit Function
+    Next i
 End Function
