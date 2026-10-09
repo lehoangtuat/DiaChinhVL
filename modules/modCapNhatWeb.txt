@@ -43,32 +43,64 @@ Public Sub DC_KiemTraCapNhat()
     If DC_ThongBao("C" & ChrW(243) & " b" & ChrW(7843) & "n m" & ChrW(7899) & "i " & moi & " (" & ChrW(273) & "ang d" & ChrW(249) & "ng " & cu & ")." & vbCrLf & vbCrLf & _
                    ghiChu & vbCrLf & "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t ngay?", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t", vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
 
-    ' Tai danh sach + tung module ve C:\DiaChinhVL\capnhat_web
+    ' Tai danh sach module
     ds = TaiChuoi(DC_URL_CAPNHAT & "files.txt")
     If Len(Trim$(ds)) = 0 Then DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(7843) & "i " & ChrW(273) & ChrW(432) & ChrW(7907) & "c files.txt.", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t", vbExclamation: Exit Sub
     thu = DC_THUMUC & "\capnhat_web"
     On Error Resume Next
     If Len(Dir$(DC_THUMUC, vbDirectory)) = 0 Then MkDir DC_THUMUC
     If Len(Dir$(thu, vbDirectory)) = 0 Then MkDir thu
-    Kill thu & "\*.txt"
     On Error GoTo 0
 
+    ' SUA 09/10/2026: chi tai module DA THAY DOI (so ma SHA cua GitHub voi lan
+    ' cap nhat truoc, luu o capnhat_web\_sha.txt). Khong lay duoc SHA -> tai het.
+    Dim shaMoi As Object, shaCu As Object, can() As String, nCan As Long
+    Set shaMoi = DocShaGitHub()
+    Set shaCu = DocShaCu(thu & "\_sha.txt")
     ten = Split(Replace(ds, vbCr, ""), vbLf)
+    ReDim can(0 To UBound(ten))
     For i = LBound(ten) To UBound(ten)
         ten(i) = Trim$(ten(i))
         If Len(ten(i)) > 0 Then
-            s = TaiChuoi(DC_URL_CAPNHAT & "modules/" & ten(i) & ".txt")
-            If Len(s) = 0 Then
-                DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(7843) & "i " & ChrW(273) & ChrW(432) & ChrW(7907) & "c module " & ten(i) & ". " & ChrW(272) & ChrW(227) & " d" & ChrW(7915) & "ng, ch" & ChrW(432) & "a thay " & ChrW(273) & ChrW(7893) & "i g" & ChrW(236) & ".", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t", vbExclamation
-                Exit Sub
+            If shaMoi.Count = 0 Then
+                can(nCan) = ten(i): nCan = nCan + 1
+            ElseIf Not shaMoi.Exists(ten(i)) Then
+                can(nCan) = ten(i): nCan = nCan + 1
+            ElseIf Not shaCu.Exists(ten(i)) Then
+                can(nCan) = ten(i): nCan = nCan + 1
+            ElseIf shaCu(ten(i)) <> shaMoi(ten(i)) Or Len(Dir$(thu & "\" & ten(i) & ".txt")) = 0 Then
+                can(nCan) = ten(i): nCan = nCan + 1
             End If
-            If Not GhiAnsi(thu & "\" & ten(i) & ".txt", s) Then Exit Sub
-            nTai = nTai + 1
         End If
     Next i
+    If nCan = 0 Then
+        DC_GhiCauHinh "PHIENBAN", moi
+        DC_ThongBao ChrW(272) & ChrW(227) & " c" & ChrW(7853) & "p nh" & ChrW(7853) & "t l" & ChrW(234) & "n b" & ChrW(7843) & "n " & moi & " (kh" & ChrW(244) & "ng c" & ChrW(243) & " module n" & ChrW(224) & "o thay " & ChrW(273) & ChrW(7893) & "i).", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t"
+        Exit Sub
+    End If
+    ReDim Preserve can(0 To nCan - 1)
+
+    For i = 0 To nCan - 1
+        ShowStatus "Cap nhat DiaChinhVL: tai " & (i + 1) & "/" & nCan & " - " & can(i)
+        DoEvents
+        s = TaiChuoi(DC_URL_CAPNHAT & "modules/" & can(i) & ".txt")
+        If Len(s) = 0 Then
+            ShowStatus ""
+            DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(7843) & "i " & ChrW(273) & ChrW(432) & ChrW(7907) & "c module " & can(i) & ". " & ChrW(272) & ChrW(227) & " d" & ChrW(7915) & "ng, ch" & ChrW(432) & "a thay " & ChrW(273) & ChrW(7893) & "i g" & ChrW(236) & "." & vbCrLf & _
+                        "Ki" & ChrW(7875) & "m tra m" & ChrW(7841) & "ng r" & ChrW(7891) & "i b" & ChrW(7845) & "m Ki" & ChrW(7875) & "m tra c" & ChrW(7853) & "p nh" & ChrW(7853) & "t l" & ChrW(7841) & "i.", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t", vbExclamation
+            Exit Sub
+        End If
+        If Not GhiAnsi(thu & "\" & can(i) & ".txt", s) Then ShowStatus "": Exit Sub
+        nTai = nTai + 1
+    Next i
+    ShowStatus "Cap nhat DiaChinhVL: dang nap code ..."
+    DoEvents
+    ten = can
 
     ' Nap vao project
     kq = ApDung(thu, ten)
+    If shaMoi.Count > 0 Then GhiShaCu thu & "\_sha.txt", shaMoi
+    ShowStatus ""
     DC_GhiCauHinh "PHIENBAN", moi
     On Error Resume Next
     CadInputQueue.SendKeyin "vba save DiaChinhVL"
@@ -145,18 +177,72 @@ End Function
 
 '------------------------------------------------------------ mang
 Private Function TaiChuoi(ByVal url As String) As String
-    Dim h As Object
-    On Error Resume Next
-    Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-    If h Is Nothing Then Set h = CreateObject("WinHttp.WinHttpRequest.5.1")
-    If h Is Nothing Then Exit Function
-    Err.Clear
-    h.Open "GET", url & "?t=" & Format$(Now, "yyyymmddhhnnss"), False
-    h.setRequestHeader "Cache-Control", "no-cache"
-    h.Send
-    If Err.Number <> 0 Then Exit Function
-    If h.Status = 200 Then TaiChuoi = h.responseText
+    Dim h As Object, lan As Long
+    For lan = 1 To 3
+        Set h = Nothing
+        On Error Resume Next
+        Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+        If h Is Nothing Then Set h = CreateObject("WinHttp.WinHttpRequest.5.1")
+        If h Is Nothing Then Exit Function
+        Err.Clear
+        h.setTimeouts 5000, 10000, 15000, 30000      ' khong treo may khi mang cham
+        h.Open "GET", url & IIf(InStr(url, "?") > 0, "&", "?") & "t=" & Format$(Now, "yyyymmddhhnnss"), False
+        h.setRequestHeader "Cache-Control", "no-cache"
+        h.setRequestHeader "User-Agent", "DiaChinhVL"
+        h.Send
+        If Err.Number = 0 Then
+            If h.Status = 200 Then TaiChuoi = h.responseText: Exit Function
+        End If
+        Err.Clear
+        On Error GoTo 0
+        DoEvents
+    Next lan
 End Function
+
+' SHA tung module tren GitHub (1 lan goi API): ten module -> sha
+Private Function DocShaGitHub() As Object
+    Dim d As Object, j As String, p As Long, q As Long, ten As String, sha As String, pSau As Long
+    Set d = CreateObject("Scripting.Dictionary")
+    Set DocShaGitHub = d
+    j = TaiChuoi("https://api.github.com/repos/lehoangtuat/DiaChinhVL/git/trees/main?recursive=1")
+    If Len(j) = 0 Then Exit Function
+    j = Replace(j, " ", "")
+    p = InStr(j, """path"":""modules/")
+    Do While p > 0
+        p = p + Len("""path"":""modules/")
+        q = InStr(p, j, ".txt""")
+        If q = 0 Then Exit Do
+        ten = Mid$(j, p, q - p)
+        pSau = InStr(q, j, """path"":""")
+        q = InStr(q, j, """sha"":""")
+        If q > 0 And (pSau = 0 Or q < pSau) Then
+            sha = Mid$(j, q + Len("""sha"":"""), 40)
+            If Len(ten) > 0 And InStr(ten, "/") = 0 Then d(ten) = sha
+        End If
+        p = InStr(p, j, """path"":""modules/")
+    Loop
+End Function
+
+Private Function DocShaCu(ByVal f As String) As Object
+    Dim d As Object, t As String, a() As String, i As Long, k As Long
+    Set d = CreateObject("Scripting.Dictionary")
+    Set DocShaCu = d
+    If Len(Dir$(f)) = 0 Then Exit Function
+    t = DocFile(f)
+    a = Split(Replace(t, vbCr, ""), vbLf)
+    For i = 0 To UBound(a)
+        k = InStr(a(i), "=")
+        If k > 1 Then d(Left$(a(i), k - 1)) = Mid$(a(i), k + 1)
+    Next i
+End Function
+
+Private Sub GhiShaCu(ByVal f As String, ByVal d As Object)
+    Dim k As Variant, s As String
+    For Each k In d.Keys
+        s = s & k & "=" & d(k) & vbCrLf
+    Next k
+    GhiAnsi f, s
+End Sub
 
 '------------------------------------------------------------ file
 Private Function GhiAnsi(ByVal path As String, ByVal s As String) As Boolean
