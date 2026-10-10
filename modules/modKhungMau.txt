@@ -879,6 +879,7 @@ boTxt2:
     ' So do thua: THU NHO vua o (kp), tam o = tam khung (Cpx,Cpy)
     VeThuaTrongO found, Cpx, Cpy, kp, bwm * 0.03
     Set gLvHSMot = Nothing
+    Set gLvHSMap = Nothing
     DatLv lvCu
 End Sub
 
@@ -892,15 +893,43 @@ Private Sub ChuanBiLevel()
     Set mLvBang = Nothing: Set mLvRanh = Nothing
     Set mLvSo = Nothing: Set mLvNhan = Nothing
     Set gLvHSMot = Nothing
+    Set gLvHSMap = Nothing
     If DC_DocCauHinh("LV_HS_ON", "1") = "1" Then
         c = DC_DsSoLevel(DC_DocCauHinh("LV_HS", DC_LV_HS_MD), ds)
         If c = 1 Then
             Set gLvHSMot = DC_LevelTheoSo(ds(0))
             Set mLvBang = gLvHSMot
         ElseIf c > 1 Then
-            For i = 1 To gNT
-                If gTS(i) = "tttl" Then Set mLvBang = DC_LevelTheoSo(gTL(i)): Exit For
+            ' SUA 10/10/2026: NHIEU so -> moi phan tu ho so PHAI nam tren cac level
+            ' da nhap (de "Luu file ho so" lay du). Cac level cua file mau (tang dan)
+            ' lan luot ung voi cac so da nhap; mau nhieu level hon thi phan du ve so cuoi.
+            ' Vd mau 24,56,60,61 + nhap 24,56,60,61 -> giu nguyen nhu mau.
+            Dim lvMau() As Long, nM As Long, j As Long, k2 As Long, tmp As Long
+            ReDim lvMau(1 To gNL + gNT + 1)
+            For i = 1 To gNL
+                ThemLvMau lvMau, nM, gLineLevel(i)
             Next i
+            For i = 1 To gNT
+                ThemLvMau lvMau, nM, gTL(i)
+            Next i
+            For i = 1 To nM - 1                 ' sap tang dan
+                For j = i + 1 To nM
+                    If lvMau(j) < lvMau(i) Then tmp = lvMau(i): lvMau(i) = lvMau(j): lvMau(j) = tmp
+                Next j
+            Next i
+            Set gLvHSMap = CreateObject("Scripting.Dictionary")
+            For i = 1 To nM
+                k2 = i - 1: If k2 > c - 1 Then k2 = c - 1
+                Set gLvHSMap(CStr(lvMau(i))) = DC_LevelTheoSo(ds(k2))
+            Next i
+            Set gLvHSMot = DC_LevelTheoSo(ds(c - 1))      ' level mau la -> so cuoi
+            For i = 1 To gNT
+                If gTS(i) = "tttl" Then
+                    If gLvHSMap.Exists(CStr(gTL(i))) Then Set mLvBang = gLvHSMap(CStr(gTL(i)))
+                    Exit For
+                End If
+            Next i
+            If mLvBang Is Nothing Then Set mLvBang = gLvHSMot
         End If
     End If
     If DC_DocCauHinh("LV_SD_ON", "1") = "1" Then
@@ -935,7 +964,9 @@ Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ring() As 
     SapCotHang tx, ty, ct, hT * 2#
     If cc > 0 Then SapCotHang cx, cy, cc, hC * 2#
 
-    If Not gLvHSMot Is Nothing Then
+    If Not gLvHSMap Is Nothing Then
+        If gLvHSMap.Exists(CStr(lvT)) Then DatLv gLvHSMap(CStr(lvT)) Else DatLv gLvHSMot
+    ElseIf Not gLvHSMot Is Nothing Then
         DatLv gLvHSMot
     ElseIf lvT > 0 And DC_DocCauHinh("LV_HS_ON", "1") = "1" Then
         DatLv DC_LevelTheoSo(lvT)
@@ -1003,6 +1034,15 @@ Private Function TamCot(ByVal x As Double, ByVal y As Double, ByRef w As Double)
         If (xr - xl) < 1000# Then TamCot = (xl + xr) / 2#: w = xr - xl
     End If
 End Function
+
+Private Sub ThemLvMau(ByRef a() As Long, ByRef n As Long, ByVal lv As Long)
+    Dim i As Long
+    If lv <= 0 Then Exit Sub
+    For i = 1 To n
+        If a(i) = lv Then Exit Sub
+    Next i
+    n = n + 1: a(n) = lv
+End Sub
 
 Private Sub DatLv(ByVal lv As Level)
     If lv Is Nothing Then Exit Sub
