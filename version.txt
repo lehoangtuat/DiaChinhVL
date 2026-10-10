@@ -1,2 +1,2 @@
-1.5
-Cap nhat moi: thay nguyen file chuong trinh (khong con treo may); them ten don vi trong Gioi thieu; trich luc: level ho so/so do, luu file ho so, tat/bat lop ban do
+1.6
+Thu gon form Tim loi du lieu
