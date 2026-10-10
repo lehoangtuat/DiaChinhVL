@@ -1,2 +1,2 @@
-1.7
-Hien so phien ban tren menu va hop Gioi thieu; tu bao khi co ban moi
+1.8
+Cap nhat tu dong MicroStation va mo lai ban ve (khong can dong tay)
