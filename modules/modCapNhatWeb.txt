@@ -16,6 +16,46 @@ Public Function DC_PhienBan() As String
 End Function
 
 Public Sub DC_KiemTraCapNhat()
+    KiemTra True
+End Sub
+
+' Goi tu thong bao "co ban moi" khi mo menu (da hoi roi -> khong hoi lai)
+Public Sub DC_CapNhatNgay()
+    KiemTra False
+End Sub
+
+' Kiem tra nhanh khi mo menu (toi da 1 lan/ngay, mang cham thi bo qua).
+' Tra ve so ban moi neu VUA phat hien, "" neu khong.
+Public Function DC_BanMoiNhanh() As String
+    Dim ngay As String, h As Object, v As String
+    ngay = Format$(Date, "yyyymmdd")
+    If DC_DocCauHinh("CN_NGAY", "") = ngay Then Exit Function
+    DC_GhiCauHinh "CN_NGAY", ngay
+    On Error Resume Next
+    Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    If h Is Nothing Then Exit Function
+    h.setTimeouts 2000, 3000, 3000, 4000
+    h.Open "GET", DC_URL_CAPNHAT & "version.txt?t=" & Format$(Now, "yyyymmddhhnnss"), False
+    h.setRequestHeader "Cache-Control", "no-cache"
+    h.Send
+    If Err.Number <> 0 Then Exit Function
+    If h.Status <> 200 Then Exit Function
+    v = Trim$(Split(Replace(h.responseText, vbCr, ""), vbLf)(0))
+    If Len(v) = 0 Then Exit Function
+    DC_GhiCauHinh "CN_MOI", v
+    If SoSanhPB(v, DC_PhienBan()) > 0 Then DC_BanMoiNhanh = v
+End Function
+
+' Ban moi da biet tu lan kiem tra truoc (de hien nhan "Co ban moi")
+Public Function DC_BanMoiDaBiet() As String
+    Dim v As String
+    v = DC_DocCauHinh("CN_MOI", "")
+    If Len(v) > 0 Then
+        If SoSanhPB(v, DC_PhienBan()) > 0 Then DC_BanMoiDaBiet = v
+    End If
+End Function
+
+Private Sub KiemTra(ByVal hoi As Boolean)
     Dim v As String, dong() As String, moi As String, cu As String, ghiChu As String
     Dim i As Long, bat As String, ps As String, s As String
 
@@ -37,10 +77,12 @@ Public Sub DC_KiemTraCapNhat()
         DC_ThongBao "B" & ChrW(7841) & "n " & ChrW(273) & "ang d" & ChrW(249) & "ng b" & ChrW(7843) & "n m" & ChrW(7899) & "i nh" & ChrW(7845) & "t (" & cu & ").", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t"
         Exit Sub
     End If
+    If hoi Then
     If DC_ThongBao("C" & ChrW(243) & " b" & ChrW(7843) & "n m" & ChrW(7899) & "i " & moi & " (" & ChrW(273) & "ang d" & ChrW(249) & "ng " & cu & ")." & vbCrLf & vbCrLf & _
                    ghiChu & vbCrLf & "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t ngay?" & vbCrLf & _
                    "(S" & ChrW(7869) & " m" & ChrW(7903) & " c" & ChrW(7917) & "a s" & ChrW(7893) & " c" & ChrW(7853) & "p nh" & ChrW(7853) & "t; khi " & ChrW(273) & ChrW(432) & ChrW(7907) & "c nh" & ChrW(7855) & "c h" & ChrW(227) & "y L" & ChrW(431) & "U b" & ChrW(7843) & "n v" & ChrW(7869) & " v" & ChrW(224) & " " & ChrW(272) & ChrW(211) & "NG MicroStation)", _
                    "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t", vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
+    End If
 
     ' Lay ban moi nhat cua trinh cap nhat (.bat + .ps1) ve C:\DiaChinhVL
     bat = DC_THUMUC & "\CapNhat_DiaChinhVL.bat"
