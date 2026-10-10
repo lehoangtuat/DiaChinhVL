@@ -80,7 +80,7 @@ Private Sub KiemTra(ByVal hoi As Boolean)
     If hoi Then
     If DC_ThongBao("C" & ChrW(243) & " b" & ChrW(7843) & "n m" & ChrW(7899) & "i " & moi & " (" & ChrW(273) & "ang d" & ChrW(249) & "ng " & cu & ")." & vbCrLf & vbCrLf & _
                    ghiChu & vbCrLf & "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t ngay?" & vbCrLf & _
-                   "(S" & ChrW(7869) & " m" & ChrW(7903) & " c" & ChrW(7917) & "a s" & ChrW(7893) & " c" & ChrW(7853) & "p nh" & ChrW(7853) & "t; khi " & ChrW(273) & ChrW(432) & ChrW(7907) & "c nh" & ChrW(7855) & "c h" & ChrW(227) & "y L" & ChrW(431) & "U b" & ChrW(7843) & "n v" & ChrW(7869) & " v" & ChrW(224) & " " & ChrW(272) & ChrW(211) & "NG MicroStation)", _
+                   "(MicroStation s" & ChrW(7869) & " t" & ChrW(7921) & " " & ChrW(273) & ChrW(243) & "ng, c" & ChrW(7853) & "p nh" & ChrW(7853) & "t xong t" & ChrW(7921) & " m" & ChrW(7903) & " l" & ChrW(7841) & "i b" & ChrW(7843) & "n v" & ChrW(7869) & " " & ChrW(273) & "ang l" & ChrW(224) & "m)", _
                    "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t", vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
     End If
 
@@ -96,16 +96,22 @@ Private Sub KiemTra(ByVal hoi As Boolean)
         Exit Sub
     End If
 
+    ' Ghi ban ve dang mo de trinh cap nhat mo lai sau khi xong
     On Error Resume Next
+    Dim nf As Integer
+    nf = FreeFile
+    Open DC_THUMUC & "\capnhat_molai.txt" For Output As #nf
+    Print #nf, ActiveDesignFile.FullName
+    Close #nf
+    Err.Clear
     Shell "cmd /c """ & bat & """", vbNormalFocus
     If Err.Number <> 0 Then
         DC_ThongBao "Kh" & ChrW(244) & "ng ch" & ChrW(7841) & "y " & ChrW(273) & ChrW(432) & ChrW(7907) & "c: " & bat & vbCrLf & "H" & ChrW(227) & "y b" & ChrW(7845) & "m " & ChrW(273) & ChrW(250) & "p file " & ChrW(273) & ChrW(243) & " " & ChrW(273) & ChrW(7875) & " c" & ChrW(7853) & "p nh" & ChrW(7853) & "t.", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t", vbExclamation
         Exit Sub
     End If
     On Error GoTo 0
-    DC_ThongBao "C" & ChrW(7917) & "a s" & ChrW(7893) & " c" & ChrW(7853) & "p nh" & ChrW(7853) & "t " & ChrW(273) & ChrW(227) & " m" & ChrW(7903) & "." & vbCrLf & _
-                "H" & ChrW(227) & "y L" & ChrW(431) & "U b" & ChrW(7843) & "n v" & ChrW(7869) & " r" & ChrW(7891) & "i " & ChrW(272) & ChrW(211) & "NG MicroStation - ch" & ChrW(432) & ChrW(417) & "ng tr" & ChrW(236) & "nh t" & ChrW(7921) & " c" & ChrW(7853) & "p nh" & ChrW(7853) & "t," & vbCrLf & _
-                "xong m" & ChrW(7903) & " l" & ChrW(7841) & "i MicroStation l" & ChrW(224) & " d" & ChrW(249) & "ng b" & ChrW(7843) & "n " & moi & ".", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t"
+    ' Khong hien hop thoai nua: trinh cap nhat tu dong MicroStation, thay file, mo lai
+    ShowStatus "DiaChinhVL: dang cap nhat len ban " & moi & " - MicroStation se tu dong va mo lai ..."
 End Sub
 
 Private Function TaiChuoi(ByVal url As String) As String
