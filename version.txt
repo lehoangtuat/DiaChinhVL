@@ -1,2 +1,2 @@
 1.5
-Cap nhat nhanh hon: chi tai module thay doi, khong treo may, hien tien do
+Cap nhat moi: thay nguyen file chuong trinh (khong con treo may); them ten don vi trong Gioi thieu; trich luc: level ho so/so do, luu file ho so, tat/bat lop ban do
