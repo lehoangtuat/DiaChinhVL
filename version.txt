@@ -1,2 +1,2 @@
-1.6
-Thu gon form Tim loi du lieu
+1.7
+Hien so phien ban tren menu va hop Gioi thieu; tu bao khi co ban moi
