@@ -13,7 +13,7 @@ Private Sub UserForm_Initialize()
 
     Dim l1 As Object
     Set l1 = Me.Controls.Add("Forms.Label.1", "lblTen", True)
-    l1.Caption = ChrW(272) & ChrW(7882) & "A CH" & ChrW(205) & "NH VL"
+    l1.Caption = ChrW(272) & ChrW(7882) & "A CH" & ChrW(205) & "NH VL - Phi" & ChrW(234) & "n b" & ChrW(7843) & "n " & DC_PhienBan()
     l1.Left = 12: l1.Top = 12: l1.Width = 382: l1.Height = 18
     l1.Font.Name = "Arial": l1.Font.size = 11: l1.Font.Bold = True
     l1.TextAlign = 2   ' center
