@@ -59,12 +59,29 @@ if ($b.Length -lt 200000 -or $b[0] -ne 0xD0 -or $b[1] -ne 0xCF -or $b[2] -ne 0x1
 }
 Write-Host "  [OK] Da tai ($([math]::Round($b.Length/1KB)) KB)" -ForegroundColor Green
 
-# ---------- Cho dong MicroStation ----------
-if (Get-Process ustation -ErrorAction SilentlyContinue) {
+# ---------- Tu dong MicroStation (ban ve da auto save) ----------
+$MoLaiFile = Join-Path $Dest 'capnhat_molai.txt'
+$exe = $null
+$ps = @(Get-Process ustation -ErrorAction SilentlyContinue)
+if ($ps.Count -gt 0) {
+    try { $exe = $ps[0].Path } catch {}
     Write-Host ''
-    Write-Host '  Hay LUU ban ve va DONG MicroStation de cap nhat ...' -ForegroundColor Yellow
-    while (Get-Process ustation -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
-    Start-Sleep -Seconds 2
+    Write-Host '  Dang dong MicroStation de cap nhat ...' -ForegroundColor Yellow
+    foreach ($p in $ps) { try { [void]$p.CloseMainWindow() } catch {} }
+    $t0 = Get-Date
+    while ((Get-Process ustation -ErrorAction SilentlyContinue) -and ((Get-Date) - $t0).TotalSeconds -lt 15) { Start-Sleep -Milliseconds 500 }
+    if (Get-Process ustation -ErrorAction SilentlyContinue) {
+        Stop-Process -Name ustation -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
+    Write-Host '  MicroStation da dong.' -ForegroundColor Green
+    Start-Sleep -Seconds 1
+}
+if (-not $exe) {
+    foreach ($c in @("${env:ProgramFiles(x86)}\Bentley\MicroStation V8i (SELECTseries)\MicroStation\ustation.exe",
+                     "$env:ProgramFiles\Bentley\MicroStation V8i (SELECTseries)\MicroStation\ustation.exe")) {
+        if (Test-Path $c) { $exe = $c; break }
+    }
 }
 
 # ---------- Thay file ----------
@@ -93,5 +110,20 @@ $utf8 = New-Object Text.UTF8Encoding($true)
 
 Write-Host ''
 Write-Host "  XONG. Da cap nhat len ban $moi." -ForegroundColor Green
-Write-Host '  Mo lai MicroStation de dung ban moi. (Ban cu luu .bak neu can quay lai)'
-Thoat 0
+
+# ---------- Mo lai MicroStation voi ban ve dang lam ----------
+$dgn = ''
+if (Test-Path $MoLaiFile) {
+    $dgn = (Get-Content $MoLaiFile -Encoding UTF8 -TotalCount 1)
+    Remove-Item $MoLaiFile -ErrorAction SilentlyContinue
+}
+if ($exe -and (Test-Path $exe)) {
+    Write-Host '  Dang mo lai MicroStation ...'
+    if ($dgn -and (Test-Path $dgn)) { Start-Process -FilePath $exe -ArgumentList ('"' + $dgn + '"') }
+    else { Start-Process -FilePath $exe }
+} else {
+    Write-Host '  Mo lai MicroStation de dung ban moi.'
+}
+Write-Host '  (Cua so nay tu dong sau 5 giay)'
+Start-Sleep -Seconds 5
+exit 0
