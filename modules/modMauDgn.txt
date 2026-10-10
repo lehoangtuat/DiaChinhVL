@@ -40,6 +40,8 @@ Private Declare Function GetSaveFileNameA Lib "comdlg32.dll" (pOpenfilename As O
 
 ' Level ho so: nhap 1 so -> moi phan tu chep tu mau ve level do; nhieu so / tat -> giu level cua mau
 Public gLvHSMot As Level
+' Level ho so NHIEU so: level mau (so) -> level xuat; level mau khong co trong bang -> gLvHSMot
+Public gLvHSMap As Object
 
 Private Const BOX_CHUAN As Double = 989.8      ' be rong o so do mau chuan (TT26)
 Private Const TCVN_MAP As String = "A10102,A200C2,A300CA,A400D4,A501A0,A601AF,A70110,A80103,A900E2,AA00EA,AB00F4,AC01A1,AD01B0,AE0111,B500E0,B61EA3,B700E3,B800E1,B91EA1,BB1EB1,BC1EB3,BD1EB5,BE1EAF,C61EB7,C71EA7,C81EA9,C91EAB,CA1EA5,CB1EAD,CC00E8,CE1EBB,CF1EBD,D000E9,D11EB9,D21EC1,D31EC3,D41EC5,D51EBF,D61EC7,D700EC,D81EC9,DC0129,DD00ED,DE1ECB,DF00F2,E11ECF,E200F5,E300F3,E41ECD,E51ED3,E61ED5,E71ED7,E81ED1,E91ED9,EA1EDD,EB1EDF,EC1EE1,ED1EDB,EE1EE3,EF00F9,F11EE7,F20169,F300FA,F41EE5,F51EEB,F61EED,F71EEF,F81EE9,F91EF1,FA1EF3,FB1EF7,FC1EF9,FD00FD,FE1EF5"
@@ -461,7 +463,15 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
                 e2.AsTextElement.Text = gt
             End If
             e2.Transform tr
-            If Not gLvHSMot Is Nothing Then DC_GanLevel e2, gLvHSMot
+            If Not gLvHSMap Is Nothing Then
+                If gLvHSMap.Exists(CStr(DC_LevelSo(el))) Then
+                    DC_GanLevel e2, gLvHSMap(CStr(DC_LevelSo(el)))
+                ElseIf Not gLvHSMot Is Nothing Then
+                    DC_GanLevel e2, gLvHSMot
+                End If
+            ElseIf Not gLvHSMot Is Nothing Then
+                DC_GanLevel e2, gLvHSMot
+            End If
             ' Kieu net tuy bien (co do rong tuyet doi) khong co dan theo ty le
             ' -> mui ten huong Bac thanh vach day. Doi ve net lien 0.
             BoNetTuyBien e2
