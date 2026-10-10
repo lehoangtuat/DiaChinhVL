@@ -16,7 +16,7 @@ Private Const MAU_VIEN As Long = &HA0A0A0      ' xam
 Private Const MAU_CHU_DC As Long = &H8B0000    ' xanh dam (RGB 0,0,139)
 
 Private Sub UserForm_Initialize()
-    Me.Caption = "DiaChinhVL V8i 10/2026"   ' title bar de ASCII
+    Me.Caption = "DiaChinhVL V8i - phien ban " & DC_PhienBan()   ' title bar de ASCII
     Me.Font.Name = "Arial"
     Me.Font.size = 9
 
@@ -125,6 +125,27 @@ Private Sub UserForm_Activate()
     If Not mDaGanIcon Then
         mDaGanIcon = True
         DC_GanIcon Me.Caption
+        BaoBanMoi
+    End If
+End Sub
+
+' Bao khi co phien ban moi: kiem tra nhanh 1 lan/ngay; co ban moi thi doi
+' nhan "DIA CHINH VL" thanh "Co ban moi x.y" (mau do) va hoi cap nhat.
+Private Sub BaoBanMoi()
+    Dim v As String, vuaBiet As Boolean
+    On Error Resume Next
+    v = DC_BanMoiNhanh()
+    If Len(v) > 0 Then vuaBiet = True Else v = DC_BanMoiDaBiet()
+    If Len(v) = 0 Then Exit Sub
+    With Me.Controls("lblDC")
+        .Caption = "C" & ChrW(243) & " b" & ChrW(7843) & "n m" & ChrW(7899) & "i " & v
+        .ForeColor = RGB(200, 0, 0)
+    End With
+    If vuaBiet Then
+        If DC_ThongBao(ChrW(272) & ChrW(227) & " c" & ChrW(243) & " phi" & ChrW(234) & "n b" & ChrW(7843) & "n m" & ChrW(7899) & "i " & v & " (" & ChrW(273) & "ang d" & ChrW(249) & "ng " & DC_PhienBan() & ")." & vbCrLf & vbCrLf & _
+                       "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t ngay?", "C" & ChrW(7853) & "p nh" & ChrW(7853) & "t", vbYesNo Or vbQuestion) = vbYes Then
+            DC_CapNhatNgay
+        End If
     End If
 End Sub
 
