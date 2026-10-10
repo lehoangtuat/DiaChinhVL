@@ -1,2 +1,2 @@
-1.8
-Cap nhat tu dong MicroStation va mo lai ban ve (khong can dong tay)
+1.9
+Trich luc: phan ho so ra dung cac Level ho so da nhap -> Luu file ho so lay du
