@@ -83,7 +83,7 @@ End Function
 ' Tra ve duong dan file mau .txt de ve khung.
 '   .txt -> giu nguyen ; .dgn -> bat mau (co cache)
 '============================================================
-Public Function DC_ChuanBiMau(ByVal mauPath As String) As String
+Public Function DC_ChuanBiMau(ByVal mauPath As String, Optional ByVal iniPath As String = "#") As String
     Dim ini As String, outF As String, ten As String, p As Long
     DC_ChuanBiMau = mauPath
     If LCase$(Right$(Trim$(mauPath), 4)) <> ".dgn" Then Exit Function
@@ -91,7 +91,8 @@ Public Function DC_ChuanBiMau(ByVal mauPath As String) As String
         DC_ThongBao "Kh" & ChrW(244) & "ng th" & ChrW(7845) & "y file m" & ChrW(7851) & "u: " & mauPath, "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c", vbExclamation
         Exit Function
     End If
-    ini = DC_DocCauHinh("INI_TL", "")
+    ' SUA 11/10/2026: tach/hop thua truyen ini rieng (22tach.ini...)
+    If iniPath = "#" Then ini = DC_DocCauHinh("INI_TL", "") Else ini = Trim$(iniPath)
     If Len(ini) > 0 And Len(Dir$(ini)) = 0 Then ini = ""
 
     ten = Mid$(mauPath, InStrRev(mauPath, "\") + 1)
@@ -100,7 +101,7 @@ Public Function DC_ChuanBiMau(ByVal mauPath As String) As String
     If Len(Dir$(DC_THUMUC, vbDirectory)) = 0 Then MkDir DC_THUMUC
     If Len(Dir$(DC_THUMUC & "\Mau", vbDirectory)) = 0 Then MkDir DC_THUMUC & "\Mau"
     On Error GoTo 0
-    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v4.txt"
+    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v5.txt"
 
     ' Cache: dung lai khi CUNG duong dan .dgn + .ini va file .txt moi hon ca hai.
     ' SUA 09/10/2026: truoc chi so ten file -> doi sang tluc.dgn o thu muc khac
@@ -157,7 +158,7 @@ Public Sub DC_BatLaiMau()
     End If
     ten = Mid$(mau, InStrRev(mau, "\") + 1)
     p = InStrRev(ten, "."): If p > 0 Then ten = Left$(ten, p - 1)
-    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v4.txt"
+    outF = DC_THUMUC & "\Mau\" & ten & "_mau_v5.txt"
     On Error Resume Next
     If Len(Dir$(outF)) > 0 Then Kill outF
     On Error GoTo 0
@@ -347,8 +348,8 @@ Private Sub ThemText(ByVal el As Element, ByVal lv As Long)
     Select Case s
         Case "tttl", "tamXtl", "tamYtl", "cdtl"
             If hy > ly Then oy = (ly + hy) / 2#
-        Case "tths", "cdhs", "tamxhs", "tamyhs", "ttkq", "cdkq", "tamxkq", "tamykq"
-            ' bang phu: luu TAM chu ca X va Y
+        Case "tths", "cdhs", "tamxhs", "tamyhs", "ttkq", "cdkq", "tamxkq", "tamykq", "tt", "cd"
+            ' bang phu (tt/cd: bang Doan-Chieu dai mau tach/hop thua): luu TAM chu ca X va Y
             If hy > ly Then oy = (ly + hy) / 2#
             If rg.High.X > lx Then ox = (lx + rg.High.X) / 2#
     End Select
@@ -366,7 +367,7 @@ Private Function LaTag(ByVal s As String) As Boolean
              "tenXa", "tenHuyen", "tenTinh", "gcn", "tinhhinhthaydoiranhgioi", _
              "hinhThucSuDung", "diaChiChu", "diaChiThua", _
              "tttl", "tamXtl", "tamYtl", "cdtl", _
-             "ttkq", "tamxkq", "tamykq", "cdkq", "tths", "tamxhs", "tamyhs", "cdhs"
+             "ttkq", "tamxkq", "tamykq", "cdkq", "tths", "tamxhs", "tamyhs", "cdhs", "tt", "cd"
             LaTag = True      ' tag trang khac chua dien -> de trong
     End Select
 End Function
@@ -422,6 +423,25 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
     esc.IncludeType msdElementTypeCellHeader
     esc.IncludeType msdElementTypeEllipse
     esc.IncludeType msdElementTypeArc
+    ' SUA 11/10/2026: tach/hop thua - luot 1 ghi vi tri cac dong mo ta (3.4.k)
+    Dim sTH As String, yTH As Double, boTH As Boolean
+    If gTHCheDo > 0 Then
+        TH_BatDauViTri
+        Set ee = md.Scan(esc)
+        Do While ee.MoveNext
+            Set el = ee.Current
+            If el.Type = msdElementTypeText Then
+                sTH = "": yTH = 0
+                On Error Resume Next
+                sTH = Trim$(el.AsTextElement.Text)
+                yTH = el.AsTextElement.Origin.Y
+                On Error GoTo 0
+                If LaFontVn(el) Then sTH = Tcvn3SangUnicode(sTH)
+                If Len(sTH) > 0 Then TH_GhiViTri sTH, yTH
+            End If
+        Loop
+    End If
+
     Set ee = md.Scan(esc)
     Do While ee.MoveNext
         Set el = ee.Current
@@ -431,10 +451,23 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
             On Error Resume Next
             s = Trim$(el.AsTextElement.Text)
             On Error GoTo 0
+            ' Tach/hop thua: thay chu mau theo thua (modTachHop)
+            If gTHCheDo > 0 And Len(s) > 0 And Not LaTag(s) Then
+                sTH = s
+                If LaFontVn(el) Then sTH = Tcvn3SangUnicode(s)
+                yTH = 0
+                On Error Resume Next
+                yTH = el.AsTextElement.Origin.Y
+                On Error GoTo 0
+                gt = TH_ThayChu(sTH, yTH, boTH)
+                If boTH Then GoTo Tiep
+                If gt <> sTH Then GoTo ChepPT
+                gt = ""
+            End If
             If LaTag(s) Then
                 Select Case s
                     Case "tttl", "tamXtl", "tamYtl", "cdtl", "ttkq", "tamxkq", "tamykq", "cdkq", _
-                         "tths", "tamxhs", "tamyhs", "cdhs"
+                         "tths", "tamxhs", "tamyhs", "cdhs", "tt", "cd"
                         laTagBang = True
                     Case Else
                         gt = GiaTri(s, v, toBanDo, tenXa, tenHuyen, tenTinh)
@@ -452,6 +485,7 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
             End If
         End If
 
+ChepPT:
         Set e2 = Nothing
         On Error Resume Next
         Set e2 = ActiveModelReference.CopyElement(el)
