@@ -1,2 +1,2 @@
-1.9
-Trich luc: phan ho so ra dung cac Level ho so da nhap -> Luu file ho so lay du
+2.1
+Tach thua / Hop thua TT26 (mau 22/DK); trich luc tren 16 dinh sang trang 2; tao vung nhan net cat nhau (SmartLine)
