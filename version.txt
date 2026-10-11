@@ -1,2 +1,2 @@
-2.1
-Tach thua / Hop thua TT26 (mau 22/DK); trich luc tren 16 dinh sang trang 2; tao vung nhan net cat nhau (SmartLine)
+2.3
+Tach/Hop thua TT26; trich luc tren 16 dinh; tao vung + chia doan tai giao diem; menu Tien ich (bat/tat lop, chon/xoa theo thuoc tinh, ghi chieu dai canh, doi font TCVN3-Unicode)
