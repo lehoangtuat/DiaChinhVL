@@ -205,201 +205,8 @@ End Function
 ' LENH: CHEN KHUNG MAU PHU LUC 19
 '============================================================
 Public Sub DC_ChenKhungMau()
-    ' 1) File mau
-    Dim mauPath As String
-    mauPath = InputBox("Duong dan file mau (TrichLucBanDo_mau.txt):", _
-                       "Chen khung mau", "C:\DiaChinhVL\TrichLucBanDo_mau.txt")
-    If mauPath = "" Then Exit Sub
-    If Not NapMau(mauPath) Then
-        MsgBox "Khong doc duoc file mau: " & mauPath, vbExclamation, "Chen khung mau"
-        Exit Sub
-    End If
-
-    gKieuCan = UCase$(Trim$(InputBox( _
-        "Kieu can chu:" & vbCrLf & "  T = layout trai (chuan)" & vbCrLf & "  G = can giua", _
-        "Chen khung mau", "T")))
-    If gKieuCan <> "G" Then gKieuCan = "T"
-
-    Dim cxb As Double, cyb As Double, bw As Double, bh As Double
-    If Not TimBox(cxb, cyb, bw, bh) Then
-        MsgBox "Khong tim thay o so do (level 24) trong file mau.", vbExclamation, "Chen khung mau"
-        Exit Sub
-    End If
-
-    ' 2) Doc ranh + ghep + gan thuoc tinh
-    Dim lvRanh As String, lvSo As String, lvLoai As String, lvChu As String
-    Dim snapStr As String, snap As Double
-    lvRanh = InputBox("TEN level RANH thua:", "Chen khung mau", TenLevelActive())
-    lvSo = InputBox("TEN level SO THUA:", "Chen khung mau", "")
-    lvLoai = InputBox("TEN level LOAI DAT (de trong=bo qua):", "Chen khung mau", "")
-    lvChu = InputBox("TEN level TEN CHU (de trong=bo qua):", "Chen khung mau", "")
-    snapStr = InputBox("Snap:", "Chen khung mau", "0.05")
-    If snapStr = "" Then Exit Sub
-    snap = val(snapStr): If snap <= 0 Then snap = 0.05
-
-    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
-    Dim segs As Collection
-    Set segs = LayCacDoan(snap, lvRanh, minX, minY, maxX, maxY)
-    If segs.Count = 0 Then MsgBox "Khong doc duoc ranh.", vbExclamation: Exit Sub
-    Dim soTia As Long, vungs As Collection
-    Set vungs = GhepVung(segs, snap, soTia)
-    GanTruong vungs, lvSo, "so_thua"
-    If Len(Trim$(lvLoai)) > 0 Then GanTruong vungs, lvLoai, "loai_dat"
-    If Len(Trim$(lvChu)) > 0 Then GanTruong vungs, lvChu, "ten_chu"
-
-    ' 3) Chon thua
-    Dim st2 As String, i As Long, v As clsVung, found As clsVung
-    st2 = Trim$(InputBox("So thua can chen khung:", "Chen khung mau", ""))
-    If st2 = "" Then Exit Sub
-    Set found = Nothing
-    For i = 1 To vungs.Count
-        Set v = vungs.Item(i)
-        If Trim$(v.soThua) = st2 Then Set found = v: Exit For
-    Next i
-    If found Is Nothing Then MsgBox "Khong tim thay thua so " & st2, vbExclamation: Exit Sub
-
-    ' 4) Thong tin hanh chinh
-    Dim toBanDo As String, tenXa As String, tenHuyen As String, tenTinh As String
-    toBanDo = InputBox("To ban do so:", "Chen khung mau", found.SoTo)
-    tenXa = InputBox("Ten xa/phuong:", "Chen khung mau", "")
-    tenHuyen = InputBox("Ten huyen:", "Chen khung mau", "")
-    tenTinh = InputBox("Ten tinh:", "Chen khung mau", "")
-
-    ' 5) Ty le vua khung
-    Dim ring() As Double, n As Long
-    ring = found.ring: n = UBound(ring, 1)
-    Dim pw As Double, ph As Double
-    pw = found_bb(ring, 0): ph = found_bb(ring, 1)
-    Dim k As Double, ka As Double, kb As Double
-    ka = 1: kb = 1
-    If bw > 0 Then ka = pw / (bw * 0.82)
-    If bh > 0 Then kb = ph / (bh * 0.82)
-    k = ka: If kb > k Then k = kb
-    If k <= 0 Then k = 1
-    Dim Cpx As Double, Cpy As Double
-    Cpx = found.cx: Cpy = found.cy
-
-    ' So le
-    Dim slDT As Long, slTD As Long, slCD As Long
-    slDT = 1: slTD = 2: slCD = 2
-
-    ' Nguong bo panel phai (neu mau co 2 panel)
-    Dim xlim As Double
-    xlim = PanelTraiXlim()
-
-    ' 6) Ve LINES (bien doi T, bo panel phai)
-    Dim co() As Double, m As Long, j As Long
-    Dim ax As Double, ay As Double, bx As Double, by As Double
-    Dim lminx As Double
-    For i = 1 To gNL
-        co = gLineCoords(i)
-        m = (UBound(co) + 1) \ 2
-        lminx = co(0)
-        For j = 0 To m - 1
-            If co(2 * j) < lminx Then lminx = co(2 * j)
-        Next j
-        If lminx >= xlim Then GoTo boLine
-        For j = 0 To m - 2
-            ax = (co(2 * j) - cxb) * k + Cpx
-            ay = (co(2 * j + 1) - cyb) * k + Cpy
-            bx = (co(2 * j + 2) - cxb) * k + Cpx
-            by = (co(2 * j + 3) - cyb) * k + Cpy
-            If Abs(bx - ax) > 0.000001 Or Abs(by - ay) > 0.000001 Then
-                VeLine ax, ay, bx, by, -1
-            End If
-        Next j
-boLine:
-    Next i
-
-    ' 7) Chuan bi thu tu cell bang toa do
-    ReDim cellX_tt(1 To gNT) As Double: ReDim cellY_tt(1 To gNT) As Double: Dim c_tt As Long
-    ReDim cellX_xx(1 To gNT) As Double: ReDim cellY_xx(1 To gNT) As Double: Dim c_xx As Long
-    ReDim cellX_yy(1 To gNT) As Double: ReDim cellY_yy(1 To gNT) As Double: Dim c_yy As Long
-    ReDim cellX_cd(1 To gNT) As Double: ReDim cellY_cd(1 To gNT) As Double: Dim c_cd As Long
-    c_tt = 0: c_xx = 0: c_yy = 0: c_cd = 0
-
-    ' 8) Ve TEXT + TAG don
-    Dim s As String, gt As String, mx As Double, my As Double, hc As Double
-    For i = 1 To gNT
-        If gTX(i) >= xlim Then GoTo boTxt
-        mx = (gTX(i) - cxb) * k + Cpx
-        my = (gTY(i) - cyb) * k + Cpy
-        hc = gTCao(i) * k
-        If hc <= 0 Then GoTo boTxt
-        s = gTS(i)
-        If gTKind(i) = "TEXT" Then
-            VeTextMau mx, my, s, hc
-        Else   ' TAG
-            Select Case s
-                Case "tttl": c_tt = c_tt + 1: cellX_tt(c_tt) = gTX(i): cellY_tt(c_tt) = gTY(i)
-                Case "tamXtl": c_xx = c_xx + 1: cellX_xx(c_xx) = gTX(i): cellY_xx(c_xx) = gTY(i)
-                Case "tamYtl": c_yy = c_yy + 1: cellX_yy(c_yy) = gTX(i): cellY_yy(c_yy) = gTY(i)
-                Case "cdtl": c_cd = c_cd + 1: cellX_cd(c_cd) = gTX(i): cellY_cd(c_cd) = gTY(i)
-                Case Else
-                    gt = GiaTriTag(s, found, toBanDo, tenXa, tenHuyen, tenTinh, slDT)
-                    If Len(gt) > 0 Then VeTextMau mx, my, gt, hc
-            End Select
-        End If
-boTxt:
-    Next i
-
-    ' 9) Dien bang toa do (sap cell tu tren xuong theo ty giam dan)
-    Dim hcB As Double
-    hcB = 28# * k    ' co chu bang (dung cao dac trung cua cell)
-    SapGiamY cellX_tt, cellY_tt, c_tt
-    SapGiamY cellX_xx, cellY_xx, c_xx
-    SapGiamY cellX_yy, cellY_yy, c_yy
-    SapGiamY cellX_cd, cellY_cd, c_cd
-
-    ' Be rong kha dung cua tung cot, DO TU CHINH FILE MAU (khoang cach giua
-    ' tag cot nay va tag cot ke tiep) -> thu nho chu cho vua o, khong tran.
-    Dim wDinh As Double, wColX As Double, wColY As Double, wCanh As Double
-    If c_tt >= 1 And c_yy >= 1 Then wDinh = Abs(cellX_yy(1) - cellX_tt(1))
-    If c_yy >= 1 And c_xx >= 1 Then wColX = Abs(cellX_xx(1) - cellX_yy(1))
-    If c_xx >= 1 And c_cd >= 1 Then wColY = Abs(cellX_cd(1) - cellX_xx(1))
-    wCanh = wColY
-
-    Dim dai As Double
-
-    ' SUA 05/08/2026 (1): MOT co chu chung cho CA BANG.
-    ' Truoc day moi o tu thu nho rieng -> so 10 chu so (cot X) bi thu nhieu
-    ' hon so 9 chu so (cot Y) -> hai cot lech co chu nhau. Gio quet truoc
-    ' toan bo o, lay co NHO NHAT, roi ve tat ca bang co do.
-    Dim hB As Double
-    hB = hcB
-    For i = 0 To n - 1
-        If (i + 1) <= c_tt Then hB = CaoVuaO(hB, CStr(i + 1), hcB, CW_DINH * k)
-        If (i + 1) <= c_tt Then hB = CaoVuaO(hB, FNum(ring(i, 1), slTD), hcB, CW_X * k)
-        If (i + 1) <= c_tt Then hB = CaoVuaO(hB, FNum(ring(i, 0), slTD), hcB, CW_Y * k)
-        dai = Sqr((ring(i + 1, 0) - ring(i, 0)) ^ 2 + (ring(i + 1, 1) - ring(i, 1)) ^ 2)
-        If (i + 1) <= c_tt Then hB = CaoVuaO(hB, FNum(dai, slCD), hcB, CW_CANH * k)
-    Next i
-
-    For i = 0 To n - 1
-        ' Tat ca dat vao TAM cot (CX_*), hang y = cellY_tt(i+1) -> thang hang.
-        If (i + 1) <= c_tt Then DienCell CX_DINH, cellY_tt(i + 1), CStr(i + 1), hB, cxb, cyb, k, Cpx, Cpy, CW_DINH * k
-        ' cot X(m) = toa do BAC = ring(i,1) ; cot Y(m) = toa do DONG = ring(i,0)
-        If (i + 1) <= c_tt Then DienCell CX_X, cellY_tt(i + 1), FNum(ring(i, 1), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_X * k
-        If (i + 1) <= c_tt Then DienCell CX_Y, cellY_tt(i + 1), FNum(ring(i, 0), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_Y * k
-        dai = Sqr((ring(i + 1, 0) - ring(i, 0)) ^ 2 + (ring(i + 1, 1) - ring(i, 1)) ^ 2)
-        ' canh v_i -> v_(i+1) dat GIUA hai hang toa do va GIUA cot canh
-        If (i + 2) <= c_tt Then _
-            DienCell CX_CANH, (cellY_tt(i + 1) + cellY_tt(i + 2)) / 2#, FNum(dai, slCD), hB, cxb, cyb, k, Cpx, Cpy, CW_CANH * k
-    Next i
-
-    ' SUA 05/08/2026 (2): DONG DONG BANG - lap lai dinh 1 o hang cuoi,
-    ' cho thay vong ranh da khep kin (giong ban gCadas). ring(n) = ring(0).
-    ' Cot "Kich thuoc canh" de trong o hang nay.
-    If (n + 1) <= c_tt Then DienCell CX_DINH, cellY_tt(n + 1), "1", hB, cxb, cyb, k, Cpx, Cpy, CW_DINH * k
-    If (n + 1) <= c_tt Then DienCell CX_X, cellY_tt(n + 1), FNum(ring(0, 1), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_X * k
-    If (n + 1) <= c_tt Then DienCell CX_Y, cellY_tt(n + 1), FNum(ring(0, 0), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_Y * k
-
-    ' 10) So do thua tai toa do that (canh + moc + so hieu + chieu dai)
-    VeSoDoThua found, 32# * k, -1
-
-    MsgBox "Da chen khung Phu luc 19 cho thua so " & st2 & "." & vbCrLf & _
-           "Ty le k = " & Format$(k, "0.0000") & " ; so dinh = " & n, _
-           vbInformation, "Chen khung mau"
+    ' SUA 11/10/2026: lenh cu (hoi tung buoc) da thay bang form Trich luc
+    DC_MoTrichLuc
 End Sub
 
 
@@ -844,37 +651,50 @@ boTxt2:
     ' Truoc day moi o tu thu nho rieng -> so 10 chu so (cot X) bi thu nhieu
     ' hon so 9 chu so (cot Y) -> hai cot lech co chu nhau. Gio quet truoc
     ' toan bo o, lay co NHO NHAT, roi ve tat ca bang co do.
+    ' SUA 11/10/2026: danh sach HANG cua bang = vong ngoai + cac vong dao (thua
+    ' con nam lot trong). Moi vong: cac dinh, hang cuoi lap lai dinh dau (khep kin);
+    ' so hieu dinh danh tiep nhau. rCanh(r) = chieu dai canh r -> r+1 (-1 = khong).
+    Dim nR As Long, rSo() As String, rX() As Double, rY() As Double, rCanh() As Double
+    TaoHangBang found, nR, rSo, rX, rY, rCanh
+
     Dim hB As Double
     hB = hcB
-    For i = 0 To n - 1
-        If (i + 1) <= c_tt Then hB = CaoVuaO(hB, CStr(i + 1), hcB, CW_DINH * k)
-        If (i + 1) <= c_tt Then hB = CaoVuaO(hB, FNum(ring(i, 1), slTD), hcB, CW_X * k)
-        If (i + 1) <= c_tt Then hB = CaoVuaO(hB, FNum(ring(i, 0), slTD), hcB, CW_Y * k)
-        dai = Sqr((ring(i + 1, 0) - ring(i, 0)) ^ 2 + (ring(i + 1, 1) - ring(i, 1)) ^ 2)
-        If (i + 1) <= c_tt Then hB = CaoVuaO(hB, FNum(dai, slCD), hcB, CW_CANH * k)
-    Next i
+    Dim r As Long
+    For r = 1 To nR
+        If r <= c_tt Then
+            hB = CaoVuaO(hB, rSo(r), hcB, CW_DINH * k)
+            hB = CaoVuaO(hB, FNum(rX(r), slTD), hcB, CW_X * k)
+            hB = CaoVuaO(hB, FNum(rY(r), slTD), hcB, CW_Y * k)
+            If rCanh(r) >= 0# Then hB = CaoVuaO(hB, FNum(rCanh(r), slCD), hcB, CW_CANH * k)
+        End If
+    Next r
 
-    For i = 0 To n - 1
-        ' Tat ca dat vao TAM cot (CX_*), hang y = cellY_tt(i+1) -> thang hang.
-        If (i + 1) <= c_tt Then DienCell CX_DINH, cellY_tt(i + 1), CStr(i + 1), hB, cxb, cyb, k, Cpx, Cpy, CW_DINH * k
-        ' cot X(m) = toa do BAC = ring(i,1) ; cot Y(m) = toa do DONG = ring(i,0)
-        If (i + 1) <= c_tt Then DienCell CX_X, cellY_tt(i + 1), FNum(ring(i, 1), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_X * k
-        If (i + 1) <= c_tt Then DienCell CX_Y, cellY_tt(i + 1), FNum(ring(i, 0), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_Y * k
-        dai = Sqr((ring(i + 1, 0) - ring(i, 0)) ^ 2 + (ring(i + 1, 1) - ring(i, 1)) ^ 2)
-        ' canh v_i -> v_(i+1) dat GIUA hai hang toa do va GIUA cot canh
-        If (i + 2) <= c_tt Then _
-            DienCell CX_CANH, (cellY_tt(i + 1) + cellY_tt(i + 2)) / 2#, FNum(dai, slCD), hB, cxb, cyb, k, Cpx, Cpy, CW_CANH * k
-    Next i
-
-    ' SUA 05/08/2026 (2): DONG DONG BANG - lap lai dinh 1 o hang cuoi,
-    ' cho thay vong ranh da khep kin (giong ban gCadas). ring(n) = ring(0).
-    ' Cot "Kich thuoc canh" de trong o hang nay.
-    If (n + 1) <= c_tt Then DienCell CX_DINH, cellY_tt(n + 1), "1", hB, cxb, cyb, k, Cpx, Cpy, CW_DINH * k
-    If (n + 1) <= c_tt Then DienCell CX_X, cellY_tt(n + 1), FNum(ring(0, 1), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_X * k
-    If (n + 1) <= c_tt Then DienCell CX_Y, cellY_tt(n + 1), FNum(ring(0, 0), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_Y * k
+    ' SUA 11/10/2026: bang trang Trich luc chi co c_tt hang (mau tluc: 16).
+    ' Hang 1..c_tt dien o day; hang c_tt+1 tro di (vd tu 17) dua sang bang
+    ' trang "Trich luc ban do dia chinh" (ttkq/tamykq/tamxkq/cdkq), bang TRAI truoc.
+    If nR > c_tt And c_tt > 0 Then
+        If Not DienBangKQ(c_tt + 1, nR, rSo, rX, rY, rCanh, slTD, slCD, cxb, cyb, k, Cpx, Cpy) Then
+            MsgBox "Thua co " & nR & " hang toa do, mau chi co " & c_tt & " hang (khong co bang ttkq).", vbExclamation, "Trich luc"
+        End If
+    End If
+    If True Then
+        DatLv mLvBang
+        For r = 1 To nR
+            If r <= c_tt Then
+                ' Tat ca dat vao TAM cot (CX_*), hang y = cellY_tt(r) -> thang hang.
+                DienCell CX_DINH, cellY_tt(r), rSo(r), hB, cxb, cyb, k, Cpx, Cpy, CW_DINH * k
+                ' cot X(m) = toa do BAC ; cot Y(m) = toa do DONG
+                DienCell CX_X, cellY_tt(r), FNum(rX(r), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_X * k
+                DienCell CX_Y, cellY_tt(r), FNum(rY(r), slTD), hB, cxb, cyb, k, Cpx, Cpy, CW_Y * k
+                ' canh r -> r+1 dat GIUA hai hang va GIUA cot canh
+                If rCanh(r) >= 0# And (r + 1) <= c_tt Then _
+                    DienCell CX_CANH, (cellY_tt(r) + cellY_tt(r + 1)) / 2#, FNum(rCanh(r), slCD), hB, cxb, cyb, k, Cpx, Cpy, CW_CANH * k
+            End If
+        Next r
+    End If
 
     ' SUA 09/10/2026: bang phu o trang Ho so (tths/cdhs): so hieu dinh + chieu dai
-    DienBangPhu "tths", "cdhs", ring, n, cxb, cyb, k, Cpx, Cpy
+    DienBangPhu "tths", "cdhs", nR, rSo, rCanh, cxb, cyb, k, Cpx, Cpy
 
     ' So do thua: THU NHO vua o (kp), tam o = tam khung (Cpx,Cpy)
     VeThuaTrongO found, Cpx, Cpy, kp, bwm * 0.03
@@ -945,8 +765,8 @@ End Sub
 ' Bang phu (vd trang Phieu do dac / Ho so: "So hieu dinh thua | Chieu dai (m)").
 ' Chi dien 2 cot: so hieu dinh (tag tagTT, moi hang 1 dinh, hang cuoi lap dinh 1)
 ' va chieu dai canh (tag tagCD, canh thu i vao tag cd thu i). So hang theo thua.
-Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ring() As Double, _
-                        ByVal n As Long, ByVal cxb As Double, ByVal cyb As Double, _
+Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ByVal nR As Long, _
+                        rSo() As String, rCanh() As Double, ByVal cxb As Double, ByVal cyb As Double, _
                         ByVal k As Double, ByVal Cpx As Double, ByVal Cpy As Double)
     Dim tx() As Double, ty() As Double, cx() As Double, cy() As Double
     Dim ct As Long, cc As Long, i As Long, hT As Double, hC As Double, lvT As Long
@@ -963,7 +783,135 @@ Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ring() As 
     If ct = 0 Then Exit Sub
     SapCotHang tx, ty, ct, hT * 2#
     If cc > 0 Then SapCotHang cx, cy, cc, hC * 2#
+    DatLvTag lvT
 
+    ' canh thu j (khong tinh hang khep vong) vao tag cd thu j
+    Dim w As Double, xc As Double
+    For i = 1 To nR
+        If i <= ct Then
+            xc = TamCot(tx(i), ty(i), w)
+            DienCell xc, ty(i), rSo(i), hT * k, cxb, cyb, k, Cpx, Cpy, w * k
+        End If
+        ' o chieu dai thu i nam giua hang i va i+1 -> hang khep vong de trong
+        If rCanh(i) >= 0# And i <= cc Then
+            xc = TamCot(cx(i), cy(i), w)
+            DienCell xc, cy(i), FNum(rCanh(i), 2), hC * k, cxb, cyb, k, Cpx, Cpy, w * k
+        End If
+    Next i
+End Sub
+
+' Danh sach hang bang toa do: vong ngoai + cac vong dao
+Private Sub TaoHangBang(ByVal v As clsVung, ByRef nR As Long, ByRef rSo() As String, _
+                        ByRef rX() As Double, ByRef rY() As Double, ByRef rCanh() As Double)
+    Dim vong As New Collection, rg() As Double, kv As Long, m As Long, i As Long, so As Long
+    vong.Add v.ring
+    For kv = 1 To v.Dao.Count
+        vong.Add v.Dao.Item(kv)
+    Next kv
+    nR = 0
+    For kv = 1 To vong.Count
+        rg = vong.Item(kv): nR = nR + UBound(rg, 1) + 1
+    Next kv
+    ReDim rSo(1 To nR + 1): ReDim rX(1 To nR + 1): ReDim rY(1 To nR + 1): ReDim rCanh(1 To nR + 1)
+    nR = 0: so = 0
+    For kv = 1 To vong.Count
+        rg = vong.Item(kv): m = UBound(rg, 1)        ' rg(m) = rg(0) (vong kin)
+        For i = 0 To m - 1
+            nR = nR + 1
+            rSo(nR) = CStr(so + i + 1)
+            rX(nR) = rg(i, 1): rY(nR) = rg(i, 0)      ' X = toa do BAC, Y = DONG
+            rCanh(nR) = Sqr((rg(i + 1, 0) - rg(i, 0)) ^ 2 + (rg(i + 1, 1) - rg(i, 1)) ^ 2)
+        Next i
+        nR = nR + 1                                    ' hang khep vong
+        rSo(nR) = CStr(so + 1): rX(nR) = rg(0, 1): rY(nR) = rg(0, 0): rCanh(nR) = -1#
+        so = so + m
+    Next kv
+End Sub
+
+' Bang tren trang "TRICH LUC BAN DO DIA CHINH" (ttkq / tamykq / tamxkq / cdkq).
+' Hang sap theo cot (bang trai truoc, roi bang phai), trong moi bang tu tren xuong.
+' Tra ve False neu mau khong co bang nay.
+Private Function DienBangKQ(ByVal r0 As Long, ByVal nR As Long, rSo() As String, rX() As Double, rY() As Double, _
+                            rCanh() As Double, ByVal slTD As Long, ByVal slCD As Long, _
+                            ByVal cxb As Double, ByVal cyb As Double, ByVal k As Double, _
+                            ByVal Cpx As Double, ByVal Cpy As Double) As Boolean
+    Dim tx() As Double, ty() As Double, ct As Long, i As Long, hT As Double, lvT As Long
+    ReDim tx(1 To gNT + 1): ReDim ty(1 To gNT + 1)
+    For i = 1 To gNT
+        If gTS(i) = "ttkq" Then
+            ct = ct + 1: tx(ct) = gTX(i): ty(ct) = TamHang(gTX(i), gTY(i))
+            hT = gTCao(i): lvT = gTL(i)
+        End If
+    Next i
+    If ct = 0 Then Exit Function
+    ' Mau co the co nhieu bang ttkq: bang nho (16 hang) tren trang co so do va
+    ' 2 bang DAI dat canh nhau. Chi lay cac cot co nhieu hang nhat (bang dai).
+    Dim i2 As Long, dem As Long, demMax As Long, nCot() As Long
+    ReDim nCot(1 To ct)
+    For i = 1 To ct
+        dem = 0
+        For i2 = 1 To ct
+            If Abs(tx(i2) - tx(i)) < hT * 2# Then dem = dem + 1
+        Next i2
+        nCot(i) = dem
+        If dem > demMax Then demMax = dem
+    Next i
+    dem = 0
+    For i = 1 To ct
+        If nCot(i) * 2 > demMax Then dem = dem + 1: tx(dem) = tx(i): ty(dem) = ty(i)
+    Next i
+    ct = dem
+    SapCotHang tx, ty, ct, hT * 2#
+    DatLvTag lvT
+
+    Dim w As Double, xc As Double, xT As Double, r As Long, hc As Double, sl As Long
+    hc = hT * k
+    ' sl = o (slot) trong bang, r = hang du lieu (bat dau tu r0, vd 17)
+    r = r0: sl = 0
+    Do While r <= nR And sl < ct
+        sl = sl + 1
+        xc = TamCot(tx(sl), ty(sl), w)
+        DienCell xc, ty(sl), rSo(r), hc, cxb, cyb, k, Cpx, Cpy, w * k
+        xT = TagCanhPhai("tamykq", tx(sl), ty(sl), hT)
+        If xT > -1E+29 Then xc = TamCot(xT, ty(sl), w): DienCell xc, ty(sl), FNum(rX(r), slTD), hc, cxb, cyb, k, Cpx, Cpy, w * k
+        xT = TagCanhPhai("tamxkq", tx(sl), ty(sl), hT)
+        If xT > -1E+29 Then xc = TamCot(xT, ty(sl), w): DienCell xc, ty(sl), FNum(rY(r), slTD), hc, cxb, cyb, k, Cpx, Cpy, w * k
+        ' canh r -> r+1: giua 2 o, chi khi o ke tiep cung 1 bang (cung cot)
+        If rCanh(r) >= 0# And r < nR And sl + 1 <= ct Then
+            If Abs(tx(sl + 1) - tx(sl)) < hT * 2# Then
+                xT = TagCanhPhai("cdkq", tx(sl), (ty(sl) + ty(sl + 1)) / 2#, hT * 2#)
+                If xT > -1E+29 Then
+                    xc = TamCot(xT, ty(sl), w)
+                    DienCell xc, (ty(sl) + ty(sl + 1)) / 2#, FNum(rCanh(r), slCD), hc, cxb, cyb, k, Cpx, Cpy, w * k
+                End If
+            End If
+        End If
+        r = r + 1
+    Loop
+    If r <= nR Then MsgBox "Thua co " & nR & " hang toa do, bang khong du cho (con " & (nR - r + 1) & " hang).", vbExclamation, "Trich luc"
+    DienBangKQ = True
+End Function
+
+' X cua tag (ten) gan nhat ben PHAI x0, cung hang (|dy| <= dyMax). Khong co -> -1E+30
+Private Function TagCanhPhai(ByVal ten As String, ByVal x0 As Double, ByVal y0 As Double, _
+                             ByVal dyMax As Double) As Double
+    Dim i As Long, best As Double, yy As Double
+    TagCanhPhai = -1E+30: best = 1E+30
+    If dyMax <= 0 Then dyMax = 1#
+    For i = 1 To gNT
+        If gTS(i) = ten Then
+            If gTX(i) > x0 Then
+                yy = TamHang(gTX(i), gTY(i))
+                If Abs(yy - y0) <= dyMax * 1.5 Or Abs(gTY(i) - y0) <= dyMax * 1.5 Then
+                    If gTX(i) - x0 < best Then best = gTX(i) - x0: TagCanhPhai = gTX(i)
+                End If
+            End If
+        End If
+    Next i
+End Function
+
+' Dat level cho so lieu bang theo level cua tag trong mau
+Private Sub DatLvTag(ByVal lvT As Long)
     If Not gLvHSMap Is Nothing Then
         If gLvHSMap.Exists(CStr(lvT)) Then DatLv gLvHSMap(CStr(lvT)) Else DatLv gLvHSMot
     ElseIf Not gLvHSMot Is Nothing Then
@@ -971,24 +919,9 @@ Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ring() As 
     ElseIf lvT > 0 And DC_DocCauHinh("LV_HS_ON", "1") = "1" Then
         DatLv DC_LevelTheoSo(lvT)
     End If
-
-    Dim w As Double, xc As Double, dai As Double
-    For i = 0 To n - 1
-        If i + 1 <= ct Then
-            xc = TamCot(tx(i + 1), ty(i + 1), w)
-            DienCell xc, ty(i + 1), CStr(i + 1), hT * k, cxb, cyb, k, Cpx, Cpy, w * k
-        End If
-        If i + 1 <= cc Then
-            dai = Sqr((ring(i + 1, 0) - ring(i, 0)) ^ 2 + (ring(i + 1, 1) - ring(i, 1)) ^ 2)
-            xc = TamCot(cx(i + 1), cy(i + 1), w)
-            DienCell xc, cy(i + 1), FNum(dai, 2), hC * k, cxb, cyb, k, Cpx, Cpy, w * k
-        End If
-    Next i
-    If n + 1 <= ct Then                ' hang cuoi: lap lai dinh 1 (khep kin)
-        xc = TamCot(tx(n + 1), ty(n + 1), w)
-        DienCell xc, ty(n + 1), "1", hT * k, cxb, cyb, k, Cpx, Cpy, w * k
-    End If
 End Sub
+
+' Sap tag bang: theo COT (trai -> phai, sai so tol), trong cot tu tren xuong
 
 ' Sap tag bang: theo COT (trai -> phai, sai so tol), trong cot tu tren xuong
 Private Sub SapCotHang(ByRef ax() As Double, ByRef ay() As Double, ByVal c As Long, ByVal tol As Double)
@@ -1084,6 +1017,16 @@ Private Sub VeThuaTrongO(ByVal v As clsVung, ByVal cx As Double, ByVal cy As Dou
         ax = cx + (ring(i, 0) - v.cx) * kp: ay = cy + (ring(i, 1) - v.cy) * kp
         VeText ax + rMoc * 1.6, ay + rMoc * 1.6, CStr(i + 1), cao, -1
     Next i
+    ' SUA 11/10/2026: so hieu dinh cac vong dao (thua con lot trong) - danh tiep
+    Dim soTiep As Long: soTiep = n
+    For k2 = 1 To v.Dao.Count
+        dr = v.Dao.Item(k2): m = UBound(dr, 1)
+        For i = 0 To m - 1
+            ax = cx + (dr(i, 0) - v.cx) * kp: ay = cy + (dr(i, 1) - v.cy) * kp
+            VeText ax + rMoc * 1.6, ay + rMoc * 1.6, CStr(soTiep + i + 1), cao, -1
+        Next i
+        soTiep = soTiep + m
+    Next k2
 
     ' SUA 05/08/2026: NHAN GIUA THUA (giong gCadas):  LoaiDat  SoThua/DienTich
     '   vd:  CLN 78/84,2   (dien tich tu dong = v.Dt, lam tron 1 so le)
@@ -1185,4 +1128,286 @@ Private Sub TinhCotTuLuoi()
             End If
         End If
     Next t
+End Sub
+
+'============================================================
+' BAN VE TACH / HOP THUA (Mau 22/DK - 22tach.dgn / 22hop.dgn)
+'   O so do TRUOC = level 25, o so do SAU = level 24 (dat ngay tai thua).
+'   Bang "Doan | Chieu dai" = chu mau "tt" / "cd" (trang 2 roi trang 3).
+'============================================================
+Public Sub ChenKhungTachHop(ByVal cheDo As Long, ByVal goc As Collection, ByVal sau As Collection, _
+                            ByVal vChinh As clsVung, ByVal mauPath As String, ByVal toBanDo As String, _
+                            ByVal tenXa As String, ByVal tenHuyen As String, ByVal tenTinh As String, _
+                            ByVal tyLe As Double)
+    If Not NapMau(mauPath) Then
+        MsgBox "Khong doc duoc file mau: " & mauPath, vbExclamation, "Tach/hop thua": Exit Sub
+    End If
+    Dim cxb As Double, cyb As Double, bw As Double, bh As Double
+    If Not TimBox(cxb, cyb, bw, bh) Then
+        MsgBox "Khong tim thay o so do SAU (level 24) trong mau.", vbExclamation, "Tach/hop thua": Exit Sub
+    End If
+    Dim cxt As Double, cyt As Double, bwt As Double, bht As Double
+    If Not TimBoxLv(25, cxb, cyb, cxt, cyt, bwt, bht) Then
+        cxt = cxb: cyt = cyb: bwt = bw: bht = bh       ' khong co o truoc -> ve chung o
+    End If
+
+    Dim lvCu As Level
+    Set lvCu = ActiveSettings.Level
+    ChuanBiLevel
+    If Not gLvHSMot Is Nothing Then DatLv gLvHSMot
+
+    ' Ty le khung + ty le so do (giong trich luc)
+    If tyLe <= 0 Then tyLe = 500
+    Dim k As Double, kp As Double, bwm As Double, bhm As Double
+    k = tyLe / 20000#
+    bwm = bw * k: bhm = bh * k
+    Dim rg() As Double, x1 As Double, y1 As Double, x2 As Double, y2 As Double
+    rg = vChinh.ring
+    BaoRing rg, x1, y1, x2, y2
+    Dim pw As Double, ph As Double, wMin As Double, hMin As Double
+    pw = x2 - x1: ph = y2 - y1
+    wMin = bw: If bwt < wMin Then wMin = bwt
+    hMin = bh: If bht < hMin Then hMin = bht
+    Dim buoc As Variant, bi As Long
+    buoc = Array(1#, 2#, 2.5, 5#, 10#, 20#, 25#, 50#, 100#)
+    For bi = 0 To UBound(buoc)
+        kp = 1# / buoc(bi)
+        If pw * kp <= wMin * k * 0.85 And ph * kp <= hMin * k * 0.85 Then Exit For
+    Next bi
+    Dim gx As Double, gy As Double               ' tam khung bao thua chinh
+    gx = (x1 + x2) / 2#: gy = (y1 + y2) / 2#
+
+    ' Dat o so do SAU ngay tai thua
+    Dim Cpx As Double, Cpy As Double
+    Cpx = gx: Cpy = gy
+    gTLCx = Cpx: gTLCy = Cpy
+
+    ' 1) Chep mau .dgn (modMauDgn thay chu mau qua modTachHop.TH_ThayChu)
+    Dim chep As Boolean
+    chep = (gTuDgn And gScDgn > 0 And Len(gDgnPath) > 0)
+    If chep Then chep = (Len(Dir$(gDgnPath)) > 0)
+    If chep Then
+        DC_ChepMauDgn gDgnPath, gScDgn * k, Cpx - cxb * k, Cpy - cyb * k, goc.Item(1), _
+                      toBanDo, tenXa, tenHuyen, tenTinh
+    Else
+        VeKhungTuCache cxb, cyb, k, Cpx, Cpy
+    End If
+
+    ' 2) So do TRUOC (o level 25) va SAU (o level 24)
+    Dim cao As Double
+    cao = bwm * 0.03
+    Dim tx As Double, ty As Double
+    tx = Cpx + (cxt - cxb) * k: ty = Cpy + (cyt - cyb) * k
+    VeSoDoTH goc, tx, ty, gx, gy, kp, cao, False
+    VeSoDoTH sau, Cpx, Cpy, gx, gy, kp, cao, True
+
+    ' 3) Bang Doan / Chieu dai
+    DienBangDoan sau, cxb, cyb, k, Cpx, Cpy
+
+    Set gLvHSMot = Nothing
+    Set gLvHSMap = Nothing
+    DatLv lvCu
+End Sub
+
+' Ty le tu dong cho tach/hop: ty le chuan nho nhat de thua chinh (pw x ph)
+' nam vua CA 2 o so do (truoc/sau) o ty le that -> so do sau trung khit ban do.
+Public Function DC_TyLeTachHop(ByVal mauPath As String, ByVal pw As Double, ByVal ph As Double) As Double
+    Dim cxb As Double, cyb As Double, bw As Double, bh As Double
+    Dim cxt As Double, cyt As Double, bwt As Double, bht As Double
+    Dim ds As Variant, i As Long
+    DC_TyLeTachHop = 500
+    If Not NapMau(mauPath) Then Exit Function
+    If Not TimBox(cxb, cyb, bw, bh) Then Exit Function
+    If TimBoxLv(25, cxb, cyb, cxt, cyt, bwt, bht) Then
+        If bwt < bw Then bw = bwt
+        If bht < bh Then bh = bht
+    End If
+    ds = Array(200#, 500#, 1000#, 2000#, 5000#, 10000#)
+    For i = 0 To UBound(ds)
+        If pw <= bw * ds(i) / 20000# * 0.85 And ph <= bh * ds(i) / 20000# * 0.85 Then
+            DC_TyLeTachHop = ds(i): Exit Function
+        End If
+    Next i
+    DC_TyLeTachHop = 10000#
+End Function
+
+' O so do tren level lv (lon nhat, khac o (cxb,cyb))
+Private Function TimBoxLv(ByVal lv As Long, ByVal cxb As Double, ByVal cyb As Double, _
+                          ByRef cx As Double, ByRef cy As Double, _
+                          ByRef bw As Double, ByRef bh As Double) As Boolean
+    Dim i As Long, j As Long, co() As Double, m As Long, bestA As Double
+    Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+    bestA = -1
+    For i = 1 To gNL
+        If gLineLevel(i) = lv Then
+            co = gLineCoords(i)
+            m = (UBound(co) + 1) \ 2
+            If m >= 4 Then
+                x1 = co(0): x2 = co(0): y1 = co(1): y2 = co(1)
+                For j = 0 To m - 1
+                    If co(2 * j) < x1 Then x1 = co(2 * j)
+                    If co(2 * j) > x2 Then x2 = co(2 * j)
+                    If co(2 * j + 1) < y1 Then y1 = co(2 * j + 1)
+                    If co(2 * j + 1) > y2 Then y2 = co(2 * j + 1)
+                Next j
+                If (x2 - x1) * (y2 - y1) > bestA Then
+                    bestA = (x2 - x1) * (y2 - y1)
+                    cx = (x1 + x2) / 2#: cy = (y1 + y2) / 2#: bw = x2 - x1: bh = y2 - y1
+                End If
+            End If
+        End If
+    Next i
+    TimBoxLv = (bestA > 0)
+End Function
+
+' Mau .txt (khong chep duoc .dgn): ve duong + chu tu cache
+Private Sub VeKhungTuCache(ByVal cxb As Double, ByVal cyb As Double, ByVal k As Double, _
+                           ByVal Cpx As Double, ByVal Cpy As Double)
+    Dim i As Long, j As Long, co() As Double, m As Long
+    Dim ax As Double, ay As Double, bx As Double, by As Double
+    For i = 1 To gNL
+        co = gLineCoords(i)
+        m = (UBound(co) + 1) \ 2
+        For j = 0 To m - 2
+            ax = (co(2 * j) - cxb) * k + Cpx: ay = (co(2 * j + 1) - cyb) * k + Cpy
+            bx = (co(2 * j + 2) - cxb) * k + Cpx: by = (co(2 * j + 3) - cyb) * k + Cpy
+            If Abs(bx - ax) > 0.000001 Or Abs(by - ay) > 0.000001 Then VeLine ax, ay, bx, by, -1
+        Next j
+    Next i
+    For i = 1 To gNT
+        If gTKind(i) = "TEXT" And gTCao(i) > 0 Then
+            VeTextMau (gTX(i) - cxb) * k + Cpx, (gTY(i) - cyb) * k + Cpy, gTS(i), gTCao(i) * k
+        End If
+    Next i
+End Sub
+
+' Ve 1 so do: canh cac thua (canh chung ve 1 lan), so hieu dinh, nhan thua,
+' (coKichThuoc) chieu dai canh doc theo canh.
+'   Diem P (ban do) -> (ox, oy) + (P - (gx, gy)) * kp
+Private Sub VeSoDoTH(ByVal ds As Collection, ByVal ox As Double, ByVal oy As Double, _
+                     ByVal gx As Double, ByVal gy As Double, ByVal kp As Double, _
+                     ByVal cao As Double, ByVal coKichThuoc As Boolean)
+    Dim daVe As Object, daSo As Object
+    Set daVe = CreateObject("Scripting.Dictionary")
+    Set daSo = CreateObject("Scripting.Dictionary")
+    Dim j As Long, kv As Long, i As Long, m As Long, v As clsVung, rg() As Double
+    Dim ax As Double, ay As Double, bx As Double, by As Double, key As String, s As String
+    Dim rMoc As Double: rMoc = cao * 0.5
+
+    For j = 1 To ds.Count
+        Set v = ds.Item(j)
+        For kv = 0 To v.Dao.Count
+            If kv = 0 Then rg = v.ring Else rg = v.Dao.Item(kv)
+            m = UBound(rg, 1)
+            For i = 0 To m - 1
+                key = KhoaCanh(rg(i, 0), rg(i, 1), rg(i + 1, 0), rg(i + 1, 1))
+                ax = ox + (rg(i, 0) - gx) * kp: ay = oy + (rg(i, 1) - gy) * kp
+                bx = ox + (rg(i + 1, 0) - gx) * kp: by = oy + (rg(i + 1, 1) - gy) * kp
+                If Not daVe.Exists(key) Then
+                    daVe.Add key, True
+                    DatLv mLvRanh
+                    VeLine ax, ay, bx, by, -1
+                    If coKichThuoc Then
+                        DatLv mLvSo
+                        VeChieuDai ax, ay, bx, by, _
+                            Sqr((rg(i + 1, 0) - rg(i, 0)) ^ 2 + (rg(i + 1, 1) - rg(i, 1)) ^ 2), cao * 0.8
+                    End If
+                End If
+                s = TH_SoDinh(rg(i, 0), rg(i, 1), coKichThuoc)
+                If Len(s) > 0 And Not daSo.Exists(s) Then
+                    daSo.Add s, True
+                    DatLv mLvSo
+                    VeText ax + rMoc * 1.6, ay + rMoc * 1.6, s, cao, -1
+                End If
+            Next i
+        Next kv
+    Next j
+
+    ' Nhan thua: LoaiDat  SoThua/DienTich (giong trich luc)
+    DatLv mLvNhan
+    Dim caoN As Double, sLoai As String, sSo As String, sDt As String
+    Dim wLoai As Double, wFrac As Double, gap As Double, lefX As Double, cx As Double, cy As Double
+    caoN = cao * 0.84
+    For j = 1 To ds.Count
+        Set v = ds.Item(j)
+        cx = ox + (v.cx - gx) * kp: cy = oy + (v.cy - gy) * kp
+        sLoai = Trim$(v.loaiDat): sSo = Trim$(v.soThua): sDt = FNum(v.Dt, 1)
+        wLoai = Len(sLoai) * caoN * 0.6
+        wFrac = Len(sDt) * caoN * 0.6
+        If Len(sSo) * caoN * 0.6 > wFrac Then wFrac = Len(sSo) * caoN * 0.6
+        gap = caoN * 0.4
+        lefX = cx - (wLoai + gap + wFrac) / 2#
+        If Len(sLoai) > 0 Then VeText lefX + wLoai / 2#, cy, sLoai, caoN, -1
+        VeNhanPhanSo lefX + wLoai + gap + wFrac / 2#, cy, sSo, sDt, caoN, -1
+    Next j
+End Sub
+
+' Chieu dai canh: chu xoay theo canh, dat giua canh lech sang ben phai huong ve
+Private Sub VeChieuDai(ByVal ax As Double, ByVal ay As Double, ByVal bx As Double, ByVal by As Double, _
+                       ByVal dai As Double, ByVal h As Double)
+    Dim dx As Double, dy As Double, L As Double, ang As Double, mx As Double, my As Double
+    dx = bx - ax: dy = by - ay
+    L = Sqr(dx * dx + dy * dy)
+    If L < h * 2# Then Exit Sub                      ' canh qua ngan tren so do
+    ang = Atan2(dy, dx)
+    If ang > 1.5708 Then ang = ang - 3.14159265358979
+    If ang <= -1.5708 Then ang = ang + 3.14159265358979
+    mx = (ax + bx) / 2# + dy / L * h * 0.8          ' phap tuyen phai (ra ngoai vong CCW)
+    my = (ay + by) / 2# - dx / L * h * 0.8
+    On Error Resume Next
+    ActiveSettings.TextStyle.Height = h
+    ActiveSettings.TextStyle.Width = h * C_TILE_W
+    ActiveSettings.TextStyle.Justification = msdTextJustificationCenterCenter
+    Dim oT As TextElement
+    Set oT = CreateTextElement1(Nothing, FNum(dai, 2), Point3dFromXYZ(mx, my, 0#), _
+                                Matrix3dFromAxisAndRotationAngle(2, ang))
+    If Not oT Is Nothing Then oT.LineWeight = 0: ActiveModelReference.AddElement oT
+    On Error GoTo 0
+End Sub
+
+Private Function KhoaCanh(ByVal ax As Double, ByVal ay As Double, ByVal bx As Double, ByVal by As Double) As String
+    Dim a As String, b As String
+    a = Format$(Round(ax, 3), "0.000") & "|" & Format$(Round(ay, 3), "0.000")
+    b = Format$(Round(bx, 3), "0.000") & "|" & Format$(Round(by, 3), "0.000")
+    If a < b Then KhoaCanh = a & "#" & b Else KhoaCanh = b & "#" & a
+End Function
+
+' Bang "Doan | Chieu dai": moi thua sau 1 dong tieu de (khi > 1 thua) roi cac canh
+' "1-2'" | "12,34". O = chu mau "tt" (cung hang voi "cd"), sap theo cot roi tren xuong.
+Private Sub DienBangDoan(ByVal sau As Collection, ByVal cxb As Double, ByVal cyb As Double, _
+                         ByVal k As Double, ByVal Cpx As Double, ByVal Cpy As Double)
+    Dim tx() As Double, ty() As Double, ct As Long, i As Long, hT As Double, lvT As Long
+    ReDim tx(1 To gNT + 1): ReDim ty(1 To gNT + 1)
+    For i = 1 To gNT
+        If gTS(i) = "tt" And gTKind(i) = "TAG" Then
+            ct = ct + 1: tx(ct) = gTX(i): ty(ct) = TamHang(gTX(i), gTY(i))
+            hT = gTCao(i): lvT = gTL(i)
+        End If
+    Next i
+    If ct = 0 Then Exit Sub
+    SapCotHang tx, ty, ct, hT * 2#
+    DatLvTag lvT
+
+    ' danh sach dong: moi canh 1 lan (ranh ngoai roi duong cat) - modTachHop
+    Dim dTT As New Collection, dCD As New Collection, j As Long, sD As String, dd As Double
+    For j = 1 To TH_SoDoan()
+        TH_Doan j, sD, dd
+        dTT.Add sD: dCD.Add FNum(dd, 2)
+    Next j
+
+    Dim w As Double, xc As Double, xT As Double, hc As Double, r As Long
+    hc = hT * k
+    For r = 1 To dTT.Count
+        If r > ct Then
+            MsgBox "Bang chieu dai canh khong du cho (" & dTT.Count & " dong, mau co " & ct & " o).", vbExclamation, "Tach/hop thua"
+            Exit For
+        End If
+        xc = TamCot(tx(r), ty(r), w)
+        DienCell xc, ty(r), dTT.Item(r), hc, cxb, cyb, k, Cpx, Cpy, w * k
+        xT = TagCanhPhai("cd", tx(r), ty(r), hT)
+        If xT > -1E+29 Then
+            xc = TamCot(xT, ty(r), w)
+            DienCell xc, ty(r), dCD.Item(r), hc, cxb, cyb, k, Cpx, Cpy, w * k
+        End If
+    Next r
 End Sub
