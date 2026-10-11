@@ -86,7 +86,7 @@ Private Function TaoMenu(ByVal ten As String) As Long
         Muc h, "G" & ChrW(225) & "n nh" & ChrW(227) & "n th" & ChrW(7917) & "a", "GANNHAN"
         Gach h
         Muc h, "T" & ChrW(244) & " m" & ChrW(224) & "u theo lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", ""
-        Muc h, "S" & ChrW(7917) & "a ranh th" & ChrW(7917) & "a", ""
+        Muc h, "Chia " & ChrW(273) & "o" & ChrW(7841) & "n t" & ChrW(7841) & "i giao " & ChrW(273) & "i" & ChrW(7875) & "m (c" & ChrW(7855) & "t n" & ChrW(233) & "t ranh)", "CHIADOAN"
 
     Case "KIEMKE"
         Muc h, "L" & ChrW(7853) & "p b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ki" & ChrW(7875) & "m k" & ChrW(234), ""
@@ -121,6 +121,7 @@ Public Sub DC_ChayLenh(ByVal ma As String)
     Case "BANGDL":    DC_MoBangDuLieu
     Case "TRICHLUC":  DC_MoTrichLuc
     Case "GANNHAN":   DC_MoGanNhan
+    Case "CHIADOAN":  DC_MoChiaDoan
     Case "VETINH":    DC_XemVeTinh
     Case "GEARTH":    DC_MoGoogleEarth
     Case "MACDINH"
