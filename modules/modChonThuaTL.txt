@@ -8,7 +8,8 @@ Public gToolTL As clsChonThuaTL
 
 Public Sub DC_ChonThuaTrichLuc(ByVal csdl As String, ByVal mau As String, ByVal kieu As String, _
         ByVal toBanDo As String, ByVal xa As String, ByVal huyen As String, ByVal tinh As String, _
-        ByVal lvXuat As String, ByVal cao As Double, ByVal cheDoMau As Boolean, ByVal tyLe As Double)
+        ByVal lvXuat As String, ByVal cao As Double, ByVal cheDoMau As Boolean, ByVal tyLe As Double, _
+        Optional ByVal cheDo As Long = 0, Optional ByVal ini As String = "", Optional ByVal lvCat As String = "")
 
     Dim vungs As Collection
     Set vungs = MoCSDL(csdl)
@@ -25,6 +26,7 @@ Public Sub DC_ChonThuaTrichLuc(ByVal csdl As String, ByVal mau As String, ByVal 
         .csdl = csdl: .mau = mau: .kieu = kieu: .toBanDo = toBanDo
         .xa = xa: .huyen = huyen: .tinh = tinh: .lvXuat = lvXuat
         .cao = cao: .cheDoMau = cheDoMau: .tyLe = tyLe
+        .cheDo = cheDo: .ini = ini: .lvCat = lvCat
     End With
     CommandState.StartPrimitive gToolTL
 End Sub
