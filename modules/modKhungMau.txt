@@ -1307,11 +1307,7 @@ Private Sub VeSoDoTH(ByVal ds As Collection, ByVal ox As Double, ByVal oy As Dou
                     daVe.Add key, True
                     DatLv mLvRanh
                     VeLine ax, ay, bx, by, -1
-                    If coKichThuoc Then
-                        DatLv mLvSo
-                        VeChieuDai ax, ay, bx, by, _
-                            Sqr((rg(i + 1, 0) - rg(i, 0)) ^ 2 + (rg(i + 1, 1) - rg(i, 1)) ^ 2), cao * 0.8
-                    End If
+                    ' SUA 11/10/2026: khong ghi chieu dai canh tren so do (da co bang 3.3)
                 End If
                 s = TH_SoDinh(rg(i, 0), rg(i, 1), coKichThuoc)
                 If Len(s) > 0 And Not daSo.Exists(s) Then
