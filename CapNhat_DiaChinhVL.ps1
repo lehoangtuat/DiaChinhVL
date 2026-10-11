@@ -52,7 +52,11 @@ if ((SoPB $moi) -le (SoPB $cu)) {
 Write-Host ''
 Write-Host '  Dang tai DiaChinhVL.mvba ...'
 $tmp = Join-Path $env:TEMP 'DiaChinhVL_moi.mvba'
-if (-not (Tai "$Raw/DiaChinhVL.mvba" $tmp)) { Write-Host '  [LOI] Khong tai duoc DiaChinhVL.mvba.' -ForegroundColor Red; Thoat 1 }
+# Uu tien tai tu GitHub Release (GitHub dem so luot tai), loi thi lay ban trong kho
+$Rel = "https://github.com/lehoangtuat/DiaChinhVL/releases/download/v$moi/DiaChinhVL.mvba"
+if (-not (Tai $Rel $tmp)) {
+    if (-not (Tai "$Raw/DiaChinhVL.mvba" $tmp)) { Write-Host '  [LOI] Khong tai duoc DiaChinhVL.mvba.' -ForegroundColor Red; Thoat 1 }
+}
 $b = [IO.File]::ReadAllBytes($tmp)
 if ($b.Length -lt 200000 -or $b[0] -ne 0xD0 -or $b[1] -ne 0xCF -or $b[2] -ne 0x11 -or $b[3] -ne 0xE0) {
     Write-Host '  [LOI] File tai ve bi hong. Thu lai sau.' -ForegroundColor Red; Thoat 1
