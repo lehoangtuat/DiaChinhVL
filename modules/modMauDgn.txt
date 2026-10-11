@@ -661,6 +661,11 @@ Private Function UnicodeSangTcvn3(ByVal s As String) As String
     UnicodeSangTcvn3 = r
 End Function
 
+' Dung chung (modTienIch: doi font chu ban ve)
+Public Function DC_Tcvn3SangUnicode(ByVal s As String) As String
+    DC_Tcvn3SangUnicode = Tcvn3SangUnicode(s)
+End Function
+
 '------------------------------------------------------------ TCVN3 -> Unicode
 Private Function Tcvn3SangUnicode(ByVal s As String) As String
     Dim i As Long, c As Long, b As Long, r As String
