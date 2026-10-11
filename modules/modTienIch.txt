@@ -1,0 +1,387 @@
+'============================================================
+' modTienIch - Menu Tien ich (lop, chon/xoa theo thuoc tinh, chieu dai
+'   canh, doi font TCVN3 -> Unicode). Moi lenh sua ban ve deu dat "mark"
+'   truoc -> key-in "undo mark" de tra lai.
+'============================================================
+Option Explicit
+
+Private Function TIEU_DE() As String
+    TIEU_DE = "Ti" & ChrW(7879) & "n " & ChrW(237) & "ch"
+End Function
+
+'============================================================
+' LOP (LEVEL) - bat/tat trong moi view dang mo
+'============================================================
+Public Sub DC_BatTatCaLop()
+    Dim vw As View, vi As Long, lv As Level
+    On Error Resume Next
+    For vi = 1 To 8
+        Set vw = Nothing
+        Set vw = ActiveDesignFile.Views(vi)
+        If Not vw Is Nothing Then
+            If vw.IsOpen Then
+                For Each lv In ActiveDesignFile.Levels
+                    lv.IsDisplayedInView(vw) = True
+                Next lv
+            End If
+        End If
+    Next vi
+    For Each lv In ActiveDesignFile.Levels
+        lv.IsDisplayed = True
+    Next lv
+    ActiveDesignFile.Levels.Rewrite
+    On Error GoTo 0
+    RedrawAllViews
+End Sub
+
+' Tat het (tru lop dang lam viec - MicroStation khong cho tat lop active)
+Public Sub DC_TatTatCaLop()
+    TatTheoDieuKien Nothing, False
+End Sub
+
+' Chi hien cac lop cua doi tuong dang chon (tat cac lop khac)
+Public Sub DC_BatLopDoiTuongChon()
+    Dim ds As Object
+    Set ds = LopDangChon()
+    If ds Is Nothing Then Exit Sub
+    BatDanhSach ds
+    TatTheoDieuKien ds, False
+End Sub
+
+' Tat cac lop cua doi tuong dang chon
+Public Sub DC_TatLopDoiTuongChon()
+    Dim ds As Object
+    Set ds = LopDangChon()
+    If ds Is Nothing Then Exit Sub
+    TatTheoDieuKien ds, True
+End Sub
+
+' tatTrongDs = True : tat cac lop CO trong ds ; False : tat cac lop KHONG co trong ds
+' (ds = Nothing -> tat het)
+Private Sub TatTheoDieuKien(ByVal ds As Object, ByVal tatTrongDs As Boolean)
+    Dim vw As View, vi As Long, lv As Level, act As Long, coTrong As Boolean, tat As Boolean
+    On Error Resume Next
+    act = -1
+    act = ActiveSettings.Level.Number
+    ' lop active nam trong nhom bi tat -> chuyen lop active sang lop duoc giu
+    If Not ds Is Nothing Then
+        coTrong = ds.Exists(CStr(act))
+        If coTrong = tatTrongDs Then
+            For Each lv In ActiveDesignFile.Levels
+                If ds.Exists(CStr(lv.Number)) <> tatTrongDs Then Set ActiveSettings.Level = lv: act = lv.Number: Exit For
+            Next lv
+        End If
+    End If
+    For vi = 1 To 8
+        Set vw = Nothing
+        Set vw = ActiveDesignFile.Views(vi)
+        If Not vw Is Nothing Then
+            If vw.IsOpen Then
+                For Each lv In ActiveDesignFile.Levels
+                    If ds Is Nothing Then
+                        tat = True
+                    Else
+                        tat = (ds.Exists(CStr(lv.Number)) = tatTrongDs)
+                    End If
+                    If tat And lv.Number <> act Then lv.IsDisplayedInView(vw) = False
+                Next lv
+            End If
+        End If
+    Next vi
+    On Error GoTo 0
+    RedrawAllViews
+End Sub
+
+Private Sub BatDanhSach(ByVal ds As Object)
+    Dim vw As View, vi As Long, lv As Level
+    On Error Resume Next
+    For vi = 1 To 8
+        Set vw = Nothing
+        Set vw = ActiveDesignFile.Views(vi)
+        If Not vw Is Nothing Then
+            If vw.IsOpen Then
+                For Each lv In ActiveDesignFile.Levels
+                    If ds.Exists(CStr(lv.Number)) Then lv.IsDisplayedInView(vw) = True
+                Next lv
+            End If
+        End If
+    Next vi
+End Sub
+
+' So lop cua cac doi tuong dang chon (Nothing + bao loi neu chua chon)
+Private Function LopDangChon() As Object
+    Dim ds As Object, ee As ElementEnumerator
+    Set ds = CreateObject("Scripting.Dictionary")
+    On Error Resume Next
+    Set ee = ActiveModelReference.GetSelectedElements
+    On Error GoTo 0
+    If Not ee Is Nothing Then
+        Do While ee.MoveNext
+            ds(CStr(DC_LevelSo(ee.Current))) = True
+        Loop
+    End If
+    If ds.Count = 0 Then
+        DC_ThongBao "H" & ChrW(227) & "y ch" & ChrW(7885) & "n (m" & ChrW(361) & "i t" & ChrW(234) & "n Element Selection) " & ChrW(237) & "t nh" & ChrW(7845) & "t 1 " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng tr" & ChrW(432) & ChrW(7899) & "c.", TIEU_DE, vbExclamation
+        Exit Function
+    End If
+    Set LopDangChon = ds
+End Function
+
+'============================================================
+' CHON / XOA THEO THUOC TINH hoac THEO LOP cua doi tuong dang chon
+'   theoLop = False : cung loai + lop + mau + kieu net + do day
+'   theoLop = True  : cung lop
+'============================================================
+Public Sub DC_ChonTheoThuocTinh()
+    ChonXoa False, False
+End Sub
+Public Sub DC_XoaTheoThuocTinh()
+    ChonXoa False, True
+End Sub
+Public Sub DC_ChonTheoLop()
+    ChonXoa True, False
+End Sub
+Public Sub DC_XoaLopDoiTuongChon()
+    ChonXoa True, True
+End Sub
+
+Private Sub ChonXoa(ByVal theoLop As Boolean, ByVal xoa As Boolean)
+    Dim mau As Object, ee As ElementEnumerator, el As Element, k As String
+    Set mau = CreateObject("Scripting.Dictionary")
+    On Error Resume Next
+    Set ee = ActiveModelReference.GetSelectedElements
+    On Error GoTo 0
+    If Not ee Is Nothing Then
+        Do While ee.MoveNext
+            mau(KhoaThuocTinh(ee.Current, theoLop)) = True
+        Loop
+    End If
+    If mau.Count = 0 Then
+        DC_ThongBao "H" & ChrW(227) & "y ch" & ChrW(7885) & "n (m" & ChrW(361) & "i t" & ChrW(234) & "n Element Selection) " & ChrW(237) & "t nh" & ChrW(7845) & "t 1 " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng m" & ChrW(7851) & "u tr" & ChrW(432) & ChrW(7899) & "c.", TIEU_DE, vbExclamation
+        Exit Sub
+    End If
+
+    Dim esc As New ElementScanCriteria, ds() As Element, n As Long, i As Long
+    esc.ExcludeNonGraphical
+    ReDim ds(1 To 256)
+    Set ee = ActiveModelReference.Scan(esc)
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If mau.Exists(KhoaThuocTinh(el, theoLop)) Then
+            n = n + 1
+            If n > UBound(ds) Then ReDim Preserve ds(1 To n * 2)
+            Set ds(n) = el
+        End If
+    Loop
+    If n = 0 Then Exit Sub
+
+    If xoa Then
+        If DC_ThongBao("X" & ChrW(243) & "a " & n & " " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng " & IIf(theoLop, "tr" & ChrW(234) & "n c" & ChrW(249) & "ng l" & ChrW(7899) & "p", "c" & ChrW(249) & "ng thu" & ChrW(7897) & "c t" & ChrW(237) & "nh") & _
+                       " v" & ChrW(7899) & "i " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng " & ChrW(273) & "ang ch" & ChrW(7885) & "n?" & vbCrLf & "(Sai: key-in undo mark)", TIEU_DE, vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
+        On Error Resume Next
+        CadInputQueue.SendKeyin "mark"
+        ActiveModelReference.UnselectAllElements
+        For i = 1 To n
+            ActiveModelReference.RemoveElement ds(i)
+        Next i
+        On Error GoTo 0
+        RedrawAllViews
+        ShowStatus "Da xoa " & n & " doi tuong"
+    Else
+        On Error Resume Next
+        ActiveModelReference.UnselectAllElements
+        For i = 1 To n
+            ActiveModelReference.SelectElement ds(i)
+        Next i
+        On Error GoTo 0
+        ShowStatus "Da chon " & n & " doi tuong"
+    End If
+End Sub
+
+Private Function KhoaThuocTinh(ByVal el As Element, ByVal theoLop As Boolean) As String
+    Dim s As String
+    s = CStr(DC_LevelSo(el))
+    If theoLop Then KhoaThuocTinh = s: Exit Function
+    On Error Resume Next
+    s = s & "|" & el.Type & "|" & el.Color & "|" & el.LineWeight
+    s = s & "|" & el.LineStyle.Name
+    KhoaThuocTinh = s
+End Function
+
+'============================================================
+' GHI CHU CHIEU DAI CANH: doi tuong dang chon (line, linestring, shape,
+' complex) -> ghi chieu dai tung canh, chu xoay theo canh, dat phia ngoai.
+'============================================================
+Public Sub DC_GhiChieuDaiCanh()
+    Dim ee As ElementEnumerator, el As Element, n As Long
+    On Error Resume Next
+    Set ee = ActiveModelReference.GetSelectedElements
+    On Error GoTo 0
+    Dim ds As New Collection
+    If Not ee Is Nothing Then
+        Do While ee.MoveNext
+            ds.Add ee.Current
+        Loop
+    End If
+    If ds.Count = 0 Then
+        DC_ThongBao "H" & ChrW(227) & "y ch" & ChrW(7885) & "n c" & ChrW(225) & "c c" & ChrW(7841) & "nh / ranh th" & ChrW(7917) & "a (line, linestring, shape) r" & ChrW(7891) & "i b" & ChrW(7845) & "m l" & ChrW(7841) & "i.", TIEU_DE, vbExclamation
+        Exit Sub
+    End If
+    Dim s As String, cao As Double, soLe As Long
+    s = InputBox("Co chu (don vi ban ve, vd 0.5):", "Ghi chieu dai canh", DC_DocCauHinh("CD_CAO", "0.5"))
+    If Len(Trim$(s)) = 0 Then Exit Sub
+    cao = Val(Replace(s, ",", ".")): If cao <= 0 Then Exit Sub
+    s = InputBox("So le (vd 2):", "Ghi chieu dai canh", DC_DocCauHinh("CD_SOLE", "2"))
+    If Len(Trim$(s)) = 0 Then Exit Sub
+    soLe = CLng(Val(s))
+    DC_GhiCauHinh "CD_CAO", CStr(cao): DC_GhiCauHinh "CD_SOLE", CStr(soLe)
+
+    On Error Resume Next
+    CadInputQueue.SendKeyin "mark"
+    On Error GoTo 0
+    DC_DatFontViet
+    Dim i As Long
+    For i = 1 To ds.Count
+        n = n + GhiMotPhanTu(ds.Item(i), cao, soLe)
+    Next i
+    RedrawAllViews
+    ShowStatus "Da ghi " & n & " chieu dai canh"
+End Sub
+
+Private Function GhiMotPhanTu(ByVal el As Element, ByVal cao As Double, ByVal soLe As Long) As Long
+    Dim subs As ElementEnumerator, pts() As Point3d, i As Long, m As Long, a As Double, chieu As Double
+    On Error Resume Next
+    If el.IsComplexElement And Not el.IsVertexList Then
+        Set subs = el.AsComplexElement.GetSubElements
+        Do While subs.MoveNext
+            GhiMotPhanTu = GhiMotPhanTu + GhiMotPhanTu(subs.Current, cao, soLe)
+        Loop
+        Exit Function
+    End If
+    If Not el.IsVertexList Then Exit Function
+    Err.Clear
+    pts = el.AsVertexList.GetVertices
+    If Err.Number <> 0 Then Exit Function
+    On Error GoTo 0
+    m = UBound(pts) - LBound(pts)
+    ' chieu vong: CCW (a > 0) -> phia ngoai la ben PHAI canh
+    For i = LBound(pts) To UBound(pts) - 1
+        a = a + pts(i).X * pts(i + 1).Y - pts(i + 1).X * pts(i).Y
+    Next i
+    If a >= 0 Then chieu = 1# Else chieu = -1#
+    For i = LBound(pts) To UBound(pts) - 1
+        If GhiCanh(pts(i).X, pts(i).Y, pts(i + 1).X, pts(i + 1).Y, cao, soLe, chieu) Then GhiMotPhanTu = GhiMotPhanTu + 1
+    Next i
+End Function
+
+Private Function GhiCanh(ByVal ax As Double, ByVal ay As Double, ByVal bx As Double, ByVal by As Double, _
+                         ByVal h As Double, ByVal soLe As Long, ByVal chieu As Double) As Boolean
+    Dim dx As Double, dy As Double, L As Double, ang As Double, mx As Double, my As Double, f As String
+    dx = bx - ax: dy = by - ay
+    L = Sqr(dx * dx + dy * dy)
+    If L < h * 0.5 Then Exit Function
+    ang = Atan2(dy, dx)
+    If ang > 1.5708 Then ang = ang - 3.14159265358979
+    If ang <= -1.5708 Then ang = ang + 3.14159265358979
+    mx = (ax + bx) / 2# + dy / L * h * 0.8 * chieu
+    my = (ay + by) / 2# - dx / L * h * 0.8 * chieu
+    If soLe <= 0 Then f = "0" Else f = "0." & String$(soLe, "0")
+    On Error Resume Next
+    ActiveSettings.TextStyle.Height = h
+    ActiveSettings.TextStyle.Width = h * 0.774
+    ActiveSettings.TextStyle.Justification = msdTextJustificationCenterCenter
+    Dim oT As TextElement
+    Set oT = CreateTextElement1(Nothing, Replace(Format$(L, f), ".", ","), Point3dFromXYZ(mx, my, 0#), _
+                                Matrix3dFromAxisAndRotationAngle(2, ang))
+    If Not oT Is Nothing Then
+        oT.LineWeight = 0
+        ActiveModelReference.AddElement oT
+        GhiCanh = True
+    End If
+End Function
+
+'============================================================
+' DOI FONT TCVN3 (.VnTime...) -> UNICODE (Times New Roman)
+'   Co chon -> chi doi chu dang chon ; khong chon -> hoi doi ca ban ve.
+'============================================================
+Public Sub DC_DoiFontTcvn3()
+    Dim ee As ElementEnumerator, ds As New Collection, el As Element
+    On Error Resume Next
+    Set ee = ActiveModelReference.GetSelectedElements
+    On Error GoTo 0
+    If Not ee Is Nothing Then
+        Do While ee.MoveNext
+            ds.Add ee.Current
+        Loop
+    End If
+    If ds.Count = 0 Then
+        If DC_ThongBao("Ch" & ChrW(432) & "a ch" & ChrW(7885) & "n ch" & ChrW(7919) & " n" & ChrW(224) & "o. " & ChrW(272) & ChrW(7893) & "i T" & ChrW(7844) & "T C" & ChrW(7842) & " ch" & ChrW(7919) & " font TCVN3 (.VnTime...) trong b" & ChrW(7843) & "n v" & ChrW(7869) & " sang Unicode (Times New Roman)?", _
+                       TIEU_DE, vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
+        Dim esc As New ElementScanCriteria
+        esc.ExcludeAllTypes
+        esc.IncludeType msdElementTypeText
+        esc.IncludeType msdElementTypeTextNode
+        Set ee = ActiveModelReference.Scan(esc)
+        Do While ee.MoveNext
+            ds.Add ee.Current
+        Loop
+    End If
+
+    Dim fnt As Object
+    Set fnt = TimFontTen(DC_FONT_VIET)
+    If fnt Is Nothing Then Set fnt = TimFontTen("Arial")
+    If fnt Is Nothing Then DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y font " & DC_FONT_VIET & " trong MicroStation.", TIEU_DE, vbExclamation: Exit Sub
+
+    On Error Resume Next
+    CadInputQueue.SendKeyin "mark"
+    On Error GoTo 0
+    Dim i As Long, n As Long
+    For i = 1 To ds.Count
+        n = n + DoiMotChu(ds.Item(i), fnt)
+    Next i
+    RedrawAllViews
+    DC_ThongBao ChrW(272) & ChrW(227) & " " & ChrW(273) & ChrW(7893) & "i " & n & " ch" & ChrW(7919) & " sang Unicode (" & fnt.Name & ")." & vbCrLf & "(Sai: key-in undo mark)", TIEU_DE
+End Sub
+
+Private Function DoiMotChu(ByVal el As Element, ByVal fnt As Object) As Long
+    Dim subs As ElementEnumerator, oT As TextElement, fn As String, s As String, ts As TextStyle
+    On Error Resume Next
+    If el.Type = msdElementTypeTextNode Then
+        Set subs = el.AsComplexElement.GetSubElements
+        Do While subs.MoveNext
+            DoiMotChu = DoiMotChu + DoiMotChu(subs.Current, fnt)
+        Loop
+        Exit Function
+    End If
+    If el.Type <> msdElementTypeText Then Exit Function
+    Set oT = el
+    fn = LCase$(oT.TextStyle.Font.Name)
+    If Not (Left$(fn, 2) = "vn" Or Left$(fn, 3) = ".vn") Then Exit Function
+    s = DC_Tcvn3SangUnicode(oT.Text)
+    Err.Clear
+    Set ts = oT.TextStyle
+    Set ts.Font = fnt
+    If Err.Number <> 0 Then Err.Clear: ts.Font = fnt
+    Set oT.TextStyle = ts
+    If Err.Number <> 0 Then Err.Clear: oT.TextStyle = ts
+    oT.Text = s
+    Err.Clear
+    oT.Rewrite
+    If Err.Number = 0 Then DoiMotChu = 1
+End Function
+
+Private Function TimFontTen(ByVal ten As String) As Object
+    Dim fs As Object, f As Object, i As Long
+    On Error Resume Next
+    Set fs = ActiveDesignFile.Fonts
+    For Each f In fs
+        If StrComp(f.Name, ten, vbTextCompare) = 0 Then Set TimFontTen = f: Exit Function
+    Next f
+    For i = 0 To 1023
+        Set f = Nothing
+        Set f = fs.Item(i)
+        If Not f Is Nothing Then
+            If StrComp(f.Name, ten, vbTextCompare) = 0 Then Set TimFontTen = f: Exit Function
+        End If
+    Next i
+End Function
