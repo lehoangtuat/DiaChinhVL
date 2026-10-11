@@ -11,12 +11,21 @@ Public vungs As Collection
 Public csdl As String, mau As String, kieu As String, toBanDo As String
 Public xa As String, huyen As String, tinh As String, lvXuat As String
 Public cao As Double, cheDoMau As Boolean, tyLe As Double
+' SUA 11/10/2026: 0 = trich luc, 1 = tach thua, 2 = hop thua (bam nhieu thua, Reset = xong)
+Public cheDo As Long, ini As String, lvCat As String
 Private mXong As Boolean
+Private mDs As New Collection
+
+Private mTec As New Collection   ' to sang cac thua da chon
 
 Private Sub IPrimitiveCommandEvents_Start()
     On Error Resume Next
     ShowCommand "Trich luc - chon thua"
-    ShowPrompt "Bam vao TRONG thua can trich luc ; Reset (chuot phai) = thoi"
+    Select Case cheDo
+        Case 1: ShowPrompt "TACH: bam cac thua con (vd 17, 78) hoac 1 thua da ve duong cat ; bam lai thua da chon / Reset = xong"
+        Case 2: ShowPrompt "HOP: bam lan luot cac thua can hop ; bam lai thua da chon / Reset = xong"
+        Case Else: ShowPrompt "Bam vao TRONG thua can trich luc ; Reset (chuot phai) = thoi"
+    End Select
 End Sub
 
 Private Sub IPrimitiveCommandEvents_Datapoint(pt As Point3d, ByVal oView As View)
@@ -28,15 +37,65 @@ Private Sub IPrimitiveCommandEvents_Datapoint(pt As Point3d, ByVal oView As View
         ShowPrompt "Khong co thua (trong CSDL) tai day - bam cho khac ; Reset = thoi"
         Exit Sub
     End If
+    Set gViewTL = oView
+    If cheDo = 1 Or cheDo = 2 Then
+        ' bam lai thua da chon (double click) = xong
+        Dim i As Long
+        For i = 1 To mDs.Count
+            If mDs.Item(i) Is v Then XongChon: Exit Sub
+        Next i
+        mDs.Add v
+        ToSang v
+        ShowPrompt "Da chon " & mDs.Count & " thua (" & DsSo() & ") ; bam thua tiep ; bam lai thua da chon / Reset = xong"
+        Exit Sub
+    End If
     ' Thua chua gan thong tin van xuat: so thua 0, loai dat 0, dien tich tu tinh
     mXong = True
-    Set gViewTL = oView             ' zoom dung view vua bam sau khi xuat
     CommandState.StartDefaultCommand
     ChayTrichLucThua v, mau, kieu, toBanDo, xa, huyen, tinh, _
                      lvXuat, cao, cheDoMau, tyLe
     MoLaiForm Trim$(v.soThua)
 End Sub
 
+' Ket thuc chon (tach / hop)
+Private Sub XongChon()
+    Dim ds As String
+    mXong = True
+    TatSang
+    CommandState.StartDefaultCommand
+    ds = DsSo()
+    If cheDo = 1 And mDs.Count >= 1 Then
+        DC_ChayTachHop 1, mDs, mau, ini, toBanDo, xa, huyen, tinh, tyLe, lvCat
+    ElseIf cheDo = 2 And mDs.Count >= 2 Then
+        DC_ChayTachHop 2, mDs, mau, ini, toBanDo, xa, huyen, tinh, tyLe, ""
+    End If
+    MoLaiForm ds
+End Sub
+
+' To sang ranh thua vua chon (phan tu tam, khong ghi vao ban ve)
+Private Sub ToSang(ByVal v As clsVung)
+    Dim rg() As Double, pts() As Point3d, i As Long, n As Long, el As Element, tec As Object
+    On Error Resume Next
+    rg = v.ring: n = UBound(rg, 1)
+    ReDim pts(0 To n)
+    For i = 0 To n
+        pts(i).X = rg(i, 0): pts(i).Y = rg(i, 1): pts(i).Z = 0#
+    Next i
+    Set el = CreateShapeElement1(Nothing, pts)
+    If el Is Nothing Then Exit Sub
+    el.LineWeight = 4
+    Set tec = CreateTransientElementContainer1(el, 0, 255, msdDrawingModeHilite)
+    If Not tec Is Nothing Then mTec.Add tec
+End Sub
+
+Private Sub TatSang()
+    Dim i As Long
+    On Error Resume Next
+    For i = mTec.Count To 1 Step -1
+        mTec.Item(i).Reset
+        mTec.Remove i
+    Next i
+End Sub
 Private Sub IPrimitiveCommandEvents_Dynamics(pt As Point3d, ByVal oView As View, ByVal DrawMode As MsdDrawingMode)
 End Sub
 
@@ -44,13 +103,24 @@ Private Sub IPrimitiveCommandEvents_Keyin(ByVal keyin As String)
 End Sub
 
 Private Sub IPrimitiveCommandEvents_Reset()
+    If (cheDo = 1 And mDs.Count >= 1) Or (cheDo = 2 And mDs.Count >= 2) Then XongChon: Exit Sub
     mXong = True
+    TatSang
     CommandState.StartDefaultCommand
     MoLaiForm ""
 End Sub
 
+Private Function DsSo() As String
+    Dim i As Long
+    For i = 1 To mDs.Count
+        If i > 1 Then DsSo = DsSo & "+"
+        DsSo = DsSo & Trim$(mDs.Item(i).soThua)
+    Next i
+End Function
+
 Private Sub IPrimitiveCommandEvents_Cleanup()
     ' bi cong cu khac thay the khi chua chon -> mo lai form
+    TatSang
     If Not mXong Then
         mXong = True
         MoLaiForm ""
