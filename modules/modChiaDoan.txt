@@ -1,0 +1,277 @@
+'============================================================
+' modChiaDoan - CHIA DOAN TAI GIAO DIEM (sua that tren ban ve)
+'   Line / LineString tren cac level ranh: cho nao net khac cat ngang
+'   hoac cham vao (dau mut nam giua net, net cat qua dinh) -> tach phan tu
+'   thanh nhieu doan tai diem do (giu level, mau, net, do day).
+'   Tuy chon: xoa doan DU ngan (ve lo qua giao diem, dau kia ho).
+'   Truoc khi sua dat "mark" -> Undo duoc.
+'============================================================
+Option Explicit
+
+' levelsCSV: "Level 10,Level 32" ; tol: snap ; duThua: xoa doan du < duThua (0 = khong)
+' Tra ve so phan tu da chia.
+Public Function DC_ChiaDoanGiao(ByVal levelsCSV As String, ByVal tol As Double, _
+                                ByVal duThua As Double, Optional ByVal baoKetQua As Boolean = True) As Long
+    Dim ds() As Long, c As Long, i As Long, lvOk As Object
+    If tol <= 0 Then tol = 0.05
+    Set lvOk = CreateObject("Scripting.Dictionary")
+    c = DC_DsSoLevel(levelsCSV, ds)
+    For i = 0 To c - 1
+        lvOk(CStr(ds(i))) = True
+    Next i
+    If c = 0 Then Exit Function
+
+    ' 1) Phan tu Line / LineString tren cac level
+    Dim esc As New ElementScanCriteria, ee As ElementEnumerator, el As Element
+    Dim els() As Element, nE As Long
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    ReDim els(1 To 256)
+    Set ee = ActiveModelReference.Scan(esc)
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If lvOk.Exists(CStr(DC_LevelSo(el))) Then
+            nE = nE + 1
+            If nE > UBound(els) Then ReDim Preserve els(1 To nE * 2)
+            Set els(nE) = el
+        End If
+    Loop
+    If nE = 0 Then Exit Function
+
+    ' 2) Doan thang + chu so phan tu / so dinh
+    Dim pts() As Point3d, nS As Long, k As Long, e As Long
+    Dim ax() As Double, ay() As Double, bx() As Double, by() As Double, dl() As Double
+    Dim sE() As Long, sV() As Long, nV() As Long
+    ReDim nV(1 To nE)
+    For e = 1 To nE
+        pts = els(e).AsVertexList.GetVertices
+        nV(e) = UBound(pts) - LBound(pts) + 1
+        nS = nS + nV(e) - 1
+    Next e
+    ReDim ax(1 To nS): ReDim ay(1 To nS): ReDim bx(1 To nS): ReDim by(1 To nS): ReDim dl(1 To nS)
+    ReDim sE(1 To nS): ReDim sV(1 To nS)
+    nS = 0
+    For e = 1 To nE
+        pts = els(e).AsVertexList.GetVertices
+        For k = LBound(pts) To UBound(pts) - 1
+            nS = nS + 1
+            ax(nS) = pts(k).X: ay(nS) = pts(k).Y: bx(nS) = pts(k + 1).X: by(nS) = pts(k + 1).Y
+            dl(nS) = Sqr((bx(nS) - ax(nS)) ^ 2 + (by(nS) - ay(nS)) ^ 2)
+            sE(nS) = e: sV(nS) = k - LBound(pts)
+        Next k
+    Next e
+
+    ' 3) Diem cat (luoi o vuong, modHinhHoc)
+    Dim tL() As Collection
+    ReDim tL(1 To nS)
+    For i = 1 To nS
+        Set tL(i) = New Collection
+        tL(i).Add Array(0#, ax(i), ay(i))
+        tL(i).Add Array(1#, bx(i), by(i))
+    Next i
+    LuoiGiaoCat nS, ax, ay, bx, by, dl, tol, tL
+
+    ' 3b) Dinh giua cua LineString trung voi dau mut / dinh cua phan tu KHAC
+    Dim dinh As Object, key As String
+    Set dinh = CreateObject("Scripting.Dictionary")        ' o tol -> Collection Array(x, y, e)
+    For e = 1 To nE
+        pts = els(e).AsVertexList.GetVertices
+        For k = LBound(pts) To UBound(pts)
+            ThemDinh dinh, pts(k).X, pts(k).Y, e, tol
+        Next k
+    Next e
+
+    ' 4) Cat tung phan tu
+    Dim cat() As Boolean, them() As Collection, j As Long, q As Long, a As Variant
+    Dim nChia As Long, nDu As Long, moi As Collection, m As Long
+    Dim dsMoi As New Collection, dsGoc As New Collection, laDu As New Collection
+    For e = 1 To nE
+        pts = els(e).AsVertexList.GetVertices
+        m = nV(e)
+        ReDim cat(0 To m - 1)
+        ReDim them(0 To m - 1)
+        For k = 0 To m - 1
+            Set them(k) = New Collection
+        Next k
+        ' dinh giua trung voi phan tu khac
+        For k = 1 To m - 2
+            If CoPhanTuKhac(dinh, pts(LBound(pts) + k).X, pts(LBound(pts) + k).Y, e, tol) Then cat(k) = True
+        Next k
+        ' dau mut cua phan tu co noi vao net khac khong (de nhan biet doan du)
+        Dim noiDau As Boolean, noiCuoi As Boolean
+        noiDau = CoPhanTuKhac(dinh, pts(LBound(pts)).X, pts(LBound(pts)).Y, e, tol)
+        noiCuoi = CoPhanTuKhac(dinh, pts(UBound(pts)).X, pts(UBound(pts)).Y, e, tol)
+        ' diem cat tren tung doan
+        For i = 1 To nS
+            If sE(i) = e Then
+                k = sV(i)
+                For q = 3 To tL(i).Count
+                    a = tL(i).Item(q)
+                    If a(0) <= tol / IIf(dl(i) > 0, dl(i), 1) Then
+                        If k > 0 Then cat(k) = True Else noiDau = True
+                    ElseIf a(0) >= 1# - tol / IIf(dl(i) > 0, dl(i), 1) Then
+                        If k + 1 < m - 1 Then cat(k + 1) = True Else noiCuoi = True
+                    Else
+                        ThemTheoT them(k), a
+                    End If
+                Next q
+            End If
+        Next i
+        ' co cat khong?
+        Dim coCat As Boolean
+        coCat = False
+        For k = 0 To m - 1
+            If cat(k) Or them(k).Count > 0 Then coCat = True: Exit For
+        Next k
+        If coCat Then
+            ' day diem moi: dinh goc + diem chen ; danh dau diem cat
+            Dim pX As New Collection, pY As New Collection, pC As New Collection
+            Set pX = New Collection: Set pY = New Collection: Set pC = New Collection
+            For k = 0 To m - 1
+                pX.Add pts(LBound(pts) + k).X: pY.Add pts(LBound(pts) + k).Y: pC.Add cat(k)
+                If k < m - 1 Then
+                    For q = 1 To them(k).Count
+                        a = them(k).Item(q)
+                        pX.Add a(1): pY.Add a(2): pC.Add True
+                    Next q
+                End If
+            Next k
+            ' cac doan con
+            Dim batDau As Long, idx As Long
+            batDau = 1
+            For idx = 2 To pX.Count
+                If pC.Item(idx) Or idx = pX.Count Then
+                    If idx > batDau Then
+                        dsMoi.Add DoanCon(pX, pY, batDau, idx)
+                        dsGoc.Add e
+                        ' doan du: dau ngoai la dau mut TU DO cua phan tu, dau trong la diem cat
+                        laDu.Add (DoDai(pX, pY, batDau, idx) < duThua And _
+                                  ((batDau = 1 And Not noiDau And idx < pX.Count) Or _
+                                   (idx = pX.Count And Not noiCuoi And batDau > 1)))
+                    End If
+                    batDau = idx
+                End If
+            Next idx
+            nChia = nChia + 1
+        End If
+    Next e
+    If nChia = 0 Then
+        If baoKetQua Then MsgBox "Khong co cho nao can chia doan.", vbInformation, "Chia doan"
+        Exit Function
+    End If
+
+    ' 5) Doan du: chi xoa khi dau tu do khong cham phan tu nao khac
+    Dim xoa() As Boolean, d As Variant
+    ReDim xoa(1 To dsMoi.Count)
+    For i = 1 To dsMoi.Count
+        If duThua > 0 And laDu.Item(i) Then
+            xoa(i) = True: nDu = nDu + 1
+        End If
+    Next i
+
+    ' 6) Ghi ban ve: mark (undo), xoa phan tu goc, them doan moi
+    On Error Resume Next
+    CadInputQueue.SendKeyin "mark"
+    Dim thay As Object
+    Set thay = CreateObject("Scripting.Dictionary")
+    For i = 1 To dsMoi.Count
+        thay(CStr(dsGoc.Item(i))) = True
+    Next i
+    Dim e2 As Element, p2() As Point3d, nP As Long
+    For i = 1 To dsMoi.Count
+        If Not xoa(i) Then
+            d = dsMoi.Item(i)
+            nP = (UBound(d) + 1) \ 2
+            ReDim p2(0 To nP - 1)
+            For q = 0 To nP - 1
+                p2(q).X = d(2 * q): p2(q).Y = d(2 * q + 1): p2(q).Z = 0#
+            Next q
+            Set e2 = Nothing
+            If nP = 2 Then
+                Set e2 = CreateLineElement2(els(dsGoc.Item(i)), p2(0), p2(1))
+            Else
+                Set e2 = CreateLineElement1(els(dsGoc.Item(i)), p2)
+            End If
+            If Not e2 Is Nothing Then ActiveModelReference.AddElement e2
+        End If
+    Next i
+    Dim kk As Variant
+    For Each kk In thay.Keys
+        ActiveModelReference.RemoveElement els(CLng(kk))
+    Next kk
+    On Error GoTo 0
+    RedrawAllViews
+
+    DC_ChiaDoanGiao = nChia
+    If baoKetQua Then
+        MsgBox "Da chia " & nChia & " net tai giao diem." & _
+               IIf(nDu > 0, vbCrLf & "Da xoa " & nDu & " doan du (< " & duThua & " m).", "") & vbCrLf & _
+               "(Sai: bam Undo hoac key-in: undo mark)", vbInformation, "Chia doan"
+    End If
+End Function
+
+' Menu Bien tap -> Chia doan tai giao diem
+Public Sub DC_MoChiaDoan()
+    Dim lv As String, du As String
+    lv = InputBox("Level ranh can chia doan (vd 10,32):", "Chia doan tai giao diem", DC_DocCauHinh("CHIA_LV", "10"))
+    If Len(Trim$(lv)) = 0 Then Exit Sub
+    du = InputBox("Xoa doan DU (ve lo qua giao diem) ngan hon (m), 0 = khong xoa:", "Chia doan tai giao diem", DC_DocCauHinh("CHIA_DU", "0.5"))
+    DC_GhiCauHinh "CHIA_LV", lv
+    DC_GhiCauHinh "CHIA_DU", du
+    DC_ChiaDoanGiao lv, 0.05, Val(du), True
+End Sub
+
+'------------------------------------------------------------
+Private Sub ThemDinh(ByVal dinh As Object, ByVal x As Double, ByVal y As Double, ByVal e As Long, ByVal tol As Double)
+    Dim key As String
+    key = Int(x / tol) & "|" & Int(y / tol)
+    If Not dinh.Exists(key) Then dinh.Add key, New Collection
+    dinh(key).Add Array(x, y, e)
+End Sub
+
+' Co dinh cua phan tu khac (khac e) trong pham vi tol quanh (x, y)
+Private Function CoPhanTuKhac(ByVal dinh As Object, ByVal x As Double, ByVal y As Double, _
+                              ByVal e As Long, ByVal tol As Double) As Boolean
+    Dim gx As Long, gy As Long, dx As Long, dy As Long, key As String, c As Collection, i As Long, a As Variant
+    gx = Int(x / tol): gy = Int(y / tol)
+    For dx = -1 To 1
+        For dy = -1 To 1
+            key = (gx + dx) & "|" & (gy + dy)
+            If dinh.Exists(key) Then
+                Set c = dinh(key)
+                For i = 1 To c.Count
+                    a = c.Item(i)
+                    If a(2) <> e And Abs(a(0) - x) <= tol And Abs(a(1) - y) <= tol Then CoPhanTuKhac = True: Exit Function
+                Next i
+            End If
+        Next dy
+    Next dx
+End Function
+
+' Chen diem (t, x, y) vao danh sach theo t tang dan, bo trung
+Private Sub ThemTheoT(ByVal c As Collection, ByVal a As Variant)
+    Dim i As Long, b As Variant
+    For i = 1 To c.Count
+        b = c.Item(i)
+        If Abs(b(0) - a(0)) < 0.0000001 Then Exit Sub
+        If b(0) > a(0) Then c.Add a, Before:=i: Exit Sub
+    Next i
+    c.Add a
+End Sub
+
+Private Function DoanCon(ByVal pX As Collection, ByVal pY As Collection, ByVal i1 As Long, ByVal i2 As Long) As Variant
+    Dim r() As Double, i As Long, n As Long
+    ReDim r(0 To 2 * (i2 - i1 + 1) - 1)
+    For i = i1 To i2
+        r(n) = pX.Item(i): r(n + 1) = pY.Item(i): n = n + 2
+    Next i
+    DoanCon = r
+End Function
+
+Private Function DoDai(ByVal pX As Collection, ByVal pY As Collection, ByVal i1 As Long, ByVal i2 As Long) As Double
+    Dim i As Long
+    For i = i1 To i2 - 1
+        DoDai = DoDai + Sqr((pX.Item(i + 1) - pX.Item(i)) ^ 2 + (pY.Item(i + 1) - pY.Item(i)) ^ 2)
+    Next i
+End Function
