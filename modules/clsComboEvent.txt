@@ -2,7 +2,9 @@ Option Explicit
 
 Public WithEvents cbo As MSForms.ComboBox
 Public Form As Object
+Public ma As String          ' "" = combo Tinh ; "MAUHS" = combo Mau ho so
 
 Private Sub cbo_Change()
-    If Not Form Is Nothing Then Form.TinhDoi
+    If Form Is Nothing Then Exit Sub
+    If ma = "MAUHS" Then Form.MauHSDoi Else Form.TinhDoi
 End Sub
