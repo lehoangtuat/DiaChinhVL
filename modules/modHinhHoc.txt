@@ -444,6 +444,9 @@ Public Function GhepVung(ByVal segs As Collection, ByVal snap As Double, _
     Dim ket As New Collection
     soTia = 0
 
+    ' SUA 11/10/2026: cat cac doan tai giao diem (net ve cat ngang nhau / dau mut
+    ' cham giua doan khac, vd SmartLine ve du qua goc) -> moi giao diem thanh nut.
+    Set segs = NoiDoanGiao(segs, snap)
     XayGraph segs, snap, nodeX, nodeY, nodeCount, eu, ev, edgeCount
     If edgeCount = 0 Then
         Set GhepVung = ket
@@ -544,7 +547,8 @@ Public Function GhepVung(ByVal segs As Collection, ByVal snap As Double, _
 
     ' Cac face duong (dat) va face am (dao)
     Dim faceRings As New Collection   ' moi phan tu: ring() 2 chieu
-    Dim faceArea As New Collection    ' Double
+    Dim faceArea As New Collection    ' Double (dien tich CON LAI sau khi tru dao)
+    Dim faceGoc As New Collection     ' Double (dien tich GOC - dung so sanh chua dao)
     Dim faceComp As New Collection    ' Long
     Dim faceDao As New Collection     ' Collection cac ring dao (khoi tao rong)
 
@@ -611,6 +615,7 @@ Public Function GhepVung(ByVal segs As Collection, ByVal snap As Double, _
                 If Aria > 0 Then
                     faceRings.Add ring
                     faceArea.Add Aria
+                    faceGoc.Add Aria
                     faceComp.Add comp
                     faceDao.Add New Collection
                 Else
@@ -634,7 +639,11 @@ Public Function GhepVung(ByVal segs As Collection, ByVal snap As Double, _
         best = -1: hasBest = False: bestArea = 0#
         For fi = 1 To faceRings.Count
             If faceComp.Item(fi) <> daoComp.Item(di) Then
-                Af = faceArea.Item(fi)
+                ' SUA 11/10/2026: so sanh bang dien tich GOC. Truoc day dung dien
+                ' tich da tru dao -> thua co nhieu thua con lot trong (vd 843 to 69)
+                ' sau khi tru dao nho thi "nho hon" dao lon -> dao lon bi gan sai /
+                ' bi bo -> trich luc thieu canh thua con.
+                Af = faceGoc.Item(fi)
                 If Af > daoArea.Item(di) Then
                     ringF = faceRings.Item(fi)
                     If DiemTrongPolygon(ringF, ptx, pty) Then
@@ -756,3 +765,216 @@ Private Sub CollectionSet(ByRef c As Collection, ByVal idx As Long, ByVal val As
     Next i
     Set c = tmp
 End Sub
+
+
+'============================================================
+' NOI DOAN TAI GIAO DIEM (dung luoi o vuong de nhanh voi ca to ban do)
+'   - Hai doan cat nhau / dau mut nam tren doan kia (sai so tol) -> cat ca
+'     hai doan tai giao diem.
+'   - Cac dinh gan nhau (< tol) gop ve 1 toa do.
+'============================================================
+Public Function NoiDoanGiao(ByVal segs As Collection, ByVal tol As Double) As Collection
+    Dim n As Long, i As Long, j As Long, s() As Double
+    n = segs.Count
+    If n = 0 Then Set NoiDoanGiao = segs: Exit Function
+    If tol <= 0 Then tol = 0.001
+    Dim ax() As Double, ay() As Double, bx() As Double, by() As Double, dl() As Double
+    ReDim ax(1 To n): ReDim ay(1 To n): ReDim bx(1 To n): ReDim by(1 To n): ReDim dl(1 To n)
+    Dim tongL As Double
+    For i = 1 To n
+        s = segs.Item(i)
+        ax(i) = s(0): ay(i) = s(1): bx(i) = s(2): by(i) = s(3)
+        dl(i) = Sqr((bx(i) - ax(i)) ^ 2 + (by(i) - ay(i)) ^ 2)
+        tongL = tongL + dl(i)
+    Next i
+
+    ' luoi: o = 2 lan chieu dai doan trung binh
+    Dim oL As Double
+    oL = tongL / n * 2#
+    If oL < tol * 20# Then oL = tol * 20#
+    Dim luoi As Object, key As String, gx1 As Long, gy1 As Long, gx2 As Long, gy2 As Long, gx As Long, gy As Long
+    Set luoi = CreateObject("Scripting.Dictionary")
+    For i = 1 To n
+        If dl(i) > tol Then
+            gx1 = Int((NhoHon(ax(i), bx(i)) - tol) / oL): gx2 = Int((LonHon(ax(i), bx(i)) + tol) / oL)
+            gy1 = Int((NhoHon(ay(i), by(i)) - tol) / oL): gy2 = Int((LonHon(ay(i), by(i)) + tol) / oL)
+            If (gx2 - gx1 + 1) * (gy2 - gy1 + 1) <= 2500 Then
+                For gx = gx1 To gx2
+                    For gy = gy1 To gy2
+                        key = gx & "|" & gy
+                        If Not luoi.Exists(key) Then luoi.Add key, New Collection
+                        luoi(key).Add i
+                    Next gy
+                Next gx
+            Else
+                key = "lon"                         ' doan qua dai: kiem voi tat ca
+                If Not luoi.Exists(key) Then luoi.Add key, New Collection
+                luoi(key).Add i
+            End If
+        End If
+    Next i
+
+    Dim tL() As Collection
+    ReDim tL(1 To n)
+    For i = 1 To n
+        Set tL(i) = New Collection
+        tL(i).Add Array(0#, ax(i), ay(i))
+        tL(i).Add Array(1#, bx(i), by(i))
+    Next i
+
+    ' cap doan trong cung o (moi cap chi xet 1 lan)
+    Dim kk As Variant, ds As Collection, p As Long, q As Long, a As Long, b As Long, nP As Long
+    Dim daXet As Object, kp As String
+    Set daXet = CreateObject("Scripting.Dictionary")
+    For Each kk In luoi.Keys
+        Set ds = luoi(kk)
+        nP = ds.Count
+        If kk = "lon" Then
+            ' doan qua dai: kiem voi moi doan khac
+            For p = 1 To nP
+                a = ds.Item(p)
+                For b = 1 To n
+                    If b <> a Then
+                        If a < b Then kp = a & "|" & b Else kp = b & "|" & a
+                        If Not daXet.Exists(kp) Then
+                            daXet.Add kp, True
+                            GiaoCap a, b, ax, ay, bx, by, dl, tol, tL
+                        End If
+                    End If
+                Next b
+            Next p
+        Else
+            For p = 1 To nP - 1
+                For q = p + 1 To nP
+                    a = ds.Item(p): b = ds.Item(q)
+                    If a < b Then kp = a & "|" & b Else kp = b & "|" & a
+                    If Not daXet.Exists(kp) Then
+                        daXet.Add kp, True
+                        GiaoCap a, b, ax, ay, bx, by, dl, tol, tL
+                    End If
+                Next q
+            Next p
+        End If
+    Next kk
+
+    ' gop dinh gan nhau (luoi o = tol) roi xuat doan con
+    Dim nut As Object, kq As New Collection, arr() As Variant, na As Long, r As Long, tmp As Variant
+    Dim p1x As Double, p1y As Double, p2x As Double, p2y As Double
+    Set nut = CreateObject("Scripting.Dictionary")
+    For i = 1 To n
+        If dl(i) <= tol Then GoTo TiepK
+        na = tL(i).Count
+        ReDim arr(1 To na)
+        For p = 1 To na
+            arr(p) = tL(i).Item(p)
+        Next p
+        For p = 2 To na
+            tmp = arr(p): r = p - 1
+            Do While r >= 1
+                If arr(r)(0) > tmp(0) Then arr(r + 1) = arr(r): r = r - 1 Else Exit Do
+            Loop
+            arr(r + 1) = tmp
+        Next p
+        NutChuan arr(1)(1), arr(1)(2), tol, nut, p1x, p1y
+        For p = 2 To na
+            NutChuan arr(p)(1), arr(p)(2), tol, nut, p2x, p2y
+            If Abs(p2x - p1x) + Abs(p2y - p1y) > tol * 0.01 Then
+                kq.Add NewSeg(p1x, p1y, p2x, p2y)
+                p1x = p2x: p1y = p2y
+            End If
+        Next p
+TiepK:
+    Next i
+    Set NoiDoanGiao = kq
+End Function
+
+Private Sub GiaoCap(ByVal i As Long, ByVal j As Long, ax() As Double, ay() As Double, _
+                    bx() As Double, by() As Double, dl() As Double, ByVal tol As Double, tL() As Collection)
+    Dim d1x As Double, d1y As Double, d2x As Double, d2y As Double, den As Double
+    Dim wx As Double, wy As Double, t As Double, u As Double, eT As Double, eU As Double
+    Dim px As Double, py As Double
+    If dl(i) <= tol Or dl(j) <= tol Then Exit Sub
+    If LonHon(ax(i), bx(i)) + tol < NhoHon(ax(j), bx(j)) Then Exit Sub
+    If LonHon(ax(j), bx(j)) + tol < NhoHon(ax(i), bx(i)) Then Exit Sub
+    If LonHon(ay(i), by(i)) + tol < NhoHon(ay(j), by(j)) Then Exit Sub
+    If LonHon(ay(j), by(j)) + tol < NhoHon(ay(i), by(i)) Then Exit Sub
+    d1x = bx(i) - ax(i): d1y = by(i) - ay(i)
+    d2x = bx(j) - ax(j): d2y = by(j) - ay(j)
+    den = d1x * d2y - d1y * d2x
+    eT = tol / dl(i): eU = tol / dl(j)
+    If Abs(den) <= 0.000000001 * dl(i) * dl(j) Then
+        DiemTrenDoan tL(i), ax(i), ay(i), d1x, d1y, dl(i), ax(j), ay(j), tol
+        DiemTrenDoan tL(i), ax(i), ay(i), d1x, d1y, dl(i), bx(j), by(j), tol
+        DiemTrenDoan tL(j), ax(j), ay(j), d2x, d2y, dl(j), ax(i), ay(i), tol
+        DiemTrenDoan tL(j), ax(j), ay(j), d2x, d2y, dl(j), bx(i), by(i), tol
+        Exit Sub
+    End If
+    wx = ax(j) - ax(i): wy = ay(j) - ay(i)
+    t = (wx * d2y - wy * d2x) / den
+    u = (wx * d1y - wy * d1x) / den
+    If t < -eT Or t > 1# + eT Or u < -eU Or u > 1# + eU Then Exit Sub
+    ' hai dau mut trung nhau: khong can cat
+    If (t <= eT Or t >= 1# - eT) And (u <= eU Or u >= 1# - eU) Then Exit Sub
+    If t <= eT Then
+        px = ax(i): py = ay(i): t = 0#
+    ElseIf t >= 1# - eT Then
+        px = bx(i): py = by(i): t = 1#
+    ElseIf u <= eU Then
+        px = ax(j): py = ay(j)
+    ElseIf u >= 1# - eU Then
+        px = bx(j): py = by(j)
+    Else
+        px = ax(i) + t * d1x: py = ay(i) + t * d1y
+    End If
+    If u < 0# Then u = 0#
+    If u > 1# Then u = 1#
+    If t < 0# Then t = 0#
+    If t > 1# Then t = 1#
+    If u <= eU Then
+        u = 0#
+    ElseIf u >= 1# - eU Then
+        u = 1#
+    End If
+    tL(i).Add Array(t, px, py)
+    tL(j).Add Array(u, px, py)
+End Sub
+
+Private Sub DiemTrenDoan(ByVal tl As Collection, ByVal ox As Double, ByVal oy As Double, _
+                         ByVal dx As Double, ByVal dy As Double, ByVal dd As Double, _
+                         ByVal qx As Double, ByVal qy As Double, ByVal tol As Double)
+    Dim t As Double, kc As Double
+    If dd <= 0 Then Exit Sub
+    t = ((qx - ox) * dx + (qy - oy) * dy) / (dd * dd)
+    kc = Abs((qx - ox) * dy - (qy - oy) * dx) / dd
+    If kc <= tol And t > tol / dd And t < 1# - tol / dd Then tl.Add Array(t, qx, qy)
+End Sub
+
+' Gop dinh: tra ve toa do dinh da co trong pham vi tol (luoi o = tol, xet 3x3 o)
+Private Sub NutChuan(ByVal x As Double, ByVal y As Double, ByVal tol As Double, _
+                     ByVal nut As Object, ByRef rx As Double, ByRef ry As Double)
+    Dim gx As Long, gy As Long, dx As Long, dy As Long, key As String, c As Collection, i As Long, p As Variant
+    gx = Int(x / tol): gy = Int(y / tol)
+    For dx = -1 To 1
+        For dy = -1 To 1
+            key = (gx + dx) & "|" & (gy + dy)
+            If nut.Exists(key) Then
+                Set c = nut(key)
+                For i = 1 To c.Count
+                    p = c.Item(i)
+                    If Abs(p(0) - x) <= tol And Abs(p(1) - y) <= tol Then rx = p(0): ry = p(1): Exit Sub
+                Next i
+            End If
+        Next dy
+    Next dx
+    key = gx & "|" & gy
+    If Not nut.Exists(key) Then nut.Add key, New Collection
+    nut(key).Add Array(x, y)
+    rx = x: ry = y
+End Sub
+
+Private Function LonHon(ByVal a As Double, ByVal b As Double) As Double
+    If a > b Then LonHon = a Else LonHon = b
+End Function
+Private Function NhoHon(ByVal a As Double, ByVal b As Double) As Double
+    If a < b Then NhoHon = a Else NhoHon = b
+End Function
