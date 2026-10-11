@@ -52,6 +52,14 @@ Private Sub UserForm_Initialize()
     b3.Caption = "X" & ChrW(243) & "a nh" & ChrW(227) & "n": b3.Left = 8: b3.Top = 332: b3.Width = 120: b3.Height = 24
     b3.Font.Name = "Arial": b3.Font.size = 8
 
+    ' SUA 11/10/2026: chia doan tai giao diem tren ban ve truoc khi tao vung
+    Dim ckC As Object
+    Set ckC = Me.Controls.Add("Forms.CheckBox.1", "chkChiaDoan", True)
+    ckC.Caption = "Chia " & ChrW(273) & "o" & ChrW(7841) & "n t" & ChrW(7841) & "i giao " & ChrW(273) & "i" & ChrW(7875) & "m (c" & ChrW(7855) & "t n" & ChrW(233) & "t ranh) + x" & ChrW(243) & "a " & ChrW(273) & "o" & ChrW(7841) & "n d" & ChrW(432) & " < 0,5 m"
+    ckC.Left = 8: ckC.Top = 280: ckC.Width = 300: ckC.Height = 16
+    ckC.Font.Name = "Arial": ckC.Font.size = 8
+    ckC.Value = (DC_DocCauHinh("CHIA_TOPO", "1") = "1")
+
     Dim ck As Object
     Set ck = Me.Controls.Add("Forms.CheckBox.1", "chkTheoDiem", True)
     ck.Caption = "T" & ChrW(7841) & "o theo " & ChrW(273) & "i" & ChrW(7875) & "m b" & ChrW(7845) & "m"
@@ -100,6 +108,14 @@ Public Sub XuLyNut(ByVal ma As String)
         End If
     Next i
     If Len(csv) = 0 Then MsgBox "Ch" & ChrW(432) & "a ch" & ChrW(7885) & "n level ranh.", vbExclamation: Exit Sub
+
+    ' Chia doan tai giao diem (sua that net ranh tren ban ve)
+    DC_GhiCauHinh "CHIA_TOPO", IIf(Me.Controls("chkChiaDoan").Value, "1", "0")
+    If Me.Controls("chkChiaDoan").Value Then
+        Dim sn As Double
+        sn = val(Me.Controls("txtSnap").Text): If sn <= 0 Then sn = 0.05
+        DC_ChiaDoanGiao csv, sn, val(DC_DocCauHinh("CHIA_DU", "0.5")), False
+    End If
 
     ' Che do TAO THEO DIEM BAM -> giao cho cong cu bat diem, an form
     If Me.Controls("chkTheoDiem").Value Then
