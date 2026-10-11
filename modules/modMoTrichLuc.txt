@@ -496,3 +496,46 @@ Private Function CoTrong(ByVal col As Collection, ByVal s As String) As Boolean
         If col(i) = s Then CoTrong = True: Exit Function
     Next i
 End Function
+
+'============================================================
+' Dung chung cho tach/hop thua (modTachHop)
+'============================================================
+Public Function DC_TyLeTuDong(ByVal v As clsVung, ByVal mauPath As String) As Double
+    DC_TyLeTuDong = TyLeTuDong(v, mauPath)
+End Function
+
+' Pham vi khung mau sau khi dat (o so do level 24 tai (cx, cy))
+Public Function DC_PhamViKhung(ByVal mauPath As String, ByVal tyLe As Double, _
+                               ByVal cx As Double, ByVal cy As Double, _
+                               ByRef x1 As Double, ByRef y1 As Double, _
+                               ByRef x2 As Double, ByRef y2 As Double) As Boolean
+    If Not DocKhungMau(mauPath) Then Exit Function
+    x1 = cx + (mHx1 - mBoxCX) * tyLe / 20000#
+    x2 = cx + (mHx2 - mBoxCX) * tyLe / 20000#
+    y1 = cy + (mHy1 - mBoxCY) * tyLe / 20000#
+    y2 = cy + (mHy2 - mBoxCY) * tyLe / 20000#
+    DC_PhamViKhung = (x2 > x1)
+End Function
+
+' Doc nhieu thua tu CSDL: "12,13" / "12+13" / "12 13"
+Public Function DC_LayThuaCSDL(ByVal csdlPath As String, ByVal dsSo As String, _
+                               ByRef loi As String) As Collection
+    Dim vungs As Collection, a() As String, i As Long, j As Long, v As clsVung, kq As New Collection
+    Dim t As String, gap As Boolean
+    Set vungs = MoCSDL(csdlPath)
+    If vungs.Count = 0 Then loi = "CSDL r" & ChrW(7895) & "ng / kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c: " & csdlPath: Exit Function
+    t = Replace(Replace(Replace(dsSo, "+", ","), ";", ","), " ", ",")
+    a = Split(t, ",")
+    For i = 0 To UBound(a)
+        If Len(Trim$(a(i))) > 0 Then
+            gap = False
+            For j = 1 To vungs.Count
+                Set v = vungs.Item(j)
+                If Trim$(v.soThua) = Trim$(a(i)) Then kq.Add v: gap = True: Exit For
+            Next j
+            If Not gap Then loi = "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y th" & ChrW(7917) & "a s" & ChrW(7889) & " " & Trim$(a(i)) & " trong CSDL.": Exit Function
+        End If
+    Next i
+    If kq.Count = 0 Then loi = "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p s" & ChrW(7889) & " th" & ChrW(7917) & "a.": Exit Function
+    Set DC_LayThuaCSDL = kq
+End Function
