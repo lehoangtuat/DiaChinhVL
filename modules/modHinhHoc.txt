@@ -788,32 +788,6 @@ Public Function NoiDoanGiao(ByVal segs As Collection, ByVal tol As Double) As Co
         tongL = tongL + dl(i)
     Next i
 
-    ' luoi: o = 2 lan chieu dai doan trung binh
-    Dim oL As Double
-    oL = tongL / n * 2#
-    If oL < tol * 20# Then oL = tol * 20#
-    Dim luoi As Object, key As String, gx1 As Long, gy1 As Long, gx2 As Long, gy2 As Long, gx As Long, gy As Long
-    Set luoi = CreateObject("Scripting.Dictionary")
-    For i = 1 To n
-        If dl(i) > tol Then
-            gx1 = Int((NhoHon(ax(i), bx(i)) - tol) / oL): gx2 = Int((LonHon(ax(i), bx(i)) + tol) / oL)
-            gy1 = Int((NhoHon(ay(i), by(i)) - tol) / oL): gy2 = Int((LonHon(ay(i), by(i)) + tol) / oL)
-            If (gx2 - gx1 + 1) * (gy2 - gy1 + 1) <= 2500 Then
-                For gx = gx1 To gx2
-                    For gy = gy1 To gy2
-                        key = gx & "|" & gy
-                        If Not luoi.Exists(key) Then luoi.Add key, New Collection
-                        luoi(key).Add i
-                    Next gy
-                Next gx
-            Else
-                key = "lon"                         ' doan qua dai: kiem voi tat ca
-                If Not luoi.Exists(key) Then luoi.Add key, New Collection
-                luoi(key).Add i
-            End If
-        End If
-    Next i
-
     Dim tL() As Collection
     ReDim tL(1 To n)
     For i = 1 To n
@@ -822,42 +796,10 @@ Public Function NoiDoanGiao(ByVal segs As Collection, ByVal tol As Double) As Co
         tL(i).Add Array(1#, bx(i), by(i))
     Next i
 
-    ' cap doan trong cung o (moi cap chi xet 1 lan)
-    Dim kk As Variant, ds As Collection, p As Long, q As Long, a As Long, b As Long, nP As Long
-    Dim daXet As Object, kp As String
-    Set daXet = CreateObject("Scripting.Dictionary")
-    For Each kk In luoi.Keys
-        Set ds = luoi(kk)
-        nP = ds.Count
-        If kk = "lon" Then
-            ' doan qua dai: kiem voi moi doan khac
-            For p = 1 To nP
-                a = ds.Item(p)
-                For b = 1 To n
-                    If b <> a Then
-                        If a < b Then kp = a & "|" & b Else kp = b & "|" & a
-                        If Not daXet.Exists(kp) Then
-                            daXet.Add kp, True
-                            GiaoCap a, b, ax, ay, bx, by, dl, tol, tL
-                        End If
-                    End If
-                Next b
-            Next p
-        Else
-            For p = 1 To nP - 1
-                For q = p + 1 To nP
-                    a = ds.Item(p): b = ds.Item(q)
-                    If a < b Then kp = a & "|" & b Else kp = b & "|" & a
-                    If Not daXet.Exists(kp) Then
-                        daXet.Add kp, True
-                        GiaoCap a, b, ax, ay, bx, by, dl, tol, tL
-                    End If
-                Next q
-            Next p
-        End If
-    Next kk
+    LuoiGiaoCat n, ax, ay, bx, by, dl, tol, tL
 
     ' gop dinh gan nhau (luoi o = tol) roi xuat doan con
+    Dim p As Long
     Dim nut As Object, kq As New Collection, arr() As Variant, na As Long, r As Long, tmp As Variant
     Dim p1x As Double, p1y As Double, p2x As Double, p2y As Double
     Set nut = CreateObject("Scripting.Dictionary")
@@ -949,8 +891,81 @@ Private Sub DiemTrenDoan(ByVal tl As Collection, ByVal ox As Double, ByVal oy As
     If kc <= tol And t > tol / dd And t < 1# - tol / dd Then tl.Add Array(t, qx, qy)
 End Sub
 
+
+' Tim moi diem cat giua n doan (luoi o vuong). tL(i) da co san 2 dau mut,
+' them Array(t, x, y) cho moi diem cat tren doan i.
+Public Sub LuoiGiaoCat(ByVal n As Long, ax() As Double, ay() As Double, bx() As Double, by() As Double, _
+                       dl() As Double, ByVal tol As Double, tL() As Collection)
+    Dim i As Long, tongL As Double
+    For i = 1 To n
+        tongL = tongL + dl(i)
+    Next i
+    If n = 0 Then Exit Sub
+    ' luoi: o = 2 lan chieu dai doan trung binh
+    Dim oL As Double
+    oL = tongL / n * 2#
+    If oL < tol * 20# Then oL = tol * 20#
+    Dim luoi As Object, key As String, gx1 As Long, gy1 As Long, gx2 As Long, gy2 As Long, gx As Long, gy As Long
+    Set luoi = CreateObject("Scripting.Dictionary")
+    For i = 1 To n
+        If dl(i) > tol Then
+            gx1 = Int((NhoHon(ax(i), bx(i)) - tol) / oL): gx2 = Int((LonHon(ax(i), bx(i)) + tol) / oL)
+            gy1 = Int((NhoHon(ay(i), by(i)) - tol) / oL): gy2 = Int((LonHon(ay(i), by(i)) + tol) / oL)
+            If (gx2 - gx1 + 1) * (gy2 - gy1 + 1) <= 2500 Then
+                For gx = gx1 To gx2
+                    For gy = gy1 To gy2
+                        key = gx & "|" & gy
+                        If Not luoi.Exists(key) Then luoi.Add key, New Collection
+                        luoi(key).Add i
+                    Next gy
+                Next gx
+            Else
+                key = "lon"                         ' doan qua dai: kiem voi tat ca
+                If Not luoi.Exists(key) Then luoi.Add key, New Collection
+                luoi(key).Add i
+            End If
+        End If
+    Next i
+
+    ' cap doan trong cung o (moi cap chi xet 1 lan)
+    Dim kk As Variant, ds As Collection, p As Long, q As Long, a As Long, b As Long, nP As Long
+    Dim daXet As Object, kp As String
+    Set daXet = CreateObject("Scripting.Dictionary")
+    For Each kk In luoi.Keys
+        Set ds = luoi(kk)
+        nP = ds.Count
+        If kk = "lon" Then
+            ' doan qua dai: kiem voi moi doan khac
+            For p = 1 To nP
+                a = ds.Item(p)
+                For b = 1 To n
+                    If b <> a Then
+                        If a < b Then kp = a & "|" & b Else kp = b & "|" & a
+                        If Not daXet.Exists(kp) Then
+                            daXet.Add kp, True
+                            GiaoCap a, b, ax, ay, bx, by, dl, tol, tL
+                        End If
+                    End If
+                Next b
+            Next p
+        Else
+            For p = 1 To nP - 1
+                For q = p + 1 To nP
+                    a = ds.Item(p): b = ds.Item(q)
+                    If a < b Then kp = a & "|" & b Else kp = b & "|" & a
+                    If Not daXet.Exists(kp) Then
+                        daXet.Add kp, True
+                        GiaoCap a, b, ax, ay, bx, by, dl, tol, tL
+                    End If
+                Next q
+            Next p
+        End If
+    Next kk
+
+End Sub
+
 ' Gop dinh: tra ve toa do dinh da co trong pham vi tol (luoi o = tol, xet 3x3 o)
-Private Sub NutChuan(ByVal x As Double, ByVal y As Double, ByVal tol As Double, _
+Public Sub NutChuan(ByVal x As Double, ByVal y As Double, ByVal tol As Double, _
                      ByVal nut As Object, ByRef rx As Double, ByRef ry As Double)
     Dim gx As Long, gy As Long, dx As Long, dy As Long, key As String, c As Collection, i As Long, p As Variant
     gx = Int(x / tol): gy = Int(y / tol)
