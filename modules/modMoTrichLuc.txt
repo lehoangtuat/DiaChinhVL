@@ -76,6 +76,8 @@ Public Sub ChayTrichLucThua(ByVal found As clsVung, _
     If Len(Trim$(found.soThua)) = 0 Then found.soThua = "0"
     If Len(Trim$(found.loaiDat)) = 0 Then found.loaiDat = "0"
     If found.Dt <= 0 Then found.Dt = DienTichVung(found)
+    ' SUA 12/10/2026: dinh 1 = tren-trai, danh so theo chieu kim dong ho
+    ChuanHoaVong found
 
     ' Dat level xuat (go so "50" hoac ten "Level 50")
     If Len(Trim$(lvXuat)) > 0 Then
