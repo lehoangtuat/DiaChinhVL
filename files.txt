@@ -49,3 +49,4 @@ modCapNhatWeb
 modTachHop
 modChiaDoan
 modTienIch
+clsListEvent
