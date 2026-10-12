@@ -287,7 +287,7 @@ Private Sub LuuDonViHC()
 End Sub
 
 Public Sub XuLyNut(ByVal ma As String)
-    If ma = "DONG" Then Unload Me: Exit Sub
+    If ma = "DONG" Then LuuViTri: Unload Me: Exit Sub
     If ma = "CHONMAU" Then
         Dim f As String
         f = DC_ChonFile("File m" & ChrW(7851) & "u (*.dgn;*.txt)|*.dgn;*.txt|T" & ChrW(7845) & "t c" & ChrW(7843) & "|*.*", "Chon file mau trich luc", Me.Controls("txtMau").Text)
@@ -313,6 +313,7 @@ Public Sub XuLyNut(ByVal ma As String)
     If mLoai = 1 Or mLoai = 2 Then XuLyTachHop ma: Exit Sub
     If ma = "CHON" Then
         LuuDonViHC
+        LuuViTri
         Me.Hide
         DC_ChonThuaTrichLuc Me.Controls("txtCSDL").Text, _
                  Me.Controls("txtMau").Text, Me.Controls("txtKieu").Text, _
@@ -326,6 +327,7 @@ Public Sub XuLyNut(ByVal ma As String)
         MsgBox "Nh" & ChrW(7853) & "p s" & ChrW(7889) & " th" & ChrW(7917) & "a c" & ChrW(7847) & "n tr" & ChrW(237) & "ch l" & ChrW(7909) & "c.", vbExclamation: Exit Sub
     End If
     LuuDonViHC                         ' nho lai don vi hanh chinh vua dung
+    LuuViTri
     Me.Hide
     ChayTrichLuc Me.Controls("txtCSDL").Text, Me.Controls("txtSoThua").Text, _
                  Me.Controls("txtMau").Text, Me.Controls("txtKieu").Text, _
@@ -342,6 +344,7 @@ Private Sub XuLyTachHop(ByVal ma As String)
     If mLoai = 2 Then tieuDe = "H" & ChrW(7907) & "p th" & ChrW(7917) & "a" Else tieuDe = "T" & ChrW(225) & "ch th" & ChrW(7917) & "a"
     LuuDonViHC
     If ma = "CHON" Then
+        LuuViTri
         Me.Hide
         DC_ChonThuaTrichLuc Me.Controls("txtCSDL").Text, Me.Controls("txtMau").Text, "T", _
                  Me.Controls("txtTo").Text, CStr(Me.Controls("cboXa").Value), _
@@ -358,10 +361,30 @@ Private Sub XuLyTachHop(ByVal ma As String)
     Dim goc As Collection, loi As String
     Set goc = DC_LayThuaCSDL(Me.Controls("txtCSDL").Text, Me.Controls("txtSoThua").Text, loi)
     If goc Is Nothing Then DC_ThongBao loi, tieuDe, vbExclamation: Exit Sub
+    LuuViTri
     Me.Hide
     DC_ChayTachHop mLoai, goc, Me.Controls("txtMau").Text, Me.Controls("txtIni").Text, _
                    Me.Controls("txtTo").Text, CStr(Me.Controls("cboXa").Value), _
                    Me.Controls("txtHuyen").Text, CStr(Me.Controls("cboTinh").Value), _
                    val(Me.Controls("cboTyLe").Value), Me.Controls("txtLvCat").Text
     Me.Show vbModeless
+End Sub
+
+' SUA 12/10/2026: nho vi tri form -> mo lai (sau Chon thua...) dung cho cu
+Private Sub LuuViTri()
+    DC_GhiCauHinh "TL_LEFT", CStr(CLng(Me.Left))
+    DC_GhiCauHinh "TL_TOP", CStr(CLng(Me.Top))
+End Sub
+
+Private Sub UserForm_Activate()
+    Dim l As String, t As String
+    l = DC_DocCauHinh("TL_LEFT", ""): t = DC_DocCauHinh("TL_TOP", "")
+    If Len(l) > 0 And Len(t) > 0 Then
+        Me.StartUpPosition = 0
+        Me.Left = Val(l): Me.Top = Val(t)
+    End If
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    LuuViTri
 End Sub
