@@ -22,6 +22,8 @@ Private gTuDgn As Boolean
 Private gScDgn As Double, gDgnPath As String     ' chep thang phan tu tu file mau .dgn
 ' Vi tri tam o so do cua lan trich luc vua ve (modMoTrichLuc dung de zoom)
 Public gTLCx As Double, gTLCy As Double
+' True = ty le khung chon Tu dong (duoc thu nho so do neu thua qua lon)
+Public gTyLeTuDong As Boolean
 
 ' Sau khi Width dung ty le, RongChuoi() uoc luong gan dung thuc te.
 ' Chi giu chut bien an toan. Chu con tran -> tang; chu bi thu nho oan -> giam.
@@ -536,10 +538,15 @@ Public Sub ChenKhungTuThua(ByVal found As clsVung, ByVal mauPath As String, _
     Dim buoc As Variant, bi As Long
     buoc = Array(1#, 2#, 2.5, 5#, 10#, 20#, 25#, 50#, 100#)
     kp = 1#
-    For bi = 0 To UBound(buoc)
-        kp = 1# / buoc(bi)
-        If pw * kp <= bwm * 0.9 And ph * kp <= bhm * 0.9 Then Exit For
-    Next bi
+    ' SUA 12/10/2026: ty le CHON TAY la ty le KHUNG; so do thua giu dung kich
+    ' thuoc that (kp = 1) - thua lon tran o so do van ve dung. Chi thu nho khi
+    ' ty le Tu dong ma thua qua lon (> 1:10000).
+    If gTyLeTuDong Then
+        For bi = 0 To UBound(buoc)
+            kp = 1# / buoc(bi)
+            If pw * kp <= bwm * 0.9 And ph * kp <= bhm * 0.9 Then Exit For
+        Next bi
+    End If
     If kp <= 0 Then kp = 1
 
     Dim Cpx As Double, Cpy As Double
@@ -1170,10 +1177,13 @@ Public Sub ChenKhungTachHop(ByVal cheDo As Long, ByVal goc As Collection, ByVal 
     hMin = bh: If bht < hMin Then hMin = bht
     Dim buoc As Variant, bi As Long
     buoc = Array(1#, 2#, 2.5, 5#, 10#, 20#, 25#, 50#, 100#)
-    For bi = 0 To UBound(buoc)
-        kp = 1# / buoc(bi)
-        If pw * kp <= wMin * k * 0.85 And ph * kp <= hMin * k * 0.85 Then Exit For
-    Next bi
+    kp = 1#
+    If gTyLeTuDong Then
+        For bi = 0 To UBound(buoc)
+            kp = 1# / buoc(bi)
+            If pw * kp <= wMin * k * 0.85 And ph * kp <= hMin * k * 0.85 Then Exit For
+        Next bi
+    End If
     Dim gx As Double, gy As Double               ' tam khung bao thua chinh
     gx = (x1 + x2) / 2#: gy = (y1 + y2) / 2#
 
