@@ -993,3 +993,70 @@ End Function
 Private Function NhoHon(ByVal a As Double, ByVal b As Double) As Double
     If a < b Then NhoHon = a Else NhoHon = b
 End Function
+
+'============================================================
+' CHUAN HOA THU TU DINH (quy tac danh so dinh thua):
+'   bat dau tu dinh TREN - TRAI (gan goc tren trai khung bao nhat),
+'   di theo chieu KIM DONG HO (trai -> phai o canh tren, roi xuong duoi).
+'   Ap dung ca vong ngoai va cac vong dao.
+'============================================================
+Public Sub ChuanHoaVong(ByVal v As clsVung)
+    Dim rg() As Double, k As Long
+    If v Is Nothing Then Exit Sub
+    If Not v.HasRing Then Exit Sub
+    Dim r2() As Double
+    rg = v.ring
+    r2 = VongTrenTraiCW(rg)
+    v.ring = r2
+    If v.Dao Is Nothing Then Exit Sub
+    If v.Dao.Count = 0 Then Exit Sub
+    Dim moi As New Collection
+    For k = 1 To v.Dao.Count
+        rg = v.Dao.Item(k)
+        moi.Add VongTrenTraiCW(rg)
+    Next k
+    Set v.Dao = moi
+End Sub
+
+Public Function VongTrenTraiCW(rg() As Double) As Double()
+    Dim m As Long, i As Long, a As Double, kq() As Double
+    m = UBound(rg, 1)                       ' rg(m) = rg(0)
+    If m < 3 Then VongTrenTraiCW = rg: Exit Function
+    ' chieu: dien tich co dau > 0 = nguoc kim dong ho -> dao lai
+    For i = 0 To m - 1
+        a = a + rg(i, 0) * rg(i + 1, 1) - rg(i + 1, 0) * rg(i, 1)
+    Next i
+    Dim tmp() As Double
+    ReDim tmp(0 To m - 1, 0 To 1)
+    For i = 0 To m - 1
+        If a > 0 Then
+            tmp(i, 0) = rg(m - 1 - i, 0): tmp(i, 1) = rg(m - 1 - i, 1)
+        Else
+            tmp(i, 0) = rg(i, 0): tmp(i, 1) = rg(i, 1)
+        End If
+    Next i
+    ' dinh gan goc tren-trai cua khung bao nhat (khoang cach chuan hoa)
+    Dim x1 As Double, x2 As Double, y1 As Double, y2 As Double, w As Double, h As Double
+    x1 = tmp(0, 0): x2 = x1: y1 = tmp(0, 1): y2 = y1
+    For i = 1 To m - 1
+        If tmp(i, 0) < x1 Then x1 = tmp(i, 0)
+        If tmp(i, 0) > x2 Then x2 = tmp(i, 0)
+        If tmp(i, 1) < y1 Then y1 = tmp(i, 1)
+        If tmp(i, 1) > y2 Then y2 = tmp(i, 1)
+    Next i
+    w = x2 - x1: h = y2 - y1
+    If w <= 0 Then w = 1
+    If h <= 0 Then h = 1
+    Dim best As Long, d As Double, dMin As Double
+    dMin = 1E+30
+    For i = 0 To m - 1
+        d = ((tmp(i, 0) - x1) / w) ^ 2 + ((y2 - tmp(i, 1)) / h) ^ 2
+        If d < dMin - 0.0000001 Then dMin = d: best = i
+    Next i
+    ReDim kq(0 To m, 0 To 1)
+    For i = 0 To m - 1
+        kq(i, 0) = tmp((i + best) Mod m, 0): kq(i, 1) = tmp((i + best) Mod m, 1)
+    Next i
+    kq(m, 0) = kq(0, 0): kq(m, 1) = kq(0, 1)
+    VongTrenTraiCW = kq
+End Function
