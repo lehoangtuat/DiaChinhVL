@@ -1,2 +1,2 @@
-2.3
-Tach/Hop thua TT26; trich luc tren 16 dinh; tao vung + chia doan tai giao diem; menu Tien ich (bat/tat lop, chon/xoa theo thuoc tinh, ghi chieu dai canh, doi font TCVN3-Unicode)
+2.4
+Bang du lieu: sua truc tiep + Nap Excel; xoa nhan + tam thua; ty le khung (giu kich thuoc thua); form trich luc giu vi tri; menu Tien ich; tach/hop thua TT26
