@@ -77,7 +77,14 @@ Public Sub DC_ChayTachHop(ByVal cheDo As Long, ByVal goc As Collection, _
         sau.Add vChinh
     End If
 
-    ' 2) So hieu dinh
+    ' 2) So hieu dinh: moi vong bat dau tren-trai, chieu kim dong ho
+    ChuanHoaVong vChinh
+    For i = 1 To truoc.Count
+        If Not truoc.Item(i) Is vChinh Then ChuanHoaVong truoc.Item(i)
+    Next i
+    For i = 1 To sau.Count
+        If Not sau.Item(i) Is vChinh Then ChuanHoaVong sau.Item(i)
+    Next i
     Set mGoc = truoc: Set mSau = sau
     DanhSo vChinh, truoc, sau
 
