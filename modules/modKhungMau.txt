@@ -1020,9 +1020,11 @@ Private Sub VeThuaTrongO(ByVal v As clsVung, ByVal cx As Double, ByVal cy As Dou
     ' SUA 09/10/2026 (theo yeu cau): BO o vuong moc dinh va chieu dai canh trong
     ' so do (chieu dai da co trong bang toa do). Chi giu SO HIEU DINH + nhan thua.
     DatLv mLvSo                       ' so hieu dinh
+    ' SUA 12/10/2026: so hieu dinh = 80% co chu nhan thua (nhan = cao * 0.84)
+    Dim caoS As Double: caoS = cao * 0.84 * 0.8
     For i = 0 To n - 1
         ax = cx + (ring(i, 0) - v.cx) * kp: ay = cy + (ring(i, 1) - v.cy) * kp
-        VeText ax + rMoc * 1.6, ay + rMoc * 1.6, CStr(i + 1), cao, -1
+        VeText ax + rMoc * 1.6, ay + rMoc * 1.6, CStr(i + 1), caoS, -1
     Next i
     ' SUA 11/10/2026: so hieu dinh cac vong dao (thua con lot trong) - danh tiep
     Dim soTiep As Long: soTiep = n
@@ -1030,7 +1032,7 @@ Private Sub VeThuaTrongO(ByVal v As clsVung, ByVal cx As Double, ByVal cy As Dou
         dr = v.Dao.Item(k2): m = UBound(dr, 1)
         For i = 0 To m - 1
             ax = cx + (dr(i, 0) - v.cx) * kp: ay = cy + (dr(i, 1) - v.cy) * kp
-            VeText ax + rMoc * 1.6, ay + rMoc * 1.6, CStr(soTiep + i + 1), cao, -1
+            VeText ax + rMoc * 1.6, ay + rMoc * 1.6, CStr(soTiep + i + 1), caoS, -1
         Next i
         soTiep = soTiep + m
     Next k2
@@ -1323,7 +1325,7 @@ Private Sub VeSoDoTH(ByVal ds As Collection, ByVal ox As Double, ByVal oy As Dou
                 If Len(s) > 0 And Not daSo.Exists(s) Then
                     daSo.Add s, True
                     DatLv mLvSo
-                    VeText ax + rMoc * 1.6, ay + rMoc * 1.6, s, cao, -1
+                    VeText ax + rMoc * 1.6, ay + rMoc * 1.6, s, cao * 0.84 * 0.8, -1
                 End If
             Next i
         Next kv
