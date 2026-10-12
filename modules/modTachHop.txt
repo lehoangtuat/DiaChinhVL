@@ -105,6 +105,7 @@ Public Sub DC_ChayTachHop(ByVal cheDo As Long, ByVal goc As Collection, _
     ' 5) Ve
     gTHCheDo = cheDo
     On Error GoTo LoiVe
+    gTyLeTuDong = tuDong
     ChenKhungTachHop cheDo, truoc, sau, vChinh, mauPath, mTo, tenXa, tenHuyen, tenTinh, tyLe
     On Error GoTo 0
     gTHCheDo = 0
