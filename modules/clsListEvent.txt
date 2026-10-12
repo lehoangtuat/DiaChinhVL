@@ -1,0 +1,8 @@
+Option Explicit
+' Bat su kien bam dong trong ListBox -> goi Form.DongChon
+Public WithEvents lst As MSForms.ListBox
+Public Form As Object
+
+Private Sub lst_Click()
+    If Not Form Is Nothing Then Form.DongChon
+End Sub
