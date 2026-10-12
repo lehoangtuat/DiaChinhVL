@@ -96,6 +96,7 @@ Public Function MoCSDL(ByVal path As String) As Collection
     Dim pairs As Long, j As Long
     Dim ring() As Double
     For i = LBound(raw) To UBound(raw)
+        raw(i) = Replace(raw(i), vbCr, "")      ' file CRLF -> bo CR (cot Dia chi bi dau CR)
         If Len(Trim$(raw(i))) = 0 Then GoTo tt
         parts = Split(raw(i), vbTab)
         Select Case parts(0)
