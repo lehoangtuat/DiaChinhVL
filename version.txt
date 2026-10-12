@@ -1,2 +1,2 @@
-2.4
-Bang du lieu: sua truc tiep + Nap Excel; xoa nhan + tam thua; ty le khung (giu kich thuoc thua); form trich luc giu vi tri; menu Tien ich; tach/hop thua TT26
+2.5
+Danh so dinh: dinh 1 tren-trai, chieu kim dong ho; so dinh = 80% co nhan thua
