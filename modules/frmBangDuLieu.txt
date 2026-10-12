@@ -9,18 +9,21 @@ Option Explicit
 
 Private mNut As New Collection
 Private mVungs As Collection
+Private mLst As clsListEvent
+Private mWb As Object            ' workbook Excel vua xuat (de Nap Excel lai)
 
 Private Sub UserForm_Initialize()
-    Me.Caption = "B" & ChrW(7843) & "ng d" & ChrW(7919) & " li" & ChrW(7879) & "u th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t"
+    Me.Caption = "Bang du lieu thua dat"      ' thanh tieu de de ASCII
     Me.Width = 580
-    Me.Height = 430
+    Me.Height = 386
 
     ' Hang tren: file CSDL + nut
     AddLabel "lblFile", "File CSDL:", 8, 10, 60
-    AddText "txtPath", "", 70, 8, 360
+    AddText "txtPath", "", 70, 8, 296
 
-    ThemNut "NAP", "N" & ChrW(7841) & "p l" & ChrW(7841) & "i", 438, 6, 60, 22
-    ThemNut "EXCEL", "Xu" & ChrW(7845) & "t Excel", 502, 6, 62, 22
+    ThemNut "NAP", "N" & ChrW(7841) & "p l" & ChrW(7841) & "i", 372, 6, 60, 22
+    ThemNut "EXCEL", "Xu" & ChrW(7845) & "t Excel", 436, 6, 62, 22
+    ThemNut "NAPEXCEL", "N" & ChrW(7841) & "p Excel", 502, 6, 62, 22
 
     ' Hang tieu de cot (label rieng, canh voi ColumnWidths cua ListBox)
     Dim y As Single: y = 40
@@ -35,17 +38,34 @@ Private Sub UserForm_Initialize()
     ' Bang du lieu
     Dim lst As Object
     Set lst = Me.Controls.Add("Forms.ListBox.1", "lstData", True)
-    lst.Left = 8: lst.Top = 56: lst.Width = 556: lst.Height = 316
+    lst.Left = 8: lst.Top = 56: lst.Width = 556: lst.Height = 220
     lst.ColumnCount = 7
     lst.ColumnWidths = "30;42;46;58;72;150;146"
     lst.ListStyle = 0
     lst.Font.Name = "Arial"
-    lst.Font.size = 9
+    lst.Font.size = 8
+
+    ' SUA 12/10/2026: o sua truc tiep dong dang chon -> Ghi vao CSDL
+    AddLabel "eTo", "T" & ChrW(7901) & ":", 8, 286, 20
+    AddText "txtTo", "", 30, 282, 40
+    AddLabel "eThua", "Th" & ChrW(7917) & "a:", 76, 286, 30
+    AddText "txtThua", "", 106, 282, 50
+    AddLabel "eLoai", "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t:", 162, 286, 46
+    AddText "txtLoai", "", 208, 282, 64
+    AddLabel "eChu", "Ch" & ChrW(7911) & ":", 278, 286, 26
+    AddText "txtChu", "", 304, 282, 260
+    AddLabel "eDc", ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881) & ":", 8, 310, 44
+    AddText "txtDc", "", 54, 306, 380
+    ThemNut "GHI", "Ghi v" & ChrW(224) & "o CSDL", 440, 305, 124, 21
 
     ' Dong tong
-    AddLabel "lblTong", "", 8, 378, 470
+    AddLabel "lblTong", "", 8, 338, 420
 
-    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 494, 376, 70, 24
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 494, 332, 70, 24
+
+    Set mLst = New clsListEvent
+    Set mLst.lst = lst
+    Set mLst.Form = Me
 
     ' Mac dinh CSDL theo ten file .dgn dang mo
     Me.Controls("txtPath").Text = CsdlMacDinh()
@@ -101,7 +121,9 @@ Private Sub XuatExcel()
     ws.Cells(1, 5).Value = "Di" & ChrW(7879) & "n t" & ChrW(237) & "ch (m2)"
     ws.Cells(1, 6).Value = "T" & ChrW(234) & "n ch" & ChrW(7911)
     ws.Cells(1, 7).Value = ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881)
-    ws.Range("A1:G1").Font.Bold = True
+    ws.Cells(1, 8).Value = "Ma (khong sua)"
+    ws.Range("A1:H1").Font.Bold = True
+    ws.Range("B:D,F:G").NumberFormat = "@"           ' giu nguyen "01", "0012"...
     Dim i As Long, v As clsVung, r As Long
     For i = 1 To mVungs.Count
         Set v = mVungs.Item(i): r = i + 1
@@ -112,19 +134,139 @@ Private Sub XuatExcel()
         ws.Cells(r, 5).Value = Round(v.Dt, 1)
         ws.Cells(r, 6).Value = v.TenChu
         ws.Cells(r, 7).Value = v.DiaChi
+        ws.Cells(r, 8).Value = MaThua(v)
     Next i
     ws.Cells(mVungs.Count + 2, 4).Value = "T" & ChrW(7893) & "ng:"
     ws.Cells(mVungs.Count + 2, 5).Formula = "=SUM(E2:E" & (mVungs.Count + 1) & ")"
-    ws.Columns("A:G").AutoFit
+    ws.Columns("A:H").AutoFit
+    Set mWb = wb
+    MsgBox "S" & ChrW(7917) & "a trong Excel (T" & ChrW(7901) & ", Th" & ChrW(7917) & "a, Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t, Ch" & ChrW(7911) & ", " & ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881) & "), xong b" & ChrW(7845) & "m 'N" & ChrW(7841) & "p Excel' " & ChrW(273) & ChrW(7875) & " ghi l" & ChrW(7841) & "i CSDL." & vbCrLf & _
+           "(C" & ChrW(243) & " th" & ChrW(7875) & " l" & ChrW(432) & "u file Excel r" & ChrW(7891) & "i n" & ChrW(7841) & "p sau)", vbInformation, "Bang du lieu"
 End Sub
 
 Public Sub XuLyNut(ByVal ma As String)
     Select Case ma
-        Case "NAP":   NapBang
-        Case "EXCEL": XuatExcel
-        Case "DONG":  Unload Me
+        Case "NAP":      NapBang
+        Case "EXCEL":    XuatExcel
+        Case "NAPEXCEL": NapExcel
+        Case "GHI":      GhiDong
+        Case "DONG":     Unload Me
     End Select
 End Sub
+
+' Bam 1 dong -> dua len o sua
+Public Sub DongChon()
+    Dim lst As Object, r As Long, v As clsVung
+    Set lst = Me.Controls("lstData")
+    r = lst.ListIndex
+    If r < 0 Or mVungs Is Nothing Then Exit Sub
+    If r + 1 > mVungs.Count Then Exit Sub
+    Set v = mVungs.Item(r + 1)
+    Me.Controls("txtTo").Text = v.SoTo
+    Me.Controls("txtThua").Text = v.soThua
+    Me.Controls("txtLoai").Text = v.loaiDat
+    Me.Controls("txtChu").Text = v.TenChu
+    Me.Controls("txtDc").Text = v.DiaChi
+End Sub
+
+' Ghi o sua vao thua dang chon + luu CSDL
+Private Sub GhiDong()
+    Dim lst As Object, r As Long, v As clsVung
+    Set lst = Me.Controls("lstData")
+    r = lst.ListIndex
+    If r < 0 Or mVungs Is Nothing Then
+        MsgBox "B" & ChrW(7845) & "m ch" & ChrW(7885) & "n 1 d" & ChrW(242) & "ng trong b" & ChrW(7843) & "ng tr" & ChrW(432) & ChrW(7899) & "c.", vbExclamation, "Bang du lieu": Exit Sub
+    End If
+    Set v = mVungs.Item(r + 1)
+    v.SoTo = Trim$(Me.Controls("txtTo").Text)
+    v.soThua = Trim$(Me.Controls("txtThua").Text)
+    v.loaiDat = Trim$(Me.Controls("txtLoai").Text)
+    v.TenChu = Trim$(Me.Controls("txtChu").Text)
+    v.DiaChi = Trim$(Me.Controls("txtDc").Text)
+    If Not LuuCSDL(mVungs, Trim$(Me.Controls("txtPath").Text)) Then
+        MsgBox "Kh" & ChrW(244) & "ng ghi " & ChrW(273) & ChrW(432) & ChrW(7907) & "c CSDL: " & Me.Controls("txtPath").Text, vbExclamation, "Bang du lieu": Exit Sub
+    End If
+    lst.List(r, 1) = v.SoTo: lst.List(r, 2) = v.soThua: lst.List(r, 3) = v.loaiDat
+    lst.List(r, 5) = v.TenChu: lst.List(r, 6) = v.DiaChi
+    ' sang dong ke tiep cho nhap nhanh
+    If r + 1 < lst.ListCount Then lst.ListIndex = r + 1
+End Sub
+
+' Nap lai tu Excel (file vua Xuat Excel, da sua) -> ghi CSDL
+'   Khop theo cot H (ma toa do tam thua); khong co thi theo STT.
+Private Sub NapExcel()
+    If mVungs Is Nothing Then Exit Sub
+    If mVungs.Count = 0 Then Exit Sub
+    Dim ws As Object, xl As Object, wbMo As Object, f As String
+    On Error Resume Next
+    If Not mWb Is Nothing Then Set ws = mWb.Worksheets(1)
+    Err.Clear
+    On Error GoTo 0
+    If ws Is Nothing Then
+        f = DC_ChonFile("Excel (*.xlsx;*.xls)|*.xlsx;*.xls", "Chon file Excel bang du lieu", DC_DocCauHinh("BDL_EXCEL", ""))
+        If Len(f) = 0 Then Exit Sub
+        DC_GhiCauHinh "BDL_EXCEL", f
+        On Error Resume Next
+        Set xl = CreateObject("Excel.Application")
+        Set wbMo = xl.Workbooks.Open(f, , True)
+        On Error GoTo 0
+        If wbMo Is Nothing Then MsgBox "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file Excel.", vbExclamation, "Bang du lieu": Exit Sub
+        Set ws = wbMo.Worksheets(1)
+    End If
+
+    ' tra ma -> chi so thua
+    Dim ma As Object, i As Long, v As clsVung
+    Set ma = CreateObject("Scripting.Dictionary")
+    For i = 1 To mVungs.Count
+        Set v = mVungs.Item(i)
+        ma(MaThua(v)) = i
+    Next i
+
+    Dim r As Long, idx As Long, nDoi As Long, k As String, st As Variant
+    r = 2
+    Do
+        st = ws.Cells(r, 1).Value
+        If IsEmpty(st) Or Len(Trim$(CStr(st))) = 0 Then Exit Do
+        If Not IsNumeric(st) Then Exit Do              ' dong "Tong:"
+        idx = 0
+        k = Trim$(CStr(ws.Cells(r, 8).Value))
+        If Len(k) > 0 And ma.Exists(k) Then idx = ma(k) Else idx = CLng(st)
+        If idx >= 1 And idx <= mVungs.Count Then
+            Set v = mVungs.Item(idx)
+            If CapNhat(v, ws, r) Then nDoi = nDoi + 1
+        End If
+        r = r + 1
+    Loop
+    If Not wbMo Is Nothing Then wbMo.Close False: xl.Quit
+
+    If nDoi = 0 Then MsgBox "Kh" & ChrW(244) & "ng c" & ChrW(243) & " th" & ChrW(7917) & "a n" & ChrW(224) & "o thay " & ChrW(273) & ChrW(7893) & "i.", vbInformation, "Bang du lieu": Exit Sub
+    If Not LuuCSDL(mVungs, Trim$(Me.Controls("txtPath").Text)) Then
+        MsgBox "Kh" & ChrW(244) & "ng ghi " & ChrW(273) & ChrW(432) & ChrW(7907) & "c CSDL.", vbExclamation, "Bang du lieu": Exit Sub
+    End If
+    NapBang
+    MsgBox ChrW(272) & ChrW(227) & " n" & ChrW(7841) & "p t" & ChrW(7915) & " Excel: " & nDoi & " th" & ChrW(7917) & "a thay " & ChrW(273) & ChrW(7893) & "i, " & ChrW(273) & ChrW(227) & " ghi CSDL." & vbCrLf & _
+           "(V" & ChrW(7869) & " l" & ChrW(7841) & "i nh" & ChrW(227) & "n tr" & ChrW(234) & "n b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ": menu B" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " -> G" & ChrW(225) & "n th" & ChrW(244) & "ng tin / V" & ChrW(7869) & " nh" & ChrW(227) & "n t" & ChrW(7915) & " CSDL)", vbInformation, "Bang du lieu"
+End Sub
+
+Private Function CapNhat(ByVal v As clsVung, ByVal ws As Object, ByVal r As Long) As Boolean
+    Dim a As String, b As String, c As String, d As String, e As String
+    a = OChu(ws.Cells(r, 2).Value): b = OChu(ws.Cells(r, 3).Value): c = OChu(ws.Cells(r, 4).Value)
+    d = OChu(ws.Cells(r, 6).Value): e = OChu(ws.Cells(r, 7).Value)
+    If a <> v.SoTo Or b <> v.soThua Or c <> v.loaiDat Or d <> v.TenChu Or e <> v.DiaChi Then
+        v.SoTo = a: v.soThua = b: v.loaiDat = c: v.TenChu = d: v.DiaChi = e
+        CapNhat = True
+    End If
+End Function
+
+Private Function OChu(ByVal x As Variant) As String
+    If IsEmpty(x) Or IsNull(x) Then Exit Function
+    OChu = Trim$(CStr(x))
+End Function
+
+' Ma nhan dien thua: toa do tam (khong phu thuoc dau phay/cham cua may)
+Private Function MaThua(ByVal v As clsVung) As String
+    MaThua = Trim$(Str$(Round(v.cx, 2))) & ";" & Trim$(Str$(Round(v.cy, 2)))
+End Function
 
 '--- Tro giup dung control ---
 Private Sub AddLabel(ByVal nm As String, ByVal cap As String, _
