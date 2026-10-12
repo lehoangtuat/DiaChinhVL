@@ -97,6 +97,7 @@ Public Sub ChayTrichLucThua(ByVal found As clsVung, _
 
     Dim zx1 As Double, zy1 As Double, zx2 As Double, zy2 As Double
     If cheDoMau Then
+        gTyLeTuDong = tuDong
         ChenKhungTuThua found, mauPath, kieu, toBanDo, tenXa, tenHuyen, tenTinh, tyLe
         ' pham vi khung vua ve (khung dat tam o so do tai tam thua)
         If DocKhungMau(mauPath) Then
