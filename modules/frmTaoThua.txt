@@ -26,7 +26,7 @@ Private Sub UserForm_Initialize()
     Next i
 
     Dim x As Single: x = 140
-    AddPair "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t:", "txtLoaiDat", "LUC", x, 20
+    AddPair "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t:", "txtLoaiDat", "", x, 20
     AddPair "T" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ":", "txtToBanDo", "", x, 44
     AddPair "S" & ChrW(7889) & " l" & ChrW(7867) & " DT:", "txtSoLe", "1", x, 68
     AddPair "B" & ChrW(7887) & " v" & ChrW(249) & "ng <(m" & ChrW(178) & "):", "txtBoNho", "0", x, 92
