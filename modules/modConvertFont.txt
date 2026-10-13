@@ -172,6 +172,25 @@ Public Function CF_ChonNhieuFile() As Collection
     End If
 End Function
 
+' Chon 1 file (Unicode). loc dang "Mo ta|*.txt;*.csv|Tat ca|*.*"
+Public Function CF_ChonMotFile(ByVal loc As String, ByVal tieuDe As String) As String
+    Dim ofn As CF_OFN, sBuf As String, sFil As String, sTit As String, p As Long
+    sBuf = String$(4096, vbNullChar)
+    sFil = Replace(loc, "|", vbNullChar) & vbNullChar & vbNullChar
+    sTit = tieuDe
+    ofn.lStructSize = LenB(ofn)
+    ofn.hwndOwner = CF_GetActiveWindow()
+    ofn.lpstrFilter = StrPtr(sFil)
+    ofn.nFilterIndex = 1
+    ofn.lpstrFile = StrPtr(sBuf)
+    ofn.nMaxFile = Len(sBuf)
+    ofn.lpstrTitle = StrPtr(sTit)
+    ofn.Flags = &H80000 Or &H1000 Or &H4 Or &H8
+    If CF_GetOpenFileNameW(ofn) = 0 Then Exit Function
+    p = InStr(sBuf, vbNullChar)
+    If p > 1 Then CF_ChonMotFile = Left$(sBuf, p - 1)
+End Function
+
 Public Function CF_ChonThuMuc(ByVal tieuDe As String) As String
     Dim sh As Object, fd As Object
     On Error Resume Next
