@@ -54,3 +54,4 @@ modConvertFont
 frmConvertFont
 modTachLop
 frmTachLop
+modTriDo
