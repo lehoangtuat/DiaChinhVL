@@ -1,2 +1,2 @@
-2.5
-Danh so dinh: dinh 1 tren-trai, chieu kim dong ho; so dinh = 80% co nhan thua
+2.6
+Tach lop nhan (loai dat / so thua / dien tich); Convert Font nhieu file (TCVN3 / Unicode)
