@@ -1,53 +1,95 @@
 '============================================================
 ' frmTachLop - Tach lop nhan (loai dat / so thua / dien tich)
-'   Can: modTachLop, clsNutTL, modCauHinh, modLevel, modMenuDC
+'   1 file hien tai: dem truoc -> hoi -> chuyen (co "chi chu dang chon").
+'   Nhieu file (to ban do / thu muc): mo ngam tung file -> chuyen -> Save.
+'   Can: modTachLop, modConvertFont (chon file/thu muc), clsNutTL, modCauHinh, modMenuDC
 '============================================================
 Option Explicit
 
 Private mNut As New Collection
+Private mDs As Object           ' LCase(path) -> True (chong trung)
+Private mDangChay As Boolean
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Tach lop nhan thua"
     Me.Font.Name = "Arial"
     Me.Font.size = 8
-    Me.Width = 470
-    Me.Height = 186
+    Me.Width = 492
+    Me.Height = 352
+    Set mDs = CreateObject("Scripting.Dictionary")
 
     Dim tg As Object
     Set tg = Me.Controls.Add("Forms.Label.1", "lblTieuDe", True)
     tg.Caption = "T" & ChrW(193) & "CH L" & ChrW(7898) & "P NH" & ChrW(195) & "N TH" & ChrW(7916) & "A (ch" & ChrW(7919) & " chung 1 l" & ChrW(7899) & "p " & ChrW(8594) & " lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t / s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch)"
-    tg.Left = 8: tg.Top = 8: tg.Width = 440: tg.Height = 14
+    tg.Left = 6: tg.Top = 6: tg.Width = 470: tg.Height = 14
     tg.Font.Name = "Arial": tg.Font.size = 8: tg.Font.Bold = True
 
-    ThemCot "cboNguon", "L" & ChrW(7899) & "p c" & ChrW(7847) & "n t" & ChrW(225) & "ch", 8, DC_DocCauHinh("TLOP_NGUON", "")
-    ThemCot "cboLD", "L" & ChrW(7899) & "p lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", 122, DC_DocCauHinh("TLOP_LD", "")
-    ThemCot "cboST", "L" & ChrW(7899) & "p s" & ChrW(7889) & " th" & ChrW(7917) & "a", 236, DC_DocCauHinh("TLOP_ST", "")
-    ThemCot "cboDT", "L" & ChrW(7899) & "p di" & ChrW(7879) & "n t" & ChrW(237) & "ch", 350, DC_DocCauHinh("TLOP_DT", "")
+    ThemCot "cboNguon", "L" & ChrW(7899) & "p c" & ChrW(7847) & "n t" & ChrW(225) & "ch", 6, DC_DocCauHinh("TLOP_NGUON", "")
+    ThemCot "cboLD", "L" & ChrW(7899) & "p lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", 126, DC_DocCauHinh("TLOP_LD", "")
+    ThemCot "cboST", "L" & ChrW(7899) & "p s" & ChrW(7889) & " th" & ChrW(7917) & "a", 246, DC_DocCauHinh("TLOP_ST", "")
+    ThemCot "cboDT", "L" & ChrW(7899) & "p di" & ChrW(7879) & "n t" & ChrW(237) & "ch", 366, DC_DocCauHinh("TLOP_DT", "")
 
     Dim ck As Object
     Set ck = Me.Controls.Add("Forms.CheckBox.1", "chkChon", True)
-    ck.Caption = "Ch" & ChrW(7881) & " x" & ChrW(7917) & " l" & ChrW(253) & " c" & ChrW(225) & "c ch" & ChrW(7919) & " " & ChrW(273) & "ang ch" & ChrW(7885) & "n"
-    ck.Left = 8: ck.Top = 74: ck.Width = 200: ck.Height = 16
+    ck.Caption = "Ch" & ChrW(7881) & " x" & ChrW(7917) & " l" & ChrW(253) & " c" & ChrW(225) & "c ch" & ChrW(7919) & " " & ChrW(273) & "ang ch" & ChrW(7885) & "n (khi ch" & ChrW(7881) & " c" & ChrW(243) & " file hi" & ChrW(7879) & "n t" & ChrW(7841) & "i)"
+    ck.Left = 6: ck.Top = 64: ck.Width = 290: ck.Height = 16
     ck.Font.Name = "Arial": ck.Font.size = 8
+
+    Dim cb As Object
+    Set cb = Me.Controls.Add("Forms.CheckBox.1", "chkBak", True)
+    cb.Caption = "Sao l" & ChrW(432) & "u .bak (nhi" & ChrW(7873) & "u file)"
+    cb.Left = 330: cb.Top = 64: cb.Width = 150: cb.Height = 16
+    cb.Font.Name = "Arial": cb.Font.size = 8
+    cb.Value = (DC_DocCauHinh("TLOP_BAK", "1") = "1")
+    cb.ControlTipText = "Ch" & ChrW(233) & "p file g" & ChrW(7889) & "c th" & ChrW(224) & "nh <t" & ChrW(234) & "n>.dgn.bak tr" & ChrW(432) & ChrW(7899) & "c khi s" & ChrW(7917) & "a"
+
+    ' --- nut them / bot to ban do
+    Dim x As Single: x = 6
+    ThemNut "FILE", "+ Th" & ChrW(234) & "m t" & ChrW(7901), "Th" & ChrW(234) & "m c" & ChrW(225) & "c t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " (.dgn)", x, 84, 70: x = x + 74
+    ThemNut "THUMUC", "+ Th" & ChrW(432) & " m" & ChrW(7909) & "c", "Th" & ChrW(234) & "m th" & ChrW(432) & " m" & ChrW(7909) & "c ch" & ChrW(7913) & "a b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891), x, 84, 64: x = x + 68
+    ThemNut "THUMUCCON", "+ C" & ChrW(7843) & " th" & ChrW(432) & " m" & ChrW(7909) & "c con", "Th" & ChrW(234) & "m b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " c" & ChrW(7843) & " trong th" & ChrW(432) & " m" & ChrW(7909) & "c con", x, 84, 88: x = x + 92
+    ThemNut "HIENTAI", "+ File hi" & ChrW(7879) & "n t" & ChrW(7841) & "i", "Th" & ChrW(234) & "m file b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " hi" & ChrW(7879) & "n t" & ChrW(7841) & "i", x, 84, 78: x = x + 82
+    ThemNut "BOCHON", "B" & ChrW(7887) & " file ch" & ChrW(7885) & "n", "B" & ChrW(7887) & " c" & ChrW(225) & "c file " & ChrW(273) & "ang ch" & ChrW(7885) & "n kh" & ChrW(7887) & "i danh s" & ChrW(225) & "ch", x, 84, 72: x = x + 76
+    ThemNut "XOAHET", "X" & ChrW(243) & "a h" & ChrW(7871) & "t", "X" & ChrW(243) & "a to" & ChrW(224) & "n b" & ChrW(7897) & " danh s" & ChrW(225) & "ch files", x, 84, 60
+
+    Dim ls As Object
+    Set ls = Me.Controls.Add("Forms.ListBox.1", "lstFile", True)
+    ls.Left = 6: ls.Top = 108: ls.Width = 474: ls.Height = 120
+    ls.Font.Name = "Arial": ls.Font.size = 8
+    ls.ColumnCount = 2: ls.ColumnWidths = "330;138"
+    ls.MultiSelect = 2
+
+    Dim s1 As Object, s2 As Object
+    Set s1 = Me.Controls.Add("Forms.Label.1", "lblDem", True)
+    s1.Left = 6: s1.Top = 232: s1.Width = 52: s1.Height = 14
+    s1.Font.Name = "Arial": s1.Font.size = 8: s1.SpecialEffect = 2
+    Set s2 = Me.Controls.Add("Forms.Label.1", "lblPath", True)
+    s2.Left = 62: s2.Top = 232: s2.Width = 418: s2.Height = 14
+    s2.Font.Name = "Arial": s2.Font.size = 8: s2.SpecialEffect = 2
 
     Dim gc As Object
     Set gc = Me.Controls.Add("Forms.Label.1", "lblGhiChu", True)
     gc.Caption = "C" & ChrW(243) & " ch" & ChrW(7919) & " c" & ChrW(225) & "i (LUK, ONT...) = lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t; ch" & ChrW(7881) & " ch" & ChrW(7919) & " s" & ChrW(7889) & " (2248) = s" & ChrW(7889) & " th" & ChrW(7917) & "a; s" & ChrW(7889) & " c" & ChrW(243) & " d" & ChrW(7845) & "u ph" & ChrW(7849) & "y (4846,2) = di" & ChrW(7879) & "n t" & ChrW(237) & "ch." & vbCrLf & _
-                 ChrW(272) & ChrW(7875) & " tr" & ChrW(7889) & "ng " & ChrW(244) & " n" & ChrW(224) & "o th" & ChrW(236) & " kh" & ChrW(244) & "ng t" & ChrW(225) & "ch lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(243) & ". G" & ChrW(245) & " s" & ChrW(7889) & " level ho" & ChrW(7863) & "c ch" & ChrW(7885) & "n trong danh s" & ChrW(225) & "ch (ch" & ChrW(432) & "a c" & ChrW(243) & " level th" & ChrW(236) & " t" & ChrW(7921) & " t" & ChrW(7841) & "o)."
-    gc.Left = 8: gc.Top = 94: gc.Width = 440: gc.Height = 28
+                 ChrW(272) & ChrW(7875) & " tr" & ChrW(7889) & "ng " & ChrW(244) & " n" & ChrW(224) & "o th" & ChrW(236) & " kh" & ChrW(244) & "ng t" & ChrW(225) & "ch lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(243) & ". Level ch" & ChrW(432) & "a c" & ChrW(243) & " th" & ChrW(236) & " t" & ChrW(7921) & " t" & ChrW(7841) & "o. Nhi" & ChrW(7873) & "u file: t" & ChrW(7921) & " m" & ChrW(7903) & ", t" & ChrW(225) & "ch, l" & ChrW(432) & "u t" & ChrW(7915) & "ng t" & ChrW(7901) & "."
+    gc.Left = 6: gc.Top = 252: gc.Width = 474: gc.Height = 26
     gc.Font.Name = "Arial": gc.Font.size = 8: gc.Font.Italic = True
 
-    ThemNut "TACH", "T" & ChrW(225) & "ch l" & ChrW(7899) & "p", 264, 128
-    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 358, 128
+    ThemNut "TACH", "T" & ChrW(225) & "ch l" & ChrW(7899) & "p", "", 290, 286, 92
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", "", 388, 286, 92
+
+    On Error Resume Next
+    ThemFile ActiveDesignFile.FullName
+    On Error GoTo 0
+    CapNhatDem
 End Sub
 
 Private Sub ThemCot(ByVal nm As String, ByVal cap As String, ByVal x As Single, ByVal gt As String)
     Dim l As Object, c As Object
     Set l = Me.Controls.Add("Forms.Label.1", "lbl" & nm, True)
-    l.Caption = cap: l.Left = x: l.Top = 32: l.Width = 106: l.Height = 12
+    l.Caption = cap: l.Left = x: l.Top = 26: l.Width = 114: l.Height = 12
     l.Font.Name = "Arial": l.Font.size = 8
     Set c = Me.Controls.Add("Forms.ComboBox.1", nm, True)
-    c.Left = x: c.Top = 46: c.Width = 106: c.Height = 18
+    c.Left = x: c.Top = 40: c.Width = 114: c.Height = 18
     c.Font.Name = "Arial": c.Font.size = 8
     NapLevel c
     c.Text = gt
@@ -76,14 +118,46 @@ Private Sub NapLevel(ByVal cL As Object)
     Next i
 End Sub
 
-Private Sub ThemNut(ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single)
+Private Sub ThemNut(ByVal ma As String, ByVal cap As String, ByVal tip As String, _
+                    ByVal x As Single, ByVal y As Single, ByVal w As Single)
     Dim b As Object, hd As clsNutTL
     Set b = Me.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
-    b.Caption = cap: b.Left = x: b.Top = y: b.Width = 90: b.Height = 24
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = w: b.Height = IIf(ma = "TACH" Or ma = "DONG", 24, 20)
     b.Font.Name = "Arial": b.Font.size = 8
+    If Len(tip) > 0 Then b.ControlTipText = tip
     Set hd = New clsNutTL
     Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
     mNut.Add hd
+End Sub
+
+Private Function Lst() As Object
+    Set Lst = Me.Controls("lstFile")
+End Function
+
+Private Function ThemFile(ByVal p As String) As Boolean
+    Dim k As String
+    p = Trim$(p)
+    If Len(p) = 0 Then Exit Function
+    k = LCase$(p)
+    If mDs.Exists(k) Then Exit Function
+    mDs.Add k, True
+    Lst.AddItem p
+    Lst.List(Lst.ListCount - 1, 1) = ""
+    ThemFile = True
+End Function
+
+Private Sub CapNhatDem()
+    Me.Controls("lblDem").Caption = " " & Lst.ListCount & " file"
+    If Lst.ListCount = 0 Then Me.Controls("lblPath").Caption = ""
+End Sub
+
+Private Sub ThemTuDs(ByVal ds As Collection)
+    Dim i As Long, n As Long
+    For i = 1 To ds.Count
+        If ThemFile(CStr(ds.Item(i))) Then n = n + 1
+    Next i
+    CapNhatDem
+    Me.Controls("lblPath").Caption = " " & ChrW(272) & ChrW(227) & " th" & ChrW(234) & "m " & n & " file."
 End Sub
 
 ' So level tu o nhap ("13 - Level 13" -> 13 ; trong -> 0)
@@ -95,11 +169,49 @@ Private Function SoLv(ByVal nm As String) As Long
 End Function
 
 Public Sub XuLyNut(ByVal ma As String)
-    If ma = "DONG" Then Unload Me: Exit Sub
-    If ma <> "TACH" Then Exit Sub
+    If mDangChay Then Exit Sub
+    Dim ds As Collection, p As String, i As Long
+    Select Case ma
+    Case "DONG"
+        Unload Me
+    Case "FILE"
+        ThemTuDs CF_ChonNhieuFile()
+    Case "THUMUC", "THUMUCCON"
+        p = CF_ChonThuMuc(IIf(ma = "THUMUC", "Ch" & ChrW(7885) & "n th" & ChrW(432) & " m" & ChrW(7909) & "c ch" & ChrW(7913) & "a b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " (*.dgn)", "Ch" & ChrW(7885) & "n th" & ChrW(432) & " m" & ChrW(7909) & "c (l" & ChrW(7845) & "y c" & ChrW(7843) & " th" & ChrW(432) & " m" & ChrW(7909) & "c con)"))
+        If Len(p) = 0 Then Exit Sub
+        Set ds = New Collection
+        Me.Controls("lblPath").Caption = " " & ChrW(272) & "ang t" & ChrW(236) & "m file trong " & p & " ..."
+        DoEvents
+        CF_GomFileDgn p, (ma = "THUMUCCON"), ds
+        ThemTuDs ds
+    Case "HIENTAI"
+        On Error Resume Next
+        p = ActiveDesignFile.FullName
+        On Error GoTo 0
+        If Len(p) > 0 Then ThemFile p
+        CapNhatDem
+    Case "BOCHON"
+        For i = Lst.ListCount - 1 To 0 Step -1
+            If Lst.Selected(i) Then
+                If mDs.Exists(LCase$(Lst.List(i, 0))) Then mDs.Remove LCase$(Lst.List(i, 0))
+                Lst.RemoveItem i
+            End If
+        Next i
+        CapNhatDem
+    Case "XOAHET"
+        Lst.Clear
+        mDs.RemoveAll
+        CapNhatDem
+    Case "TACH"
+        ChayTach
+    End Select
+End Sub
 
+Private Sub ChayTach()
     Dim lvN As Long, lv(1 To 3) As Long, n() As Long, nBo As Long, tong As Long, nDa() As Long
-    Dim tieuDe As String, chiChon As Boolean, s As String
+    Dim tieuDe As String, chiChon As Boolean, s As String, bak As Boolean
+    Dim nF As Long, i As Long, kq As String, nOK As Long, nLoi As Long, loi As String
+    Dim t1 As Long, t2 As Long, t3 As Long, laHT As Boolean
     tieuDe = "T" & ChrW(225) & "ch l" & ChrW(7899) & "p"
     lvN = SoLv("cboNguon")
     lv(1) = SoLv("cboLD"): lv(2) = SoLv("cboST"): lv(3) = SoLv("cboDT")
@@ -111,29 +223,91 @@ Public Sub XuLyNut(ByVal ma As String)
         DC_ThongBao "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p l" & ChrW(7899) & "p " & ChrW(273) & ChrW(237) & "ch n" & ChrW(224) & "o (lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t / s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch).", tieuDe, vbExclamation
         Exit Sub
     End If
+    nF = Lst.ListCount
+    If nF = 0 Then
+        DC_ThongBao "Danh s" & ChrW(225) & "ch ch" & ChrW(432) & "a c" & ChrW(243) & " t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " n" & ChrW(224) & "o.", tieuDe, vbExclamation
+        Exit Sub
+    End If
     chiChon = CBool(Me.Controls("chkChon").Value)
+    bak = CBool(Me.Controls("chkBak").Value)
 
     DC_GhiCauHinh "TLOP_NGUON", CStr(lvN)
     DC_GhiCauHinh "TLOP_LD", IIf(lv(1) > 0, CStr(lv(1)), "")
     DC_GhiCauHinh "TLOP_ST", IIf(lv(2) > 0, CStr(lv(2)), "")
     DC_GhiCauHinh "TLOP_DT", IIf(lv(3) > 0, CStr(lv(3)), "")
+    DC_GhiCauHinh "TLOP_BAK", IIf(bak, "1", "0")
 
-    tong = TL_Quet(lvN, chiChon, n, nBo)
-    If tong = 0 Then
-        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y ch" & ChrW(7919) & " n" & ChrW(224) & "o c" & ChrW(7847) & "n t" & ChrW(225) & "ch tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & lvN & IIf(chiChon, " (trong c" & ChrW(225) & "c ch" & ChrW(7919) & " " & ChrW(273) & "ang ch" & ChrW(7885) & "n).", "."), tieuDe, vbExclamation
+    On Error Resume Next
+    laHT = (StrComp(CStr(Lst.List(0, 0)), ActiveDesignFile.FullName, vbTextCompare) = 0)
+    On Error GoTo 0
+
+    ' ---- 1 file hien tai: dem truoc -> hoi -> chuyen
+    If nF = 1 And laHT Then
+        tong = TL_Quet(lvN, chiChon, n, nBo)
+        If tong = 0 Then
+            DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y ch" & ChrW(7919) & " n" & ChrW(224) & "o c" & ChrW(7847) & "n t" & ChrW(225) & "ch tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & lvN & IIf(chiChon, " (trong c" & ChrW(225) & "c ch" & ChrW(7919) & " " & ChrW(273) & "ang ch" & ChrW(7885) & "n).", "."), tieuDe, vbExclamation
+            Exit Sub
+        End If
+        s = "L" & ChrW(7899) & "p " & lvN & " c" & ChrW(243) & ":" & vbCrLf & _
+            "  - Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & n(1) & IIf(lv(1) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(1), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
+            "  - S" & ChrW(7889) & " th" & ChrW(7917) & "a: " & n(2) & IIf(lv(2) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(2), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
+            "  - Di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & n(3) & IIf(lv(3) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(3), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
+            "  - Ch" & ChrW(7919) & " kh" & ChrW(225) & "c gi" & ChrW(7919) & " nguy" & ChrW(234) & "n: " & nBo & vbCrLf & vbCrLf & "Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n t" & ChrW(225) & "ch l" & ChrW(7899) & "p?"
+        If DC_ThongBao(s, tieuDe, vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
+        tong = TL_Chuyen(lv, nDa)
+        Lst.List(0, 1) = KetQua(nDa)
+        DC_ThongBao ChrW(272) & ChrW(227) & " chuy" & ChrW(7875) & "n " & tong & " ch" & ChrW(7919) & ":" & vbCrLf & _
+                    "  - Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & nDa(1) & vbCrLf & _
+                    "  - S" & ChrW(7889) & " th" & ChrW(7917) & "a: " & nDa(2) & vbCrLf & _
+                    "  - Di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & nDa(3), tieuDe
         Exit Sub
     End If
 
-    s = "L" & ChrW(7899) & "p " & lvN & " c" & ChrW(243) & ":" & vbCrLf & _
-        "  - Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & n(1) & IIf(lv(1) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(1), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
-        "  - S" & ChrW(7889) & " th" & ChrW(7917) & "a: " & n(2) & IIf(lv(2) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(2), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
-        "  - Di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & n(3) & IIf(lv(3) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(3), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
-        "  - Ch" & ChrW(7919) & " kh" & ChrW(225) & "c gi" & ChrW(7919) & " nguy" & ChrW(234) & "n: " & nBo & vbCrLf & vbCrLf & "Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n t" & ChrW(225) & "ch l" & ChrW(7899) & "p?"
+    ' ---- nhieu file: hoi 1 lan -> xu ly tung to
+    s = "T" & ChrW(225) & "ch l" & ChrW(7899) & "p " & lvN & " cho " & nF & " t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & IIf(bak, " (c" & ChrW(243) & " sao l" & ChrW(432) & "u .bak)", " (KH" & ChrW(212) & "NG sao l" & ChrW(432) & "u)") & vbCrLf & _
+        "  lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t " & ChrW(8594) & " " & IIf(lv(1) > 0, CStr(lv(1)), "kh" & ChrW(244) & "ng t" & ChrW(225) & "ch") & _
+        " ; s" & ChrW(7889) & " th" & ChrW(7917) & "a " & ChrW(8594) & " " & IIf(lv(2) > 0, CStr(lv(2)), "kh" & ChrW(244) & "ng t" & ChrW(225) & "ch") & _
+        " ; di" & ChrW(7879) & "n t" & ChrW(237) & "ch " & ChrW(8594) & " " & IIf(lv(3) > 0, CStr(lv(3)), "kh" & ChrW(244) & "ng t" & ChrW(225) & "ch") & vbCrLf & vbCrLf & _
+        "C" & ChrW(225) & "c file s" & ChrW(7869) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c ghi " & ChrW(273) & ChrW(232) & ". Ti" & ChrW(7871) & "p t" & ChrW(7909) & "c?"
     If DC_ThongBao(s, tieuDe, vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
 
-    tong = TL_Chuyen(lv, nDa)
-    DC_ThongBao ChrW(272) & ChrW(227) & " chuy" & ChrW(7875) & "n " & tong & " ch" & ChrW(7919) & ":" & vbCrLf & _
-                "  - Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & nDa(1) & vbCrLf & _
-                "  - S" & ChrW(7889) & " th" & ChrW(7917) & "a: " & nDa(2) & vbCrLf & _
-                "  - Di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & nDa(3), tieuDe
+    mDangChay = True
+    For i = 0 To nF - 1
+        Lst.List(i, 1) = ""
+    Next i
+    For i = 0 To nF - 1
+        Me.Controls("lblDem").Caption = " " & (i + 1) & "/" & nF
+        Me.Controls("lblPath").Caption = " " & Lst.List(i, 0)
+        Lst.List(i, 1) = ChrW(273) & "ang x" & ChrW(7917) & " l" & ChrW(253) & "..."
+        DoEvents
+        kq = TL_XuLyFile(CStr(Lst.List(i, 0)), lvN, lv, bak, nDa)
+        If Len(kq) = 0 Then
+            Lst.List(i, 1) = KetQua(nDa)
+            t1 = t1 + nDa(1): t2 = t2 + nDa(2): t3 = t3 + nDa(3)
+            nOK = nOK + 1
+        Else
+            Lst.List(i, 1) = "L" & ChrW(7895) & "i"
+            nLoi = nLoi + 1
+            If nLoi <= 8 Then loi = loi & vbCrLf & "- " & Lst.List(i, 0) & ": " & kq
+        End If
+        DoEvents
+    Next i
+    mDangChay = False
+    On Error Resume Next
+    RedrawAllViews
+    On Error GoTo 0
+
+    Me.Controls("lblDem").Caption = " " & nF & "/" & nF
+    Me.Controls("lblPath").Caption = " Xong: " & nOK & " t" & ChrW(7901) & "."
+    s = ChrW(272) & ChrW(227) & " x" & ChrW(7917) & " l" & ChrW(253) & " " & nOK & "/" & nF & " t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & "." & vbCrLf & _
+        "  - Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & t1 & vbCrLf & "  - S" & ChrW(7889) & " th" & ChrW(7917) & "a: " & t2 & vbCrLf & "  - Di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & t3
+    If nLoi > 0 Then
+        s = s & vbCrLf & vbCrLf & "L" & ChrW(7895) & "i " & nLoi & " t" & ChrW(7901) & ":" & loi
+        If nLoi > 8 Then s = s & vbCrLf & "..."
+    End If
+    DC_ThongBao s, tieuDe, IIf(nLoi > 0, vbExclamation, vbInformation)
 End Sub
+
+Private Function KetQua(ByRef nDa() As Long) As String
+    KetQua = "L" & ChrW(272) & " " & nDa(1) & " / ST " & nDa(2) & " / DT " & nDa(3)
+End Function
