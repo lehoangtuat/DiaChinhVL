@@ -1,0 +1,139 @@
+'============================================================
+' frmTachLop - Tach lop nhan (loai dat / so thua / dien tich)
+'   Can: modTachLop, clsNutTL, modCauHinh, modLevel, modMenuDC
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Tach lop nhan thua"
+    Me.Font.Name = "Arial"
+    Me.Font.size = 8
+    Me.Width = 470
+    Me.Height = 186
+
+    Dim tg As Object
+    Set tg = Me.Controls.Add("Forms.Label.1", "lblTieuDe", True)
+    tg.Caption = "T" & ChrW(193) & "CH L" & ChrW(7898) & "P NH" & ChrW(195) & "N TH" & ChrW(7916) & "A (ch" & ChrW(7919) & " chung 1 l" & ChrW(7899) & "p " & ChrW(8594) & " lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t / s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch)"
+    tg.Left = 8: tg.Top = 8: tg.Width = 440: tg.Height = 14
+    tg.Font.Name = "Arial": tg.Font.size = 8: tg.Font.Bold = True
+
+    ThemCot "cboNguon", "L" & ChrW(7899) & "p c" & ChrW(7847) & "n t" & ChrW(225) & "ch", 8, DC_DocCauHinh("TLOP_NGUON", "")
+    ThemCot "cboLD", "L" & ChrW(7899) & "p lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", 122, DC_DocCauHinh("TLOP_LD", "")
+    ThemCot "cboST", "L" & ChrW(7899) & "p s" & ChrW(7889) & " th" & ChrW(7917) & "a", 236, DC_DocCauHinh("TLOP_ST", "")
+    ThemCot "cboDT", "L" & ChrW(7899) & "p di" & ChrW(7879) & "n t" & ChrW(237) & "ch", 350, DC_DocCauHinh("TLOP_DT", "")
+
+    Dim ck As Object
+    Set ck = Me.Controls.Add("Forms.CheckBox.1", "chkChon", True)
+    ck.Caption = "Ch" & ChrW(7881) & " x" & ChrW(7917) & " l" & ChrW(253) & " c" & ChrW(225) & "c ch" & ChrW(7919) & " " & ChrW(273) & "ang ch" & ChrW(7885) & "n"
+    ck.Left = 8: ck.Top = 74: ck.Width = 200: ck.Height = 16
+    ck.Font.Name = "Arial": ck.Font.size = 8
+
+    Dim gc As Object
+    Set gc = Me.Controls.Add("Forms.Label.1", "lblGhiChu", True)
+    gc.Caption = "C" & ChrW(243) & " ch" & ChrW(7919) & " c" & ChrW(225) & "i (LUK, ONT...) = lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t; ch" & ChrW(7881) & " ch" & ChrW(7919) & " s" & ChrW(7889) & " (2248) = s" & ChrW(7889) & " th" & ChrW(7917) & "a; s" & ChrW(7889) & " c" & ChrW(243) & " d" & ChrW(7845) & "u ph" & ChrW(7849) & "y (4846,2) = di" & ChrW(7879) & "n t" & ChrW(237) & "ch." & vbCrLf & _
+                 ChrW(272) & ChrW(7875) & " tr" & ChrW(7889) & "ng " & ChrW(244) & " n" & ChrW(224) & "o th" & ChrW(236) & " kh" & ChrW(244) & "ng t" & ChrW(225) & "ch lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(243) & ". G" & ChrW(245) & " s" & ChrW(7889) & " level ho" & ChrW(7863) & "c ch" & ChrW(7885) & "n trong danh s" & ChrW(225) & "ch (ch" & ChrW(432) & "a c" & ChrW(243) & " level th" & ChrW(236) & " t" & ChrW(7921) & " t" & ChrW(7841) & "o)."
+    gc.Left = 8: gc.Top = 94: gc.Width = 440: gc.Height = 28
+    gc.Font.Name = "Arial": gc.Font.size = 8: gc.Font.Italic = True
+
+    ThemNut "TACH", "T" & ChrW(225) & "ch l" & ChrW(7899) & "p", 264, 128
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 358, 128
+End Sub
+
+Private Sub ThemCot(ByVal nm As String, ByVal cap As String, ByVal x As Single, ByVal gt As String)
+    Dim l As Object, c As Object
+    Set l = Me.Controls.Add("Forms.Label.1", "lbl" & nm, True)
+    l.Caption = cap: l.Left = x: l.Top = 32: l.Width = 106: l.Height = 12
+    l.Font.Name = "Arial": l.Font.size = 8
+    Set c = Me.Controls.Add("Forms.ComboBox.1", nm, True)
+    c.Left = x: c.Top = 46: c.Width = 106: c.Height = 18
+    c.Font.Name = "Arial": c.Font.size = 8
+    NapLevel c
+    c.Text = gt
+End Sub
+
+Private Sub NapLevel(ByVal cL As Object)
+    Dim lv As Level, n As Long, i As Long, j As Long, t As Long, ts As String
+    Dim so() As Long, ten() As String
+    On Error Resume Next
+    ReDim so(0 To 0): ReDim ten(0 To 0)
+    For Each lv In ActiveDesignFile.Levels
+        n = n + 1
+        ReDim Preserve so(0 To n): ReDim Preserve ten(0 To n)
+        so(n) = lv.Number: ten(n) = lv.Name
+    Next lv
+    For i = 1 To n - 1
+        For j = i + 1 To n
+            If so(j) < so(i) Then
+                t = so(i): so(i) = so(j): so(j) = t
+                ts = ten(i): ten(i) = ten(j): ten(j) = ts
+            End If
+        Next j
+    Next i
+    For i = 1 To n
+        cL.AddItem so(i) & " - " & ten(i)
+    Next i
+End Sub
+
+Private Sub ThemNut(ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single)
+    Dim b As Object, hd As clsNutTL
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = 90: b.Height = 24
+    b.Font.Name = "Arial": b.Font.size = 8
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
+    mNut.Add hd
+End Sub
+
+' So level tu o nhap ("13 - Level 13" -> 13 ; trong -> 0)
+Private Function SoLv(ByVal nm As String) As Long
+    Dim s As String
+    s = Trim$(CStr(Me.Controls(nm).Text))
+    If Len(s) = 0 Then Exit Function
+    SoLv = CLng(Val(s))
+End Function
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then Unload Me: Exit Sub
+    If ma <> "TACH" Then Exit Sub
+
+    Dim lvN As Long, lv(1 To 3) As Long, n() As Long, nBo As Long, tong As Long, nDa() As Long
+    Dim tieuDe As String, chiChon As Boolean, s As String
+    tieuDe = "T" & ChrW(225) & "ch l" & ChrW(7899) & "p"
+    lvN = SoLv("cboNguon")
+    lv(1) = SoLv("cboLD"): lv(2) = SoLv("cboST"): lv(3) = SoLv("cboDT")
+    If lvN <= 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p l" & ChrW(7899) & "p c" & ChrW(7847) & "n t" & ChrW(225) & "ch.", tieuDe, vbExclamation
+        Exit Sub
+    End If
+    If lv(1) <= 0 And lv(2) <= 0 And lv(3) <= 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p l" & ChrW(7899) & "p " & ChrW(273) & ChrW(237) & "ch n" & ChrW(224) & "o (lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t / s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch).", tieuDe, vbExclamation
+        Exit Sub
+    End If
+    chiChon = CBool(Me.Controls("chkChon").Value)
+
+    DC_GhiCauHinh "TLOP_NGUON", CStr(lvN)
+    DC_GhiCauHinh "TLOP_LD", IIf(lv(1) > 0, CStr(lv(1)), "")
+    DC_GhiCauHinh "TLOP_ST", IIf(lv(2) > 0, CStr(lv(2)), "")
+    DC_GhiCauHinh "TLOP_DT", IIf(lv(3) > 0, CStr(lv(3)), "")
+
+    tong = TL_Quet(lvN, chiChon, n, nBo)
+    If tong = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y ch" & ChrW(7919) & " n" & ChrW(224) & "o c" & ChrW(7847) & "n t" & ChrW(225) & "ch tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & lvN & IIf(chiChon, " (trong c" & ChrW(225) & "c ch" & ChrW(7919) & " " & ChrW(273) & "ang ch" & ChrW(7885) & "n).", "."), tieuDe, vbExclamation
+        Exit Sub
+    End If
+
+    s = "L" & ChrW(7899) & "p " & lvN & " c" & ChrW(243) & ":" & vbCrLf & _
+        "  - Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & n(1) & IIf(lv(1) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(1), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
+        "  - S" & ChrW(7889) & " th" & ChrW(7917) & "a: " & n(2) & IIf(lv(2) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(2), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
+        "  - Di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & n(3) & IIf(lv(3) > 0, " " & ChrW(8594) & " l" & ChrW(7899) & "p " & lv(3), " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch)") & vbCrLf & _
+        "  - Ch" & ChrW(7919) & " kh" & ChrW(225) & "c gi" & ChrW(7919) & " nguy" & ChrW(234) & "n: " & nBo & vbCrLf & vbCrLf & "Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n t" & ChrW(225) & "ch l" & ChrW(7899) & "p?"
+    If DC_ThongBao(s, tieuDe, vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
+
+    tong = TL_Chuyen(lv, nDa)
+    DC_ThongBao ChrW(272) & ChrW(227) & " chuy" & ChrW(7875) & "n " & tong & " ch" & ChrW(7919) & ":" & vbCrLf & _
+                "  - Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & nDa(1) & vbCrLf & _
+                "  - S" & ChrW(7889) & " th" & ChrW(7917) & "a: " & nDa(2) & vbCrLf & _
+                "  - Di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & nDa(3), tieuDe
+End Sub
