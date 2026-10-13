@@ -36,6 +36,7 @@ Private Declare Function MessageBoxW Lib "user32" (ByVal hwnd As Long, ByVal lpT
 Private Const MF_STRING As Long = &H0
 Private Const MF_GRAYED As Long = &H1
 Private Const MF_SEPARATOR As Long = &H800
+Private Const MF_POPUP As Long = &H10
 Private Const TPM_LEFTBUTTON As Long = &H0
 Private Const TPM_NONOTIFY As Long = &H80
 Private Const TPM_RETURNCMD As Long = &H100
@@ -76,6 +77,28 @@ Private Function TaoMenu(ByVal ten As String) As Long
         Muc h, ChrW(272) & ChrW(243) & "ng menu " & ChrW(272) & ChrW(7883) & "a Ch" & ChrW(237) & "nh VL", "DONG"
 
     Case "BANDO"
+        Dim hD As Long, hT As Long
+        hD = MenuCon(h, "X" & ChrW(7917) & " l" & ChrW(253) & " s" & ChrW(7889) & " li" & ChrW(7879) & "u tr" & ChrW(7883) & " " & ChrW(273) & "o")
+        Muc hD, "N" & ChrW(7889) & "i ranh th" & ChrW(7917) & "a theo tr" & ChrW(7883) & " " & ChrW(273) & "o", ""
+        Gach hD
+        Muc hD, "Hi" & ChrW(7875) & "n th" & ChrW(7883) & " tr" & ChrW(7883) & " " & ChrW(273) & "o t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897), "TDTOADO"
+        Muc hD, "Hi" & ChrW(7875) & "n th" & ChrW(7883) & " tr" & ChrW(7883) & " " & ChrW(273) & "o g" & ChrW(243) & "c c" & ChrW(7841) & "nh", "TDGOCCANH"
+        Gach hD
+        Muc hD, "Tri" & ChrW(7875) & "n " & ChrW(273) & "i" & ChrW(7875) & "m theo h" & ChrW(7891) & " s" & ChrW(417), ""
+        Muc hD, "Tri" & ChrW(7875) & "n " & ChrW(273) & "i" & ChrW(7875) & "m theo danh s" & ChrW(225) & "ch", "TRIENDS"
+        Gach hD
+        Muc hD, "Giao h" & ChrW(7897) & "i thu" & ChrW(7853) & "n " & ChrW(273) & "i" & ChrW(7875) & "m mia", ""
+        Muc hD, "Giao h" & ChrW(7897) & "i ngh" & ChrW(7883) & "ch " & ChrW(273) & "i" & ChrW(7875) & "m mia", ""
+        hT = MenuCon(h, "T" & ChrW(7841) & "o Topology th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t")
+        Muc hT, "T" & ChrW(7921) & " " & ChrW(273) & ChrW(7897) & "ng t" & ChrW(236) & "m, s" & ChrW(7917) & "a l" & ChrW(7895) & "i", "TIMLOI"
+        Muc hT, "S" & ChrW(7917) & "a l" & ChrW(7895) & "i ranh th" & ChrW(7911) & " c" & ChrW(244) & "ng", ""
+        Muc hT, "T" & ChrW(236) & "m c" & ChrW(7841) & "nh th" & ChrW(7917) & "a qu" & ChrW(225) & " ng" & ChrW(7855) & "n", "CANHNGAN"
+        Muc hT, "L" & ChrW(224) & "m tr" & ChrW(242) & "n s" & ChrW(7889) & " l" & ChrW(7867) & " t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897), "LAMTRON"
+        Muc hT, "T" & ChrW(236) & "m g" & ChrW(243) & "c nh" & ChrW(7887) & ", " & ChrW(273) & "i" & ChrW(7875) & "m th" & ChrW(7859) & "ng h" & ChrW(224) & "ng", "GOCNHO"
+        Gach hT
+        Muc hT, "X" & ChrW(243) & "a Topology th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t", ""
+        Muc hT, "T" & ChrW(7841) & "o Topology th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t", "TOPO"
+        Gach h
         Muc h, "T" & ChrW(7841) & "o Topology / CSDL", "TOPO"
         Muc h, "T" & ChrW(236) & "m l" & ChrW(7895) & "i", "TIMLOI"
         Gach h
@@ -151,6 +174,12 @@ Public Sub DC_ChayLenh(ByVal ma As String)
     Case "GHICD":      DC_GhiChieuDaiCanh
     Case "DOIFONT":    DC_DoiFontTcvn3
     Case "CFONT":      DC_MoConvertFont
+    Case "TDTOADO":    DC_TDToaDo
+    Case "TDGOCCANH":  DC_TDGocCanh
+    Case "TRIENDS":    DC_TrienDiemDS
+    Case "CANHNGAN":   DC_TimCanhNgan
+    Case "LAMTRON":    DC_LamTronToaDo
+    Case "GOCNHO":     DC_TimGocNho
     Case "VETINH":    DC_XemVeTinh
     Case "GEARTH":    DC_MoGoogleEarth
     Case "MACDINH"
@@ -220,6 +249,15 @@ Private Sub Muc(ByVal h As Long, ByVal cap As String, ByVal ma As String)
         AppendMenuW h, MF_STRING, mN, StrPtr(cap)
     End If
 End Sub
+
+' Menu con (submenu); id cac muc trong menu con dung chung day so mN
+Private Function MenuCon(ByVal h As Long, ByVal cap As String) As Long
+    Dim hc As Long
+    hc = CreatePopupMenu()
+    If hc = 0 Then Exit Function
+    AppendMenuW h, MF_POPUP, hc, StrPtr(cap)
+    MenuCon = hc
+End Function
 
 Private Sub Gach(ByVal h As Long)
     AppendMenuW h, MF_SEPARATOR, 0, 0
