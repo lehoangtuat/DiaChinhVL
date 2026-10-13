@@ -167,6 +167,28 @@ Public Sub DongChon()
     Me.Controls("txtLoai").Text = v.loaiDat
     Me.Controls("txtChu").Text = v.TenChu
     Me.Controls("txtDc").Text = v.DiaChi
+    ZoomThua v
+End Sub
+
+' SUA 13/10/2026: bam dong -> zoom view toi thua (thua o giua, rong gap ~3 lan)
+Private Sub ZoomThua(ByVal v As clsVung)
+    Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+    Dim rg() As Double, i As Long, d As Double
+    On Error Resume Next
+    x1 = v.cx: x2 = v.cx: y1 = v.cy: y2 = v.cy
+    If v.HasRing Then
+        rg = v.ring
+        For i = LBound(rg, 1) To UBound(rg, 1)
+            If rg(i, 0) < x1 Then x1 = rg(i, 0)
+            If rg(i, 0) > x2 Then x2 = rg(i, 0)
+            If rg(i, 1) < y1 Then y1 = rg(i, 1)
+            If rg(i, 1) > y2 Then y2 = rg(i, 1)
+        Next i
+    End If
+    d = x2 - x1: If y2 - y1 > d Then d = y2 - y1
+    If d < 20 Then d = 20
+    DC_ZoomVung (x1 + x2) / 2 - d * 1.5, (y1 + y2) / 2 - d * 1.5, _
+                (x1 + x2) / 2 + d * 1.5, (y1 + y2) / 2 + d * 1.5
 End Sub
 
 ' Ghi o sua vao thua dang chon + luu CSDL
@@ -175,7 +197,7 @@ Private Sub GhiDong()
     Set lst = Me.Controls("lstData")
     r = lst.ListIndex
     If r < 0 Or mVungs Is Nothing Then
-        MsgBox "B" & ChrW(7845) & "m ch" & ChrW(7885) & "n 1 d" & ChrW(242) & "ng trong b" & ChrW(7843) & "ng tr" & ChrW(432) & ChrW(7899) & "c.", vbExclamation, "Bang du lieu": Exit Sub
+        DC_ThongBao "B" & ChrW(7845) & "m ch" & ChrW(7885) & "n 1 d" & ChrW(242) & "ng trong b" & ChrW(7843) & "ng tr" & ChrW(432) & ChrW(7899) & "c.", "Bang du lieu", vbExclamation: Exit Sub
     End If
     Set v = mVungs.Item(r + 1)
     v.SoTo = Trim$(Me.Controls("txtTo").Text)
