@@ -1,0 +1,113 @@
+'============================================================
+' modTachLop - Tach lop nhan thua: chu chung 1 lop -> 3 lop
+'   Co chu cai (LUK, ONT...)        -> lop loai dat
+'   Chi chu so (2248)               -> lop so thua
+'   So co dau phay/cham (4846,2)    -> lop dien tich
+'   Con lai (12+13, -, ...)         -> giu nguyen
+'   Form: frmTachLop (tu tao). Menu Tien ich -> "TACHLOP".
+'============================================================
+Option Explicit
+
+Private mDs As Collection       ' phan tu se chuyen
+Private mLoai As Collection     ' loai tuong ung (1/2/3)
+
+Public Sub DC_MoTachLop()
+    DC_MoFormTuTao "frmTachLop"
+End Sub
+
+' 0 = bo qua ; 1 = loai dat ; 2 = so thua ; 3 = dien tich
+Public Function TL_PhanLoai(ByVal s As String) As Long
+    Dim i As Long, c As Long, coChu As Boolean, nSo As Long, coPhay As Boolean, khac As Boolean
+    s = Trim$(s)
+    If Len(s) = 0 Then Exit Function
+    For i = 1 To Len(s)
+        c = AscW(Mid$(s, i, 1)) And &HFFFF&
+        If (c >= 65 And c <= 90) Or (c >= 97 And c <= 122) Or c >= 128 Then
+            coChu = True
+        ElseIf c >= 48 And c <= 57 Then
+            nSo = nSo + 1
+        ElseIf c = 44 Or c = 46 Then
+            coPhay = True
+        ElseIf c <> 32 Then
+            khac = True
+        End If
+    Next i
+    If coChu Then TL_PhanLoai = 1: Exit Function
+    If nSo = 0 Or khac Then Exit Function
+    If coPhay Then TL_PhanLoai = 3 Else TL_PhanLoai = 2
+End Function
+
+Private Function NoiDung(ByVal el As Element) As String
+    Dim subs As ElementEnumerator, s As String
+    On Error Resume Next
+    If el.Type = msdElementTypeText Then
+        NoiDung = el.AsTextElement.Text
+    ElseIf el.Type = msdElementTypeTextNode Then
+        Set subs = el.AsComplexElement.GetSubElements
+        Do While subs.MoveNext
+            If subs.Current.Type = msdElementTypeText Then s = s & " " & subs.Current.AsTextElement.Text
+        Loop
+        NoiDung = Trim$(s)
+    End If
+End Function
+
+' Buoc 1: quet + phan loai. Tra ve so phan tu tung loai (n(1..3)), nBo = so chu giu nguyen.
+Public Function TL_Quet(ByVal lvNguon As Long, ByVal chiChon As Boolean, ByRef n() As Long, ByRef nBo As Long) As Long
+    Dim ee As ElementEnumerator, el As Element, esc As ElementScanCriteria, k As Long
+    ReDim n(0 To 3)
+    nBo = 0
+    Set mDs = New Collection
+    Set mLoai = New Collection
+    On Error Resume Next
+    If chiChon Then
+        Set ee = ActiveModelReference.GetSelectedElements
+    Else
+        Set esc = New ElementScanCriteria
+        esc.ExcludeAllTypes
+        esc.IncludeType msdElementTypeText
+        esc.IncludeType msdElementTypeTextNode
+        Set ee = ActiveModelReference.Scan(esc)
+    End If
+    If ee Is Nothing Then Exit Function
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If el.Type = msdElementTypeText Or el.Type = msdElementTypeTextNode Then
+            If DC_LevelSo(el) = lvNguon Then
+                k = TL_PhanLoai(NoiDung(el))
+                If k > 0 Then
+                    mDs.Add el
+                    mLoai.Add k
+                    n(k) = n(k) + 1
+                Else
+                    nBo = nBo + 1
+                End If
+            End If
+        End If
+    Loop
+    TL_Quet = mDs.Count
+End Function
+
+' Buoc 2: chuyen lop. lv(1..3) = so level dich (<= 0 : khong chuyen loai do)
+Public Function TL_Chuyen(ByRef lv() As Long, ByRef nDa() As Long) As Long
+    Dim i As Long, k As Long, el As Element, lvObj(1 To 3) As Level
+    ReDim nDa(0 To 3)
+    If mDs Is Nothing Then Exit Function
+    For k = 1 To 3
+        If lv(k) > 0 Then Set lvObj(k) = DC_LevelTheoSo(lv(k))
+    Next k
+    On Error Resume Next
+    For i = 1 To mDs.Count
+        k = mLoai.Item(i)
+        If Not lvObj(k) Is Nothing Then
+            Set el = mDs.Item(i)
+            Err.Clear
+            Set el.Level = lvObj(k)
+            If Err.Number <> 0 Then Err.Clear: el.Level = lvObj(k)
+            el.Rewrite
+            If Err.Number = 0 Then nDa(k) = nDa(k) + 1: TL_Chuyen = TL_Chuyen + 1
+        End If
+    Next i
+    Set mDs = Nothing
+    Set mLoai = Nothing
+    RedrawAllViews
+End Function
