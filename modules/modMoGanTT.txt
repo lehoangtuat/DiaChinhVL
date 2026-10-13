@@ -9,15 +9,33 @@ End Sub
 '============================================================
 Public Sub ChayGanTT(ByVal path As String, ByVal lvSo As String, ByVal lvTo As String, _
                      ByVal lvLoai As String, ByVal lvChu As String, ByVal lvDC As String, _
-                     ByVal lvNhan As String, ByVal cao As Double, ByVal veNhan As Boolean)
+                     ByVal lvNhan As String, ByVal cao As Double, ByVal veNhan As Boolean, _
+                     Optional ByVal xoaCu As Boolean = False)
     Dim vungs As Collection
     Set vungs = MoCSDL(path)
     If vungs.Count = 0 Then MsgBox "CSDL rong / khong doc duoc: " & path, vbExclamation: Exit Sub
 
-    If DC_TimLevel(lvSo) Is Nothing Then
-        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y level s" & ChrW(7889) & " hi" & ChrW(7879) & "u th" & ChrW(7917) & "a: " & lvSo & vbCrLf & _
-                    "(G" & ChrW(245) & " s" & ChrW(7889) & " level, v" & ChrW(237) & " d" & ChrW(7909) & " 13)", "G" & ChrW(225) & "n th" & ChrW(244) & "ng tin", vbExclamation
+    ' SUA 13/10/2026: khong bat buoc level so thua; bao level nhap ma khong co
+    Dim thieu As String, lvX As Variant
+    For Each lvX In Array(lvSo, lvTo, lvLoai, lvChu, lvDC)
+        If Len(Trim$(lvX)) > 0 Then
+            If DC_TimLevel(CStr(lvX)) Is Nothing Then thieu = thieu & " " & Trim$(lvX)
+        End If
+    Next lvX
+    If Len(thieu) > 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y level:" & thieu & vbCrLf & "(G" & ChrW(245) & " s" & ChrW(7889) & " level, v" & ChrW(237) & " d" & ChrW(7909) & " 13)", "G" & ChrW(225) & "n th" & ChrW(244) & "ng tin", vbExclamation
         Exit Sub
+    End If
+    If xoaCu Then
+        Dim k As Long, vx As clsVung
+        For k = 1 To vungs.Count
+            Set vx = vungs.Item(k)
+            If Len(Trim$(lvSo)) > 0 Then vx.soThua = ""
+            If Len(Trim$(lvTo)) > 0 Then vx.SoTo = ""
+            If Len(Trim$(lvLoai)) > 0 Then vx.loaiDat = ""
+            If Len(Trim$(lvChu)) > 0 Then vx.TenChu = ""
+            If Len(Trim$(lvDC)) > 0 Then vx.DiaChi = ""
+        Next k
     End If
 
     Dim nSo As Long, nTo As Long, nLoai As Long, nChu As Long, nDC As Long
@@ -44,11 +62,10 @@ Public Sub ChayGanTT(ByVal path As String, ByVal lvSo As String, ByVal lvTo As S
         Next i
     End If
 
-    MsgBox "So thua: " & vungs.Count & vbCrLf & _
-           "Gan So thua: " & nSo & " ; To: " & nTo & " ; Loai dat: " & nLoai & vbCrLf & _
-           "Ten chu: " & nChu & " ; Dia chi: " & nDC & vbCrLf & _
-           IIf(ok, "Da cap nhat CSDL.", "KHONG luu duoc CSDL!"), _
-           vbInformation, "Gan thong tin"
+    DC_ThongBao "S" & ChrW(7889) & " th" & ChrW(7917) & "a: " & vungs.Count & vbCrLf & _
+           "G" & ChrW(225) & "n s" & ChrW(7889) & " th" & ChrW(7917) & "a: " & nSo & " ; t" & ChrW(7901) & ": " & nTo & " ; lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & nLoai & vbCrLf & _
+           "T" & ChrW(234) & "n ch" & ChrW(7911) & ": " & nChu & " ; " & ChrW(273) & ChrW(7883) & "a ch" & ChrW(7881) & ": " & nDC & vbCrLf & _
+           IIf(ok, ChrW(272) & ChrW(227) & " c" & ChrW(7853) & "p nh" & ChrW(7853) & "t CSDL.", "KH" & ChrW(212) & "NG l" & ChrW(432) & "u " & ChrW(273) & ChrW(432) & ChrW(7907) & "c CSDL!"), "G" & ChrW(225) & "n th" & ChrW(244) & "ng tin", IIf(ok, vbInformation, vbExclamation)
 End Sub
 
 '--- gan 1 truong (dung rieng cho module nay) ---
@@ -74,10 +91,10 @@ Private Function GanTruongCSDL2(ByVal vungs As Collection, ByVal levelName As St
             If Len(s) > 0 Then
                 Set v = TimThuaChua(vungs, x, y)
                 If Not v Is Nothing Then
-                    If Len(LayTruong2(v, truong)) = 0 Then
-                        DatTruong2 v, truong, s
-                        dem = dem + 1
-                    End If
+                    ' SUA 13/10/2026: nhan tren ban do la dung -> ghi de (truoc chi gan khi trong,
+                    ' nen loai dat mac dinh LUC khong bao gio duoc thay)
+                    If LayTruong2(v, truong) <> s Then DatTruong2 v, truong, s
+                    dem = dem + 1
                 End If
             End If
         End If
