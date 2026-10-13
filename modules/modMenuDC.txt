@@ -110,10 +110,12 @@ Private Function TaoMenu(ByVal ten As String) As Long
         Muc h, "X" & ChrW(243) & "a theo thu" & ChrW(7897) & "c t" & ChrW(237) & "nh " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng ch" & ChrW(7885) & "n", "XOATT"
         Muc h, "Ch" & ChrW(7885) & "n l" & ChrW(7899) & "p theo " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng ch" & ChrW(7885) & "n", "CHONLOP"
         Muc h, "X" & ChrW(243) & "a l" & ChrW(7899) & "p " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng " & ChrW(273) & ChrW(432) & ChrW(7907) & "c ch" & ChrW(7885) & "n", "XOALOP"
+        Muc h, "T" & ChrW(225) & "ch l" & ChrW(7899) & "p nh" & ChrW(227) & "n (lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t / s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch)", "TACHLOP"
         Muc h, "Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n t" & ChrW(7853) & "p l" & ChrW(7879) & "nh theo " & ChrW(273) & ChrW(7883) & "nh ngh" & ChrW(297) & "a (s" & ChrW(7855) & "p c" & ChrW(243) & ")", ""
         Gach h
         Muc h, "Ghi ch" & ChrW(250) & " chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh th" & ChrW(7917) & "a", "GHICD"
         Muc h, "Convert Font TCVN3 - Unicode", "DOIFONT"
+        Muc h, "Convert Font nhi" & ChrW(7873) & "u file (TCVN3 / Unicode)...", "CFONT"
 
     Case "TROGIUP"
         Muc h, "H" & ChrW(432) & ChrW(7899) & "ng d" & ChrW(7851) & "n s" & ChrW(7917) & " d" & ChrW(7909) & "ng", "HUONGDAN"
@@ -145,8 +147,10 @@ Public Sub DC_ChayLenh(ByVal ma As String)
     Case "XOATT":      DC_XoaTheoThuocTinh
     Case "CHONLOP":    DC_ChonTheoLop
     Case "XOALOP":     DC_XoaLopDoiTuongChon
+    Case "TACHLOP":    DC_MoTachLop
     Case "GHICD":      DC_GhiChieuDaiCanh
     Case "DOIFONT":    DC_DoiFontTcvn3
+    Case "CFONT":      DC_MoConvertFont
     Case "VETINH":    DC_XemVeTinh
     Case "GEARTH":    DC_MoGoogleEarth
     Case "MACDINH"
