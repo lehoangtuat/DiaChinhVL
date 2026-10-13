@@ -1,2 +1,2 @@
-2.6
-Tach lop nhan (loai dat / so thua / dien tich); Convert Font nhieu file (TCVN3 / Unicode)
+2.7
+Menu Ban do: Xu ly so lieu tri do + Tao Topology (toa do, goc canh, trien diem, canh ngan, lam tron, goc nho); Tach lop hang loat; Gan TT ghi de theo nhan, Bang DL zoom thua
