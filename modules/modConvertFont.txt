@@ -1,0 +1,457 @@
+'============================================================
+' modConvertFont - Convert font hang loat nhieu file DGN
+'   Form: frmConvertFont (tao dong). Menu Tien ich -> "CFONT".
+'   Kieu 0: TCVN3 (.VnTime/.VnTimeH...) -> Unicode (Times New Roman)
+'   Kieu 1: Unicode -> TCVN3 (.VnTime ; chu hoa co dau -> .VnTimeH)
+'   Loc theo Level.Number (-1 = tat ca lop).
+'   File khac file hien tai: OpenDesignFileForProgram -> sua -> Save -> Close.
+'============================================================
+Option Explicit
+
+Private Type CF_OFN
+    lStructSize As Long
+    hwndOwner As Long
+    hInstance As Long
+    lpstrFilter As Long
+    lpstrCustomFilter As Long
+    nMaxCustFilter As Long
+    nFilterIndex As Long
+    lpstrFile As Long
+    nMaxFile As Long
+    lpstrFileTitle As Long
+    nMaxFileTitle As Long
+    lpstrInitialDir As Long
+    lpstrTitle As Long
+    Flags As Long
+    nFileOffset As Integer
+    nFileExtension As Integer
+    lpstrDefExt As Long
+    lCustData As Long
+    lpfnHook As Long
+    lpTemplateName As Long
+End Type
+
+Private Declare Function CF_GetOpenFileNameW Lib "comdlg32.dll" Alias "GetOpenFileNameW" (pOpenfilename As CF_OFN) As Long
+Private Declare Function CF_GetActiveWindow Lib "user32" Alias "GetActiveWindow" () As Long
+
+Private Const TCVN_MAP As String = "A10102,A200C2,A300CA,A400D4,A501A0,A601AF,A70110,A80103,A900E2,AA00EA,AB00F4,AC01A1,AD01B0,AE0111,B500E0,B61EA3,B700E3,B800E1,B91EA1,BB1EB1,BC1EB3,BD1EB5,BE1EAF,C61EB7,C71EA7,C81EA9,C91EAB,CA1EA5,CB1EAD,CC00E8,CE1EBB,CF1EBD,D000E9,D11EB9,D21EC1,D31EC3,D41EC5,D51EBF,D61EC7,D700EC,D81EC9,DC0129,DD00ED,DE1ECB,DF00F2,E11ECF,E200F5,E300F3,E41ECD,E51ED3,E61ED5,E71ED7,E81ED1,E91ED9,EA1EDD,EB1EDF,EC1EE1,ED1EDB,EE1EE3,EF00F9,F11EE7,F20169,F300FA,F41EE5,F51EEB,F61EED,F71EEF,F81EE9,F91EF1,FA1EF3,FB1EF7,FC1EF9,FD00FD,FE1EF5"
+
+Private mRev As Object          ' Unicode -> byte TCVN3
+Private Const FONT_TCVN As String = ".VnTime"
+Private Const FONT_TCVN_H As String = ".VnTimeH"
+
+Public Function CF_TieuDe() As String
+    CF_TieuDe = "DiaChinhVL"
+End Function
+
+'============================================================
+' MO FORM (menu). Form chua co -> tu tao tu capnhat\<tenForm>.txt
+'   Dung chung: DC_MoFormTuTao "frmConvertFont" / "frmTachLop" ...
+'============================================================
+Public Sub DC_MoConvertFont()
+    DC_MoFormTuTao "frmConvertFont"
+End Sub
+
+Public Sub DC_MoFormTuTao(ByVal tenForm As String)
+    Dim f As Object, msg As String
+    On Error Resume Next
+    Set f = VBA.UserForms.Add(tenForm)
+    If f Is Nothing Then
+        msg = Err.Description
+        Err.Clear
+        On Error GoTo 0
+        If CoForm(tenForm) Then
+            DC_ThongBao "L" & ChrW(7895) & "i m" & ChrW(7903) & " form " & tenForm & ": " & msg, CF_TieuDe, vbExclamation
+        Else
+            TaoForm tenForm
+        End If
+        Exit Sub
+    End If
+    On Error GoTo 0
+    f.Show vbModeless
+End Sub
+
+Private Function CoForm(ByVal tenForm As String) As Boolean
+    Dim p As Object, c As Object
+    On Error Resume Next
+    For Each p In Application.VBE.VBProjects
+        If StrComp(p.Name, "DiaChinhVL", vbTextCompare) = 0 Then
+            Set c = p.VBComponents(tenForm)
+            CoForm = Not (c Is Nothing)
+            Exit Function
+        End If
+    Next p
+End Function
+
+Private Sub TaoForm(ByVal tenForm As String)
+    Dim prj As Object, p As Object, c As Object, src As String, code As String
+    On Error Resume Next
+    For Each p In Application.VBE.VBProjects
+        If StrComp(p.Name, "DiaChinhVL", vbTextCompare) = 0 Then Set prj = p: Exit For
+    Next p
+    On Error GoTo 0
+    If prj Is Nothing Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng truy c" & ChrW(7853) & "p " & ChrW(273) & ChrW(432) & ChrW(7907) & "c project DiaChinhVL " & ChrW(273) & ChrW(7875) & " t" & ChrW(7841) & "o form " & tenForm & ".", CF_TieuDe, vbExclamation
+        Exit Sub
+    End If
+    src = DC_CAPNHAT & "\" & tenForm & ".txt"
+    If Len(Dir$(src)) = 0 Then src = DC_CAPNHAT & "\_danap\" & tenForm & ".txt"
+    If Len(Dir$(src)) = 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a c" & ChrW(243) & " form " & tenForm & " v" & ChrW(224) & " kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y file " & tenForm & ".txt trong th" & ChrW(432) & " m" & ChrW(7909) & "c capnhat.", CF_TieuDe, vbExclamation
+        Exit Sub
+    End If
+    code = DocFileCF(src)
+    On Error Resume Next
+    Set c = prj.VBComponents(tenForm)
+    On Error GoTo Loi
+    If c Is Nothing Then
+        Set c = prj.VBComponents.Add(3)     ' 3 = UserForm
+        c.Name = tenForm
+    End If
+    With c.CodeModule
+        If .CountOfLines > 0 Then .DeleteLines 1, .CountOfLines
+        .AddFromString code
+    End With
+    If InStr(1, src, "\_danap\", vbTextCompare) = 0 Then
+        On Error Resume Next
+        If Len(Dir$(DC_CAPNHAT & "\_danap", vbDirectory)) = 0 Then MkDir DC_CAPNHAT & "\_danap"
+        If Len(Dir$(DC_CAPNHAT & "\_danap\" & tenForm & ".txt")) > 0 Then Kill DC_CAPNHAT & "\_danap\" & tenForm & ".txt"
+        Name src As DC_CAPNHAT & "\_danap\" & tenForm & ".txt"
+    End If
+    On Error Resume Next
+    CadInputQueue.SendKeyin "vba save DiaChinhVL"
+    On Error GoTo 0
+    DC_ThongBao ChrW(272) & ChrW(227) & " t" & ChrW(7841) & "o form " & tenForm & "." & vbCrLf & "B" & ChrW(7845) & "m Ctrl+S (l" & ChrW(432) & "u project) r" & ChrW(7891) & "i m" & ChrW(7903) & " l" & ChrW(7841) & "i m" & ChrW(7909) & "c menu n" & ChrW(224) & "y.", CF_TieuDe
+    Exit Sub
+Loi:
+    DC_ThongBao "L" & ChrW(7895) & "i t" & ChrW(7841) & "o form " & tenForm & ": " & Err.Description, CF_TieuDe, vbCritical
+End Sub
+
+Private Function DocFileCF(ByVal path As String) As String
+    Dim n As Integer, s As String
+    n = FreeFile
+    Open path For Binary Access Read As #n
+    s = Space$(LOF(n))
+    Get #n, , s
+    Close #n
+    If Left$(s, 3) = Chr$(239) & Chr$(187) & Chr$(191) Then s = Mid$(s, 4)
+    DocFileCF = s
+End Function
+
+'============================================================
+' CHON FILE / THU MUC (Unicode)
+'============================================================
+Public Function CF_ChonNhieuFile() As Collection
+    Dim ofn As CF_OFN, sBuf As String, sFil As String, sTit As String
+    Dim kq As New Collection, parts() As String, i As Long, thu As String, p As Long
+    Set CF_ChonNhieuFile = kq
+    sBuf = String$(65536, vbNullChar)
+    sFil = "DGN (*.dgn)" & vbNullChar & "*.dgn" & vbNullChar & "All (*.*)" & vbNullChar & "*.*" & vbNullChar & vbNullChar
+    sTit = "Ch" & ChrW(7885) & "n c" & ChrW(225) & "c file b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)
+    ofn.lStructSize = LenB(ofn)
+    ofn.hwndOwner = CF_GetActiveWindow()
+    ofn.lpstrFilter = StrPtr(sFil)
+    ofn.nFilterIndex = 1
+    ofn.lpstrFile = StrPtr(sBuf)
+    ofn.nMaxFile = Len(sBuf)
+    ofn.lpstrTitle = StrPtr(sTit)
+    ofn.Flags = &H80000 Or &H200 Or &H1000 Or &H4 Or &H8   ' EXPLORER|MULTI|FILEMUSTEXIST|HIDEREADONLY|NOCHANGEDIR
+    If CF_GetOpenFileNameW(ofn) = 0 Then Exit Function
+    p = InStr(sBuf, vbNullChar & vbNullChar)
+    If p > 0 Then sBuf = Left$(sBuf, p - 1)
+    parts = Split(sBuf, vbNullChar)
+    If UBound(parts) < 0 Then Exit Function
+    If UBound(parts) = 0 Then
+        kq.Add parts(0)
+    Else
+        thu = parts(0)
+        If Right$(thu, 1) <> "\" Then thu = thu & "\"
+        For i = 1 To UBound(parts)
+            If Len(parts(i)) > 0 Then kq.Add thu & parts(i)
+        Next i
+    End If
+End Function
+
+Public Function CF_ChonThuMuc(ByVal tieuDe As String) As String
+    Dim sh As Object, fd As Object
+    On Error Resume Next
+    Set sh = CreateObject("Shell.Application")
+    Set fd = sh.BrowseForFolder(0, tieuDe, &H1 Or &H40, 0)
+    If fd Is Nothing Then Exit Function
+    CF_ChonThuMuc = fd.Self.Path
+End Function
+
+' Gom cac file .dgn trong thu muc (deQuy = ca thu muc con)
+Public Sub CF_GomFileDgn(ByVal thuMuc As String, ByVal deQuy As Boolean, ByVal kq As Collection)
+    Dim fso As Object, fd As Object
+    On Error Resume Next
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set fd = fso.GetFolder(thuMuc)
+    If fd Is Nothing Then Exit Sub
+    GomThuMuc fso, fd, deQuy, kq
+End Sub
+
+Private Sub GomThuMuc(ByVal fso As Object, ByVal fd As Object, ByVal deQuy As Boolean, ByVal kq As Collection)
+    Dim f As Object, sf As Object
+    On Error Resume Next
+    For Each f In fd.Files
+        If LCase$(fso.GetExtensionName(f.Name)) = "dgn" Then kq.Add f.Path
+    Next f
+    If deQuy Then
+        For Each sf In fd.SubFolders
+            GomThuMuc fso, sf, True, kq
+        Next sf
+    End If
+End Sub
+
+'============================================================
+' XU LY 1 FILE. Tra ve "" neu OK, nguoc lai = mo ta loi.
+'   cheDo: 0 = TCVN3->Unicode ; 1 = Unicode->TCVN3
+'   lvSo : so level (-1 = tat ca)
+'============================================================
+Public Function CF_XuLyFile(ByVal path As String, ByVal cheDo As Long, ByVal lvSo As Long, _
+                            ByVal saoLuu As Boolean, ByRef soChu As Long) As String
+    Dim df As DesignFile, laHienTai As Boolean, m As ModelReference
+    Dim fU As Object, fV As Object, fVH As Object
+    soChu = 0
+    On Error Resume Next
+    laHienTai = (StrComp(ActiveDesignFile.FullName, path, vbTextCompare) = 0)
+    Err.Clear
+    If saoLuu Then
+        Dim fso As Object
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        fso.CopyFile path, path & ".bak", True
+        If Err.Number <> 0 Then
+            CF_XuLyFile = "Kh" & ChrW(244) & "ng sao l" & ChrW(432) & "u " & ChrW(273) & ChrW(432) & ChrW(7907) & "c (.bak): " & Err.Description
+            Exit Function
+        End If
+    End If
+
+    On Error GoTo Loi
+    If laHienTai Then
+        Set df = ActiveDesignFile
+    Else
+        Set df = Application.OpenDesignFileForProgram(path, False)
+    End If
+    If df Is Nothing Then CF_XuLyFile = "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file": Exit Function
+
+    Set fU = TimFont(df, DC_FONT_VIET)
+    Set fV = TimFont(df, FONT_TCVN)
+    Set fVH = TimFont(df, FONT_TCVN_H)
+    If fVH Is Nothing Then Set fVH = fV
+    If cheDo = 0 And fU Is Nothing Then Err.Raise vbObjectError + 1, , "Kh" & ChrW(244) & "ng c" & ChrW(243) & " font " & DC_FONT_VIET
+    If cheDo = 1 And fV Is Nothing Then Err.Raise vbObjectError + 2, , "Kh" & ChrW(244) & "ng c" & ChrW(243) & " font " & FONT_TCVN
+
+    For Each m In df.Models
+        soChu = soChu + XuLyModel(m, cheDo, lvSo, fU, fV, fVH)
+    Next m
+    If soChu > 0 Then df.Save
+    If Not laHienTai Then df.Close
+    Exit Function
+Loi:
+    CF_XuLyFile = Err.Description
+    On Error Resume Next
+    If Not laHienTai Then
+        If Not df Is Nothing Then df.Close
+    End If
+End Function
+
+Private Function XuLyModel(ByVal m As ModelReference, ByVal cheDo As Long, ByVal lvSo As Long, _
+                           ByVal fU As Object, ByVal fV As Object, ByVal fVH As Object) As Long
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator, ds As New Collection, i As Long, el As Element
+    On Error Resume Next
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    Set ee = m.Scan(esc)
+    If ee Is Nothing Then Exit Function
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If lvSo < 0 Then
+            ds.Add el
+        ElseIf DC_LevelSo(el) = lvSo Then
+            ds.Add el
+        End If
+    Loop
+    For i = 1 To ds.Count
+        Set el = ds.Item(i)
+        If el.Type = msdElementTypeTextNode Then
+            XuLyModel = XuLyModel + DoiNode(el, cheDo, fU, fV, fVH)
+        Else
+            XuLyModel = XuLyModel + DoiText(el, cheDo, fU, fV, fVH, True)
+        End If
+    Next i
+End Function
+
+' Quyet dinh co doi khong; tra ve chuoi moi + font moi
+Private Function CanDoi(ByVal tenFont As String, ByVal s As String, ByVal cheDo As Long, _
+                        ByVal fU As Object, ByVal fV As Object, ByVal fVH As Object, _
+                        ByRef sMoi As String, ByRef fMoi As Object) As Boolean
+    Dim fn As String, laVn As Boolean, hoa As Boolean
+    fn = LCase$(Trim$(tenFont))
+    laVn = (Left$(fn, 2) = "vn" Or Left$(fn, 3) = ".vn")
+    If cheDo = 0 Then
+        If Not laVn Then Exit Function
+        sMoi = DC_Tcvn3SangUnicode(s)
+        If Right$(fn, 1) = "h" Then sMoi = UCase$(sMoi)      ' .VnTimeH, .VnArialH: font chu hoa
+        Set fMoi = fU
+        CanDoi = True
+    Else
+        If laVn Then Exit Function
+        If Not CoKyTuViet(s) Then Exit Function
+        sMoi = UnicodeSangTcvn3(s, hoa)
+        If hoa Then Set fMoi = fVH Else Set fMoi = fV
+        CanDoi = True
+    End If
+End Function
+
+Private Function CoKyTuViet(ByVal s As String) As Boolean
+    Dim i As Long
+    For i = 1 To Len(s)
+        If (AscW(Mid$(s, i, 1)) And &HFFFF&) >= 128 Then CoKyTuViet = True: Exit Function
+    Next i
+End Function
+
+Private Function DoiText(ByVal el As Element, ByVal cheDo As Long, ByVal fU As Object, _
+                         ByVal fV As Object, ByVal fVH As Object, ByVal ghi As Boolean) As Long
+    Dim oT As TextElement, ts As TextStyle, sMoi As String, fMoi As Object
+    On Error Resume Next
+    Set oT = el.AsTextElement
+    If oT Is Nothing Then Exit Function
+    If Not CanDoi(oT.TextStyle.Font.Name, oT.Text, cheDo, fU, fV, fVH, sMoi, fMoi) Then Exit Function
+    If fMoi Is Nothing Then Exit Function
+    Err.Clear
+    Set ts = oT.TextStyle
+    Set ts.Font = fMoi
+    If Err.Number <> 0 Then Err.Clear: ts.Font = fMoi
+    Set oT.TextStyle = ts
+    If Err.Number <> 0 Then Err.Clear: oT.TextStyle = ts
+    oT.Text = sMoi
+    Err.Clear
+    If ghi Then oT.Rewrite
+    If Err.Number = 0 Then DoiText = 1
+End Function
+
+' Text node: lay cac dong -> xoa dong -> them lai dong da doi -> Rewrite.
+' Neu cach nay loi -> doi tung dong con (cach cu).
+Private Function DoiNode(ByVal el As Element, ByVal cheDo As Long, ByVal fU As Object, _
+                        ByVal fV As Object, ByVal fVH As Object) As Long
+    Dim subs As ElementEnumerator, oT As TextElement, n As Long, i As Long, coDoi As Boolean
+    Dim txt() As String, sMoi As String, fMoi As Object, fDung As Object
+    On Error Resume Next
+    Set subs = el.AsComplexElement.GetSubElements
+    ReDim txt(0 To 0)
+    Do While subs.MoveNext
+        If subs.Current.Type = msdElementTypeText Then
+            Set oT = subs.Current.AsTextElement
+            n = n + 1
+            ReDim Preserve txt(0 To n)
+            txt(n) = oT.Text
+            If CanDoi(oT.TextStyle.Font.Name, oT.Text, cheDo, fU, fV, fVH, sMoi, fMoi) Then
+                txt(n) = sMoi: coDoi = True
+                If fDung Is Nothing Then Set fDung = fMoi
+                If cheDo = 1 And fMoi Is fV Then Set fDung = fV
+            End If
+        End If
+    Loop
+    If Not coDoi Or n = 0 Or fDung Is Nothing Then Exit Function
+
+    ' Cach 1: dung lai noi dung text node
+    Dim nd As TextNodeElement, ts As TextStyle
+    Err.Clear
+    Set nd = el.AsTextNodeElement
+    Set ts = nd.TextStyle
+    Set ts.Font = fDung
+    If Err.Number <> 0 Then Err.Clear: ts.Font = fDung
+    Set nd.TextStyle = ts
+    If Err.Number <> 0 Then Err.Clear: nd.TextStyle = ts
+    Err.Clear
+    nd.DeleteAllTextLines
+    If Err.Number = 0 Then
+        For i = 1 To n
+            nd.AddTextLine txt(i)
+        Next i
+        If Err.Number = 0 Then
+            nd.Rewrite
+            If Err.Number = 0 Then DoiNode = 1
+        End If
+        Exit Function       ' da xoa dong -> khong chay cach 2 (tranh ghi node rong)
+    End If
+
+    ' Cach 2 (du phong): doi tung dong con
+    Err.Clear
+    Set subs = el.AsComplexElement.GetSubElements
+    Do While subs.MoveNext
+        DoiNode = DoiNode + DoiText(subs.Current, cheDo, fU, fV, fVH, False)
+    Loop
+    Err.Clear
+    el.Rewrite
+    If Err.Number <> 0 Then DoiNode = 0
+    If DoiNode > 1 Then DoiNode = 1
+End Function
+
+'============================================================
+' Unicode -> TCVN3. hoa = True khi chuoi la chu HOA co dau
+'   (khi do tra ve chu thuong de dung font .VnTimeH)
+'============================================================
+Private Function UnicodeSangTcvn3(ByVal s As String, ByRef hoa As Boolean) As String
+    Dim i As Long, c As Long, ch As String, r As String, coHoaDau As Boolean
+    NapRev
+    hoa = False
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        c = AscW(ch) And &HFFFF&
+        If c >= 128 Then
+            If Not mRev.Exists(c) Then
+                If mRev.Exists(AscW(LCase$(ch)) And &HFFFF&) Then coHoaDau = True
+            End If
+        End If
+    Next i
+    If coHoaDau And s = UCase$(s) Then hoa = True: s = LCase$(s)
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        c = AscW(ch) And &HFFFF&
+        If c >= 128 Then
+            If mRev.Exists(c) Then
+                r = r & ChrW(mRev(c))
+            ElseIf mRev.Exists(AscW(LCase$(ch)) And &HFFFF&) Then
+                r = r & ChrW(mRev(AscW(LCase$(ch)) And &HFFFF&))
+            Else
+                r = r & ch
+            End If
+        Else
+            r = r & ch
+        End If
+    Next i
+    UnicodeSangTcvn3 = r
+End Function
+
+Private Sub NapRev()
+    Dim a() As String, i As Long, b As Long, u As Long
+    If Not mRev Is Nothing Then Exit Sub
+    Set mRev = CreateObject("Scripting.Dictionary")
+    a = Split(TCVN_MAP, ",")
+    For i = LBound(a) To UBound(a)
+        b = CLng("&H" & Left$(a(i), 2))
+        u = CLng("&H" & Mid$(a(i), 3, 4))
+        If Not mRev.Exists(u) Then mRev.Add u, b
+    Next i
+End Sub
+
+Private Function TimFont(ByVal df As DesignFile, ByVal ten As String) As Object
+    Dim fs As Object, f As Object, i As Long
+    On Error Resume Next
+    Set fs = df.Fonts
+    If fs Is Nothing Then Set fs = ActiveDesignFile.Fonts
+    For Each f In fs
+        If StrComp(f.Name, ten, vbTextCompare) = 0 Then Set TimFont = f: Exit Function
+    Next f
+    For i = 0 To 1023
+        Set f = Nothing
+        Set f = fs.Item(i)
+        If Not f Is Nothing Then
+            If StrComp(f.Name, ten, vbTextCompare) = 0 Then Set TimFont = f: Exit Function
+        End If
+    Next i
+End Function
