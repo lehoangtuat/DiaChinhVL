@@ -51,32 +51,47 @@ Private Function NoiDung(ByVal el As Element) As String
     End If
 End Function
 
-' Buoc 1: quet + phan loai. Tra ve so phan tu tung loai (n(1..3)), nBo = so chu giu nguyen.
+' Buoc 1: quet + phan loai (file hien tai). Tra ve so phan tu tung loai (n(1..3)), nBo = so chu giu nguyen.
 Public Function TL_Quet(ByVal lvNguon As Long, ByVal chiChon As Boolean, ByRef n() As Long, ByRef nBo As Long) As Long
-    Dim ee As ElementEnumerator, el As Element, esc As ElementScanCriteria, k As Long
-    ReDim n(0 To 3)
-    nBo = 0
+    Dim ee As ElementEnumerator
     Set mDs = New Collection
     Set mLoai = New Collection
+    ReDim n(0 To 3)
+    nBo = 0
     On Error Resume Next
     If chiChon Then
         Set ee = ActiveModelReference.GetSelectedElements
     Else
-        Set esc = New ElementScanCriteria
-        esc.ExcludeAllTypes
-        esc.IncludeType msdElementTypeText
-        esc.IncludeType msdElementTypeTextNode
-        Set ee = ActiveModelReference.Scan(esc)
+        Set ee = QuetChu(ActiveModelReference)
     End If
     If ee Is Nothing Then Exit Function
+    GomPhanLoai ee, lvNguon, mDs, mLoai, n, nBo
+    TL_Quet = mDs.Count
+End Function
+
+Private Function QuetChu(ByVal m As ModelReference) As ElementEnumerator
+    Dim esc As ElementScanCriteria
+    On Error Resume Next
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    Set QuetChu = m.Scan(esc)
+End Function
+
+Private Sub GomPhanLoai(ByVal ee As ElementEnumerator, ByVal lvNguon As Long, ByVal ds As Collection, _
+                        ByVal loai As Collection, ByRef n() As Long, ByRef nBo As Long)
+    Dim el As Element, k As Long
+    If ee Is Nothing Then Exit Sub
+    On Error Resume Next
     Do While ee.MoveNext
         Set el = ee.Current
         If el.Type = msdElementTypeText Or el.Type = msdElementTypeTextNode Then
             If DC_LevelSo(el) = lvNguon Then
                 k = TL_PhanLoai(NoiDung(el))
                 If k > 0 Then
-                    mDs.Add el
-                    mLoai.Add k
+                    ds.Add el
+                    loai.Add k
                     n(k) = n(k) + 1
                 Else
                     nBo = nBo + 1
@@ -84,30 +99,103 @@ Public Function TL_Quet(ByVal lvNguon As Long, ByVal chiChon As Boolean, ByRef n
             End If
         End If
     Loop
-    TL_Quet = mDs.Count
-End Function
+End Sub
 
-' Buoc 2: chuyen lop. lv(1..3) = so level dich (<= 0 : khong chuyen loai do)
+' Buoc 2: chuyen lop (file hien tai, sau TL_Quet). lv(1..3) = so level dich (<= 0 : khong chuyen loai do)
 Public Function TL_Chuyen(ByRef lv() As Long, ByRef nDa() As Long) As Long
-    Dim i As Long, k As Long, el As Element, lvObj(1 To 3) As Level
     ReDim nDa(0 To 3)
     If mDs Is Nothing Then Exit Function
+    TL_Chuyen = ChuyenDs(ActiveDesignFile, mDs, mLoai, lv, nDa)
+    Set mDs = Nothing
+    Set mLoai = Nothing
+    RedrawAllViews
+End Function
+
+Private Function ChuyenDs(ByVal df As DesignFile, ByVal ds As Collection, ByVal loai As Collection, _
+                          ByRef lv() As Long, ByRef nDa() As Long) As Long
+    Dim i As Long, k As Long, el As Element, lvObj(1 To 3) As Level
     For k = 1 To 3
-        If lv(k) > 0 Then Set lvObj(k) = DC_LevelTheoSo(lv(k))
+        If lv(k) > 0 Then Set lvObj(k) = LvTheoSo(df, lv(k))
     Next k
     On Error Resume Next
-    For i = 1 To mDs.Count
-        k = mLoai.Item(i)
+    For i = 1 To ds.Count
+        k = loai.Item(i)
         If Not lvObj(k) Is Nothing Then
-            Set el = mDs.Item(i)
+            Set el = ds.Item(i)
             Err.Clear
             Set el.Level = lvObj(k)
             If Err.Number <> 0 Then Err.Clear: el.Level = lvObj(k)
             el.Rewrite
-            If Err.Number = 0 Then nDa(k) = nDa(k) + 1: TL_Chuyen = TL_Chuyen + 1
+            If Err.Number = 0 Then nDa(k) = nDa(k) + 1: ChuyenDs = ChuyenDs + 1
         End If
     Next i
-    Set mDs = Nothing
-    Set mLoai = Nothing
-    RedrawAllViews
+End Function
+
+' Level theo SO trong 1 design file; chua co thi tao "Level n"
+Private Function LvTheoSo(ByVal df As DesignFile, ByVal n As Long) As Level
+    Dim lv As Level
+    On Error Resume Next
+    For Each lv In df.Levels
+        If lv.Number = n Then Set LvTheoSo = lv: Exit Function
+    Next lv
+    Set lv = df.AddNewLevel("Level " & n)
+    If Not lv Is Nothing Then
+        lv.Number = n
+        df.Levels.Rewrite
+        Set LvTheoSo = lv
+    End If
+End Function
+
+'============================================================
+' HANG LOAT: tach lop 1 file (mo ngam -> sua -> Save -> Close)
+'   Tra ve "" neu OK; nDa(1..3) = so chu da chuyen tung loai.
+'============================================================
+Public Function TL_XuLyFile(ByVal path As String, ByVal lvNguon As Long, ByRef lv() As Long, _
+                            ByVal saoLuu As Boolean, ByRef nDa() As Long) As String
+    Dim df As DesignFile, laHienTai As Boolean, m As ModelReference
+    Dim ds As Collection, loai As Collection, n() As Long, nBo As Long, tong As Long, k As Long
+    ReDim nDa(0 To 3)
+    On Error Resume Next
+    laHienTai = (StrComp(ActiveDesignFile.FullName, path, vbTextCompare) = 0)
+    Err.Clear
+    If saoLuu Then
+        Dim fso As Object
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        fso.CopyFile path, path & ".bak", True
+        If Err.Number <> 0 Then
+            TL_XuLyFile = "Kh" & ChrW(244) & "ng sao l" & ChrW(432) & "u " & ChrW(273) & ChrW(432) & ChrW(7907) & "c (.bak): " & Err.Description
+            Exit Function
+        End If
+    End If
+
+    On Error GoTo Loi
+    If laHienTai Then
+        Set df = ActiveDesignFile
+    Else
+        Set df = Application.OpenDesignFileForProgram(path, False)
+    End If
+    If df Is Nothing Then TL_XuLyFile = "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file": Exit Function
+
+    Dim d() As Long
+    For Each m In df.Models
+        Set ds = New Collection: Set loai = New Collection
+        ReDim n(0 To 3): nBo = 0
+        GomPhanLoai QuetChu(m), lvNguon, ds, loai, n, nBo
+        If ds.Count > 0 Then
+            ReDim d(0 To 3)
+            tong = tong + ChuyenDs(df, ds, loai, lv, d)
+            For k = 1 To 3
+                nDa(k) = nDa(k) + d(k)
+            Next k
+        End If
+    Next m
+    If tong > 0 Then df.Save
+    If Not laHienTai Then df.Close
+    Exit Function
+Loi:
+    TL_XuLyFile = Err.Description
+    On Error Resume Next
+    If Not laHienTai Then
+        If Not df Is Nothing Then df.Close
+    End If
 End Function
