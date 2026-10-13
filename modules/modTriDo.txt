@@ -1,0 +1,610 @@
+'============================================================
+' modTriDo - Xu ly so lieu tri do + kiem tra Topology (kieu LandMap)
+'   Menu Ban do > Xu ly so lieu tri do:
+'     TDTOADO   Hien thi tri do toa do (ghi X,Y tai dinh doi tuong chon)
+'     TDGOCCANH Hien thi tri do goc canh (chieu dai + phuong vi tung canh)
+'     TRIENDS   Trien diem theo danh sach (file txt/csv: Ten X Y [H])
+'   Menu Ban do > Tao Topology thua dat:
+'     CANHNGAN  Tim canh thua qua ngan
+'     LAMTRON   Lam tron so le toa do
+'     GOCNHO    Tim goc nho, diem thang hang
+'   X = Bac (Northing, y ban ve), Y = Dong (Easting, x ban ve) theo quy uoc VN.
+'   Loc level theo Level.Number. Chu Times New Roman, net 0.
+'============================================================
+Option Explicit
+
+Private mFont As Object
+Private mDaTimFont As Boolean
+
+Private Function TieuDe() As String
+    TieuDe = "Tr" & ChrW(7883) & " " & ChrW(273) & "o / Topology"
+End Function
+
+'============================================================
+' HIEN THI TRI DO TOA DO
+'============================================================
+Public Sub DC_TDToaDo()
+    Dim ds As Collection, lvSo As Long, cao As Double, le As Long, ok As Boolean
+    Set ds = DsChon()
+    If ds.Count = 0 Then
+        DC_ThongBao "Ch" & ChrW(7885) & "n c" & ChrW(225) & "c th" & ChrW(7917) & "a / " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ranh c" & ChrW(7847) & "n ghi t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " tr" & ChrW(432) & ChrW(7899) & "c, r" & ChrW(7891) & "i ch" & ChrW(7841) & "y l" & ChrW(7841) & "i l" & ChrW(7879) & "nh.", TieuDe, vbExclamation
+        Exit Sub
+    End If
+    lvSo = CLng(Val(Hoi("Level ghi toa do:", "TD_LV", "30", ok))): If Not ok Then Exit Sub
+    cao = Val(Hoi("Co chu (m):", "TD_CAO", "1", ok)): If Not ok Then Exit Sub
+    le = CLng(Val(Hoi("So le toa do:", "TD_LE", "2", ok))): If Not ok Then Exit Sub
+    If cao <= 0 Then cao = 1
+    If lvSo <= 0 Then lvSo = 30
+
+    Dim lv As Level, i As Long, j As Long, pts() As Point3d, n As Long, daCo As Object, k As String, dem As Long
+    Set lv = DC_LevelTheoSo(lvSo)
+    Set daCo = CreateObject("Scripting.Dictionary")
+    For i = 1 To ds.Count
+        n = DinhPhanTu(ds.Item(i), pts)
+        For j = 0 To n - 1
+            k = Format$(pts(j).X, "0.000") & "|" & Format$(pts(j).Y, "0.000")
+            If Not daCo.Exists(k) Then
+                daCo.Add k, True
+                VeVong pts(j).X, pts(j).Y, cao * 0.15, lv, -1
+                VeChu pts(j).X + cao * 0.4, pts(j).Y + cao * 0.2, "X=" & SoLe(pts(j).Y, le), cao, 0, lv, msdTextJustificationLeftBottom
+                VeChu pts(j).X + cao * 0.4, pts(j).Y - cao * 0.2, "Y=" & SoLe(pts(j).X, le), cao, 0, lv, msdTextJustificationLeftTop
+                dem = dem + 1
+            End If
+        Next j
+    Next i
+    RedrawAllViews
+    DC_ThongBao ChrW(272) & ChrW(227) & " ghi t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " " & dem & " " & ChrW(273) & ChrW(7881) & "nh l" & ChrW(234) & "n level " & lvSo & "." & vbCrLf & "(X = B" & ChrW(7855) & "c, Y = " & ChrW(272) & ChrW(244) & "ng theo VN2000)", TieuDe
+End Sub
+
+'============================================================
+' HIEN THI TRI DO GOC CANH: chieu dai + phuong vi tung canh
+'============================================================
+Public Sub DC_TDGocCanh()
+    Dim ds As Collection, lvSo As Long, cao As Double, ok As Boolean
+    Set ds = DsChon()
+    If ds.Count = 0 Then
+        DC_ThongBao "Ch" & ChrW(7885) & "n c" & ChrW(225) & "c th" & ChrW(7917) & "a / " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ranh c" & ChrW(7847) & "n ghi g" & ChrW(243) & "c c" & ChrW(7841) & "nh tr" & ChrW(432) & ChrW(7899) & "c, r" & ChrW(7891) & "i ch" & ChrW(7841) & "y l" & ChrW(7841) & "i l" & ChrW(7879) & "nh.", TieuDe, vbExclamation
+        Exit Sub
+    End If
+    lvSo = CLng(Val(Hoi("Level ghi goc canh:", "TD_LVGC", "30", ok))): If Not ok Then Exit Sub
+    cao = Val(Hoi("Co chu (m):", "TD_CAO", "1", ok)): If Not ok Then Exit Sub
+    If cao <= 0 Then cao = 1
+    If lvSo <= 0 Then lvSo = 30
+
+    Dim lv As Level, i As Long, j As Long, pts() As Point3d, n As Long, daCo As Object, k As String, dem As Long
+    Dim ax As Double, ay As Double, bx As Double, by As Double, dx As Double, dy As Double, L As Double
+    Dim mx As Double, my As Double, gocChu As Double, nx As Double, ny As Double
+    Set lv = DC_LevelTheoSo(lvSo)
+    Set daCo = CreateObject("Scripting.Dictionary")
+    For i = 1 To ds.Count
+        n = DinhPhanTu(ds.Item(i), pts)
+        For j = 0 To n - 2
+            ax = pts(j).X: ay = pts(j).Y: bx = pts(j + 1).X: by = pts(j + 1).Y
+            dx = bx - ax: dy = by - ay: L = Sqr(dx * dx + dy * dy)
+            If L > 0.001 Then
+                k = KhoaCanh(ax, ay, bx, by)
+                If Not daCo.Exists(k) Then
+                    daCo.Add k, True
+                    mx = (ax + bx) / 2: my = (ay + by) / 2
+                    gocChu = Atn2(dy, dx)
+                    If gocChu > Pi() / 2 Or gocChu <= -Pi() / 2 Then gocChu = gocChu + Pi()
+                    nx = -Sin(gocChu): ny = Cos(gocChu)       ' phap tuyen phia tren chu
+                    VeChu mx + nx * cao * 0.6, my + ny * cao * 0.6, Format$(L, "0.00"), cao, gocChu, lv, msdTextJustificationCenterCenter
+                    VeChu mx - nx * cao * 0.6, my - ny * cao * 0.6, PhuongVi(dx, dy), cao * 0.8, gocChu, lv, msdTextJustificationCenterCenter
+                    dem = dem + 1
+                End If
+            End If
+        Next j
+    Next i
+    RedrawAllViews
+    DC_ThongBao ChrW(272) & ChrW(227) & " ghi chi" & ChrW(7873) & "u d" & ChrW(224) & "i + ph" & ChrW(432) & ChrW(417) & "ng v" & ChrW(7883) & " " & dem & " c" & ChrW(7841) & "nh l" & ChrW(234) & "n level " & lvSo & "." & vbCrLf & _
+                "(Ph" & ChrW(432) & ChrW(417) & "ng v" & ChrW(7883) & " t" & ChrW(237) & "nh t" & ChrW(7915) & " h" & ChrW(432) & ChrW(7899) & "ng B" & ChrW(7855) & "c, theo chi" & ChrW(7873) & "u kim " & ChrW(273) & ChrW(7891) & "ng h" & ChrW(7891) & ", theo th" & ChrW(7913) & " t" & ChrW(7921) & " " & ChrW(273) & ChrW(7881) & "nh c" & ChrW(7911) & "a " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng)", TieuDe
+End Sub
+
+' Phuong vi (tu Bac, theo chieu kim dong ho) dang do-phut-giay
+Private Function PhuongVi(ByVal dx As Double, ByVal dy As Double) As String
+    Dim a As Double, d As Long, m As Long, s As Long, t As Long
+    a = Atn2(dx, dy) * 180# / Pi()          ' dx = Dong, dy = Bac
+    If a < 0 Then a = a + 360#
+    t = CLng(a * 3600#)
+    If t >= 1296000 Then t = t - 1296000
+    d = t \ 3600: m = (t Mod 3600) \ 60: s = t Mod 60
+    PhuongVi = d & ChrW(176) & Format$(m, "00") & "'" & Format$(s, "00") & """"
+End Function
+
+'============================================================
+' TRIEN DIEM THEO DANH SACH (file txt/csv: Ten X Y [H])
+'============================================================
+Public Sub DC_TrienDiemDS()
+    Dim f As String, ok As Boolean, lvSo As Long, cao As Double
+    f = CF_ChonMotFile("Danh s" & ChrW(225) & "ch " & ChrW(273) & "i" & ChrW(7875) & "m (*.txt;*.csv)|*.txt;*.csv|T" & ChrW(7845) & "t c" & ChrW(7843) & " (*.*)|*.*", "Ch" & ChrW(7885) & "n file danh s" & ChrW(225) & "ch " & ChrW(273) & "i" & ChrW(7875) & "m (T" & ChrW(234) & "n X Y [H])")
+    If Len(f) = 0 Then Exit Sub
+    lvSo = CLng(Val(Hoi("Level trien diem:", "TD_LVDIEM", "20", ok))): If Not ok Then Exit Sub
+    cao = Val(Hoi("Co chu ten diem (m):", "TD_CAO", "1", ok)): If Not ok Then Exit Sub
+    If cao <= 0 Then cao = 1
+    If lvSo <= 0 Then lvSo = 20
+
+    Dim txt As String, dong() As String, i As Long, p() As String, nP As Long, nBo As Long
+    Dim ten As String, a As Double, b As Double, h As String, X As Double, Y As Double
+    Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double, dau As Boolean, doiTruc As Integer
+    txt = DocChu(f)
+    If Len(txt) = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file: " & f, TieuDe, vbExclamation
+        Exit Sub
+    End If
+    Dim lv As Level
+    Set lv = DC_LevelTheoSo(lvSo)
+    dong = Split(Replace(txt, vbCr, ""), vbLf)
+    doiTruc = -1
+    For i = 0 To UBound(dong)
+        If TachDong(dong(i), p) >= 3 Then
+            ten = p(0)
+            If LaSo(p(1)) And LaSo(p(2)) Then
+                a = SoVal(p(1)): b = SoVal(p(2))
+                h = "": If UBound(p) >= 3 Then If LaSo(p(3)) Then h = p(3)
+                ' VN2000: X(Bac) ~ 1.000.000+ > Y(Dong) ~ 400.000-800.000
+                If doiTruc < 0 Then doiTruc = IIf(a > b, 1, 0)
+                If doiTruc = 1 Then X = b: Y = a Else X = a: Y = b
+                VeVong X, Y, cao * 0.25, lv, -1
+                VeChu X + cao * 0.4, Y + cao * 0.3, ten, cao, 0, lv, msdTextJustificationLeftBottom
+                If Len(h) > 0 Then VeChu X + cao * 0.4, Y - cao * 0.3, "h=" & h, cao * 0.8, 0, lv, msdTextJustificationLeftTop
+                If Not dau Then
+                    x1 = X: x2 = X: y1 = Y: y2 = Y: dau = True
+                Else
+                    If X < x1 Then x1 = X
+                    If X > x2 Then x2 = X
+                    If Y < y1 Then y1 = Y
+                    If Y > y2 Then y2 = Y
+                End If
+                nP = nP + 1
+            Else
+                nBo = nBo + 1
+            End If
+        ElseIf Len(Trim$(dong(i))) > 0 Then
+            nBo = nBo + 1
+        End If
+    Next i
+    If nP = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng c" & ChrW(243) & " " & ChrW(273) & "i" & ChrW(7875) & "m h" & ChrW(7907) & "p l" & ChrW(7879) & " trong file." & vbCrLf & "M" & ChrW(7895) & "i d" & ChrW(242) & "ng: T" & ChrW(234) & "n X Y [H] (c" & ChrW(225) & "ch nhau b" & ChrW(7857) & "ng tab, d" & ChrW(7845) & "u ch" & ChrW(7845) & "m ph" & ChrW(7849) & "y, d" & ChrW(7845) & "u ph" & ChrW(7849) & "y ho" & ChrW(7863) & "c kho" & ChrW(7843) & "ng tr" & ChrW(7855) & "ng).", TieuDe, vbExclamation
+        Exit Sub
+    End If
+    Dim d As Double
+    d = (x2 - x1): If y2 - y1 > d Then d = y2 - y1
+    If d < 20 Then d = 20
+    DC_ZoomVung (x1 + x2) / 2 - d * 0.6, (y1 + y2) / 2 - d * 0.6, (x1 + x2) / 2 + d * 0.6, (y1 + y2) / 2 + d * 0.6
+    DC_ThongBao ChrW(272) & ChrW(227) & " tri" & ChrW(7875) & "n " & nP & " " & ChrW(273) & "i" & ChrW(7875) & "m l" & ChrW(234) & "n level " & lvSo & "." & IIf(nBo > 0, vbCrLf & "B" & ChrW(7887) & " qua " & nBo & " d" & ChrW(242) & "ng kh" & ChrW(244) & "ng h" & ChrW(7907) & "p l" & ChrW(7879) & " (ti" & ChrW(234) & "u " & ChrW(273) & ChrW(7873) & "...).", ""), TieuDe
+End Sub
+
+Private Function TachDong(ByVal s As String, ByRef p() As String) As Long
+    Dim t As String, a() As String, i As Long, n As Long
+    t = Trim$(s)
+    If Len(t) = 0 Then Exit Function
+    If InStr(t, vbTab) > 0 Then
+        t = Replace(t, vbTab, ";")
+    ElseIf InStr(t, ";") = 0 And InStr(t, ",") > 0 And InStr(t, " ") = 0 Then
+        t = Replace(t, ",", ";")
+    ElseIf InStr(t, ";") = 0 Then
+        Do While InStr(t, "  ") > 0: t = Replace(t, "  ", " "): Loop
+        t = Replace(t, " ", ";")
+    End If
+    a = Split(t, ";")
+    ReDim p(0 To UBound(a))
+    For i = 0 To UBound(a)
+        If Len(Trim$(a(i))) > 0 Then p(n) = Trim$(a(i)): n = n + 1
+    Next i
+    If n = 0 Then Exit Function
+    ReDim Preserve p(0 To n - 1)
+    TachDong = n
+End Function
+
+Private Function LaSo(ByVal s As String) As Boolean
+    Dim t As String
+    t = Replace(Trim$(s), ",", ".")
+    If Len(t) = 0 Then Exit Function
+    LaSo = (t Like "*#*") And Not (t Like "*[!0-9.+-]*")
+End Function
+
+Private Function SoVal(ByVal s As String) As Double
+    SoVal = Val(Replace(Trim$(s), ",", "."))
+End Function
+
+Private Function DocChu(ByVal f As String) As String
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.LoadFromFile f
+    DocChu = st.ReadText(-1)
+    st.Close
+    If Len(DocChu) > 0 Then
+        If AscW(Left$(DocChu, 1)) = &HFEFF Then DocChu = Mid$(DocChu, 2)
+    End If
+End Function
+
+'============================================================
+' TIM CANH THUA QUA NGAN
+'============================================================
+Public Sub DC_TimCanhNgan()
+    Dim lvs() As Long, nLv As Long, Lmin As Double, lvLoi As Long, ok As Boolean
+    nLv = DC_DsSoLevel(Hoi("Cac level ranh thua (vd 10,23):", "TD_LVRANH", LvHienTai(), ok), lvs): If Not ok Then Exit Sub
+    If nLv = 0 Then DC_ThongBao "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p level ranh.", TieuDe, vbExclamation: Exit Sub
+    Lmin = Val(Hoi("Canh ngan hon (m):", "TD_CANHMIN", "0.2", ok)): If Not ok Then Exit Sub
+    lvLoi = CLng(Val(Hoi("Level danh dau loi:", "TD_LVLOI", "63", ok))): If Not ok Then Exit Sub
+    If Lmin <= 0 Then Lmin = 0.2
+    If lvLoi <= 0 Then lvLoi = 63
+
+    Dim chuoi As Collection, i As Long, j As Long, d() As Double, n As Long, daCo As Object, k As String
+    Dim dx As Double, dy As Double, L As Double, dem As Long, lv As Level, r As Double
+    Dim fx As Double, fy As Double, ax As Double, ay As Double, bx As Double, by As Double
+    Set chuoi = ChuoiTheoLevel(lvs, nLv)
+    Set lv = DC_LevelTheoSo(lvLoi)
+    Set daCo = CreateObject("Scripting.Dictionary")
+    r = Lmin * 2: If r < 0.5 Then r = 0.5
+    For i = 1 To chuoi.Count
+        d = chuoi.Item(i): n = (UBound(d) + 1) \ 2
+        For j = 0 To n - 2
+            ax = d(2 * j): ay = d(2 * j + 1): bx = d(2 * j + 2): by = d(2 * j + 3)
+            dx = bx - ax: dy = by - ay
+            L = Sqr(dx * dx + dy * dy)
+            If L > 0.0005 And L < Lmin Then
+                k = KhoaCanh(ax, ay, bx, by)
+                If Not daCo.Exists(k) Then
+                    daCo.Add k, True
+                    VeVong (ax + bx) / 2, (ay + by) / 2, r, lv, 3
+                    VeChu (ax + bx) / 2 + r, (ay + by) / 2 + r, Format$(L, "0.000"), r * 0.8, 0, lv, msdTextJustificationLeftBottom
+                    If dem = 0 Then fx = (ax + bx) / 2: fy = (ay + by) / 2
+                    dem = dem + 1
+                End If
+            End If
+        Next j
+    Next i
+    RedrawAllViews
+    If dem = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng c" & ChrW(243) & " c" & ChrW(7841) & "nh n" & ChrW(224) & "o ng" & ChrW(7855) & "n h" & ChrW(417) & "n " & Lmin & " m.", TieuDe
+    Else
+        If DC_ThongBao("T" & ChrW(236) & "m th" & ChrW(7845) & "y " & dem & " c" & ChrW(7841) & "nh ng" & ChrW(7855) & "n h" & ChrW(417) & "n " & Lmin & " m (khoanh tr" & ChrW(242) & "n " & ChrW(273) & ChrW(7887) & " tr" & ChrW(234) & "n level " & lvLoi & ")." & vbCrLf & vbCrLf & _
+                       "Zoom t" & ChrW(7899) & "i c" & ChrW(7841) & "nh " & ChrW(273) & ChrW(7847) & "u ti" & ChrW(234) & "n?", TieuDe, vbYesNo Or vbQuestion) = vbYes Then
+            DC_ZoomVung fx - r * 10, fy - r * 10, fx + r * 10, fy + r * 10
+        End If
+    End If
+End Sub
+
+'============================================================
+' TIM GOC NHO, DIEM THANG HANG
+'============================================================
+Public Sub DC_TimGocNho()
+    Dim lvs() As Long, nLv As Long, gMin As Double, gTH As Double, lvLoi As Long, ok As Boolean
+    nLv = DC_DsSoLevel(Hoi("Cac level ranh thua (vd 10,23):", "TD_LVRANH", LvHienTai(), ok), lvs): If Not ok Then Exit Sub
+    If nLv = 0 Then DC_ThongBao "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p level ranh.", TieuDe, vbExclamation: Exit Sub
+    gMin = Val(Hoi("Goc nho hon (do):", "TD_GOCMIN", "15", ok)): If Not ok Then Exit Sub
+    gTH = Val(Hoi("Thang hang: lech duoi (do):", "TD_GOCTH", "1", ok)): If Not ok Then Exit Sub
+    lvLoi = CLng(Val(Hoi("Level danh dau loi:", "TD_LVLOI", "63", ok))): If Not ok Then Exit Sub
+    If gMin <= 0 Then gMin = 15
+    If gTH <= 0 Then gTH = 1
+    If lvLoi <= 0 Then lvLoi = 63
+
+    Dim chuoi As Collection, i As Long, j As Long, d() As Double, n As Long, daCo As Object, k As String
+    Dim kin As Boolean, ip As Long, inx As Long, g As Double, lv As Level, r As Double
+    Dim nNho As Long, nTH As Long, fx As Double, fy As Double, coF As Boolean, px As Double, py As Double
+    Set chuoi = ChuoiTheoLevel(lvs, nLv)
+    Set lv = DC_LevelTheoSo(lvLoi)
+    Set daCo = CreateObject("Scripting.Dictionary")
+    r = 0.5
+    For i = 1 To chuoi.Count
+        d = chuoi.Item(i): n = (UBound(d) + 1) \ 2
+        If n >= 3 Then
+            kin = (Abs(d(0) - d(2 * n - 2)) < 0.001 And Abs(d(1) - d(2 * n - 1)) < 0.001)
+            If kin Then n = n - 1            ' bo dinh lap cuoi
+            For j = 0 To n - 1
+                If kin Or (j > 0 And j < n - 1) Then
+                    ip = j - 1: If ip < 0 Then ip = n - 1
+                    inx = j + 1: If inx > n - 1 Then inx = 0
+                    px = d(2 * j): py = d(2 * j + 1)
+                    g = GocTai(d(2 * ip), d(2 * ip + 1), px, py, d(2 * inx), d(2 * inx + 1))
+                    If g >= 0 Then
+                        k = Format$(px, "0.000") & "|" & Format$(py, "0.000")
+                        If g < gMin Then
+                            If Not daCo.Exists(k) Then
+                                daCo.Add k, True
+                                VeVong px, py, r, lv, 3
+                                VeChu px + r, py + r, Format$(g, "0.0") & ChrW(176), r * 0.8, 0, lv, msdTextJustificationLeftBottom
+                                nNho = nNho + 1
+                                If Not coF Then fx = px: fy = py: coF = True
+                            End If
+                        ElseIf g > 180 - gTH Then
+                            If Not daCo.Exists(k) Then
+                                daCo.Add k, True
+                                VeVong px, py, r, lv, 4
+                                nTH = nTH + 1
+                                If Not coF Then fx = px: fy = py: coF = True
+                            End If
+                        End If
+                    End If
+                End If
+            Next j
+        End If
+    Next i
+    RedrawAllViews
+    If nNho + nTH = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng c" & ChrW(243) & " g" & ChrW(243) & "c nh" & ChrW(7887) & " h" & ChrW(417) & "n " & gMin & ChrW(176) & " hay " & ChrW(273) & "i" & ChrW(7875) & "m th" & ChrW(7859) & "ng h" & ChrW(224) & "ng.", TieuDe
+    Else
+        If DC_ThongBao("G" & ChrW(243) & "c nh" & ChrW(7887) & " (< " & gMin & ChrW(176) & "): " & nNho & " (khoanh " & ChrW(273) & ChrW(7887) & ")" & vbCrLf & _
+                       ChrW(272) & "i" & ChrW(7875) & "m th" & ChrW(7859) & "ng h" & ChrW(224) & "ng (l" & ChrW(7879) & "ch < " & gTH & ChrW(176) & "): " & nTH & " (khoanh v" & ChrW(224) & "ng)" & vbCrLf & _
+                       ChrW(272) & ChrW(225) & "nh d" & ChrW(7845) & "u tr" & ChrW(234) & "n level " & lvLoi & "." & vbCrLf & vbCrLf & "Zoom t" & ChrW(7899) & "i " & ChrW(273) & "i" & ChrW(7875) & "m " & ChrW(273) & ChrW(7847) & "u ti" & ChrW(234) & "n?", TieuDe, vbYesNo Or vbQuestion) = vbYes Then
+            DC_ZoomVung fx - 10, fy - 10, fx + 10, fy + 10
+        End If
+    End If
+End Sub
+
+' Goc tai B giua BA va BC (do, 0..180); -1 neu canh suy bien
+Private Function GocTai(ByVal ax As Double, ByVal ay As Double, ByVal bx As Double, ByVal by As Double, _
+                        ByVal cx As Double, ByVal cy As Double) As Double
+    Dim ux As Double, uy As Double, vx As Double, vy As Double, lu As Double, lw As Double, cs As Double
+    ux = ax - bx: uy = ay - by: vx = cx - bx: vy = cy - by
+    lu = Sqr(ux * ux + uy * uy): lw = Sqr(vx * vx + vy * vy)
+    GocTai = -1
+    If lu < 0.0005 Or lw < 0.0005 Then Exit Function
+    cs = (ux * vx + uy * vy) / (lu * lw)
+    If cs > 1 Then cs = 1
+    If cs < -1 Then cs = -1
+    GocTai = Atn2(Sqr(1 - cs * cs), cs) * 180# / Pi()
+End Function
+
+'============================================================
+' LAM TRON SO LE TOA DO (dinh line/linestring/shape tren cac level)
+'============================================================
+Public Sub DC_LamTronToaDo()
+    Dim lvs() As Long, nLv As Long, le As Long, ok As Boolean
+    nLv = DC_DsSoLevel(Hoi("Cac level can lam tron (vd 10,23):", "TD_LVRANH", LvHienTai(), ok), lvs): If Not ok Then Exit Sub
+    If nLv = 0 Then DC_ThongBao "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p level.", TieuDe, vbExclamation: Exit Sub
+    le = CLng(Val(Hoi("So le giu lai (0-4):", "TD_LELT", "2", ok))): If Not ok Then Exit Sub
+    If le < 0 Then le = 0
+    If le > 4 Then le = 4
+    If DC_ThongBao("L" & ChrW(224) & "m tr" & ChrW(242) & "n t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " " & ChrW(273) & ChrW(7881) & "nh c" & ChrW(225) & "c " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng / v" & ChrW(249) & "ng tr" & ChrW(234) & "n level " & DsLvChu(lvs, nLv) & " v" & ChrW(7873) & " " & le & " s" & ChrW(7889) & " l" & ChrW(7867) & "." & vbCrLf & _
+                   "B" & ChrW(7843) & "n v" & ChrW(7869) & " s" & ChrW(7869) & " b" & ChrW(7883) & " s" & ChrW(7917) & "a v" & ChrW(224) & " KH" & ChrW(212) & "NG ho" & ChrW(224) & "n t" & ChrW(225) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c b" & ChrW(7857) & "ng undo mark - n" & ChrW(234) & "n l" & ChrW(432) & "u b" & ChrW(7843) & "n sao tr" & ChrW(432) & ChrW(7899) & "c." & vbCrLf & vbCrLf & "Ti" & ChrW(7871) & "p t" & ChrW(7909) & "c?", _
+                   TieuDe, vbYesNo Or vbExclamation) <> vbYes Then Exit Sub
+
+    Dim ee As ElementEnumerator, el As Element, ds As New Collection, i As Long
+    Dim pts() As Point3d, j As Long, doi As Boolean, nSua As Long, nDinh As Long, nBo As Long
+    Dim p As Point3d
+    Set ee = QuetDuong()
+    If ee Is Nothing Then Exit Sub
+    Do While ee.MoveNext
+        If CoLevel(ee.Current, lvs, nLv) Then ds.Add ee.Current
+    Loop
+    On Error Resume Next
+    For i = 1 To ds.Count
+        Set el = ds.Item(i)
+        Select Case el.Type
+        Case msdElementTypeLine, msdElementTypeLineString, msdElementTypeShape
+            Err.Clear
+            If el.Type = msdElementTypeShape Then pts = el.AsShapeElement.GetVertices Else pts = el.AsLineElement.GetVertices
+            If Err.Number = 0 Then
+                doi = False
+                For j = LBound(pts) To UBound(pts)
+                    p = pts(j)
+                    p.X = Tron(p.X, le): p.Y = Tron(p.Y, le)
+                    If p.X <> pts(j).X Or p.Y <> pts(j).Y Then
+                        If el.Type = msdElementTypeShape Then
+                            el.AsShapeElement.ModifyVertex j - LBound(pts), p
+                        Else
+                            el.AsLineElement.ModifyVertex j - LBound(pts), p
+                        End If
+                        doi = True: nDinh = nDinh + 1
+                    End If
+                Next j
+                If doi Then
+                    el.Rewrite
+                    If Err.Number = 0 Then nSua = nSua + 1 Else nBo = nBo + 1
+                End If
+            Else
+                nBo = nBo + 1
+            End If
+        Case Else
+            nBo = nBo + 1
+        End Select
+    Next i
+    On Error GoTo 0
+    RedrawAllViews
+    DC_ThongBao ChrW(272) & ChrW(227) & " l" & ChrW(224) & "m tr" & ChrW(242) & "n " & nDinh & " " & ChrW(273) & ChrW(7881) & "nh tr" & ChrW(234) & "n " & nSua & " " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng." & _
+                IIf(nBo > 0, vbCrLf & "B" & ChrW(7887) & " qua " & nBo & " " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng (" & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ph" & ChrW(7913) & "c, cung tr" & ChrW(242) & "n ho" & ChrW(7863) & "c l" & ChrW(7895) & "i ghi).", ""), TieuDe
+End Sub
+
+Private Function Tron(ByVal v As Double, ByVal le As Long) As Double
+    Dim f As Double
+    f = 10# ^ le
+    Tron = Int(v * f + 0.5) / f
+End Function
+
+'============================================================
+' DUNG CHUNG
+'============================================================
+Private Function Hoi(ByVal nhac As String, ByVal khoa As String, ByVal macDinh As String, ByRef ok As Boolean) As String
+    Dim s As String
+    s = InputBox(nhac, "DiaChinhVL", DC_DocCauHinh(khoa, macDinh))
+    ok = (StrPtr(s) <> 0)
+    If ok Then DC_GhiCauHinh khoa, s
+    Hoi = s
+End Function
+
+Private Function LvHienTai() As String
+    On Error Resume Next
+    LvHienTai = CStr(ActiveSettings.Level.Number)
+End Function
+
+Private Function DsLvChu(ByRef lvs() As Long, ByVal n As Long) As String
+    Dim i As Long
+    For i = 0 To n - 1
+        DsLvChu = DsLvChu & IIf(i > 0, ",", "") & lvs(i)
+    Next i
+End Function
+
+Private Function CoLevel(ByVal el As Element, ByRef lvs() As Long, ByVal n As Long) As Boolean
+    Dim i As Long, s As Long
+    s = DC_LevelSo(el)
+    For i = 0 To n - 1
+        If lvs(i) = s Then CoLevel = True: Exit Function
+    Next i
+End Function
+
+Private Function QuetDuong() As ElementEnumerator
+    Dim esc As ElementScanCriteria
+    On Error Resume Next
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    esc.IncludeType msdElementTypeShape
+    esc.IncludeType msdElementTypeComplexString
+    esc.IncludeType msdElementTypeComplexShape
+    Set QuetDuong = ActiveModelReference.Scan(esc)
+End Function
+
+' Moi phan tu tren cac level -> 1 chuoi dinh (Double phang x0,y0,x1,y1...) trong Collection
+Private Function ChuoiTheoLevel(ByRef lvs() As Long, ByVal nLv As Long) As Collection
+    Dim kq As New Collection, ee As ElementEnumerator, pts() As Point3d, n As Long
+    Set ChuoiTheoLevel = kq
+    Set ee = QuetDuong()
+    If ee Is Nothing Then Exit Function
+    Do While ee.MoveNext
+        If CoLevel(ee.Current, lvs, nLv) Then
+            n = DinhPhanTu(ee.Current, pts)
+            If n >= 2 Then kq.Add Phang(pts, n)
+        End If
+    Loop
+End Function
+
+' Cac phan tu dang chon (chi loai duong / vung)
+Private Function DsChon() As Collection
+    Dim kq As New Collection, ee As ElementEnumerator, t As Long
+    Set DsChon = kq
+    On Error Resume Next
+    Set ee = ActiveModelReference.GetSelectedElements
+    If ee Is Nothing Then Exit Function
+    Do While ee.MoveNext
+        t = ee.Current.Type
+        If t = msdElementTypeLine Or t = msdElementTypeLineString Or t = msdElementTypeShape Or _
+           t = msdElementTypeComplexString Or t = msdElementTypeComplexShape Then kq.Add ee.Current
+    Loop
+End Function
+
+' Dinh cua 1 phan tu (noi cac phan con cua duong phuc, bo dinh trung lien ke). Tra ve so dinh.
+Private Function DinhPhanTu(ByVal el As Element, ByRef pts() As Point3d) As Long
+    Dim kq() As Point3d, n As Long, subs As ElementEnumerator, p() As Point3d, i As Long
+    ReDim kq(0 To 0)
+    On Error Resume Next
+    Select Case el.Type
+    Case msdElementTypeLine, msdElementTypeLineString
+        p = el.AsLineElement.GetVertices
+        If Err.Number = 0 Then ThemDinh kq, n, p
+    Case msdElementTypeShape
+        p = el.AsShapeElement.GetVertices
+        If Err.Number = 0 Then ThemDinh kq, n, p
+    Case msdElementTypeComplexString, msdElementTypeComplexShape
+        Set subs = el.AsComplexElement.GetSubElements
+        Do While subs.MoveNext
+            Err.Clear
+            Select Case subs.Current.Type
+            Case msdElementTypeLine, msdElementTypeLineString
+                p = subs.Current.AsLineElement.GetVertices
+                If Err.Number = 0 Then ThemDinh kq, n, p
+            Case msdElementTypeShape
+                p = subs.Current.AsShapeElement.GetVertices
+                If Err.Number = 0 Then ThemDinh kq, n, p
+            End Select
+        Loop
+    End Select
+    If n = 0 Then DinhPhanTu = 0: Exit Function
+    ReDim Preserve kq(0 To n - 1)
+    pts = kq
+    DinhPhanTu = n
+End Function
+
+Private Function Phang(ByRef pts() As Point3d, ByVal n As Long) As Double()
+    Dim d() As Double, i As Long
+    ReDim d(0 To 2 * n - 1)
+    For i = 0 To n - 1
+        d(2 * i) = pts(i).X: d(2 * i + 1) = pts(i).Y
+    Next i
+    Phang = d
+End Function
+
+Private Sub ThemDinh(ByRef kq() As Point3d, ByRef n As Long, ByRef p() As Point3d)
+    Dim i As Long
+    For i = LBound(p) To UBound(p)
+        If n > 0 Then
+            If Abs(kq(n - 1).X - p(i).X) < 0.0005 And Abs(kq(n - 1).Y - p(i).Y) < 0.0005 Then GoTo tiep
+        End If
+        If n > UBound(kq) Then ReDim Preserve kq(0 To n * 2 + 8)
+        kq(n) = p(i): n = n + 1
+tiep:
+    Next i
+End Sub
+
+Private Function KhoaCanh(ByVal ax As Double, ByVal ay As Double, ByVal bx As Double, ByVal by As Double) As String
+    Dim a As String, b As String
+    a = Format$(ax, "0.000") & "|" & Format$(ay, "0.000")
+    b = Format$(bx, "0.000") & "|" & Format$(by, "0.000")
+    If a < b Then KhoaCanh = a & "#" & b Else KhoaCanh = b & "#" & a
+End Function
+
+Private Function SoLe(ByVal v As Double, ByVal le As Long) As String
+    If le <= 0 Then SoLe = Format$(v, "0") Else SoLe = Format$(v, "0." & String$(le, "0"))
+End Function
+
+Private Function Pi() As Double
+    Pi = 4# * Atn(1#)
+End Function
+
+' atan2(y, x)
+Private Function Atn2(ByVal y As Double, ByVal x As Double) As Double
+    If x > 0 Then
+        Atn2 = Atn(y / x)
+    ElseIf x < 0 Then
+        If y >= 0 Then Atn2 = Atn(y / x) + Pi() Else Atn2 = Atn(y / x) - Pi()
+    Else
+        If y > 0 Then Atn2 = Pi() / 2 Else If y < 0 Then Atn2 = -Pi() / 2 Else Atn2 = 0
+    End If
+End Function
+
+Private Function FontVN() As Object
+    Dim f As Object
+    If mDaTimFont Then Set FontVN = mFont: Exit Function
+    mDaTimFont = True
+    On Error Resume Next
+    For Each f In ActiveDesignFile.Fonts
+        If StrComp(f.Name, DC_FONT_VIET, vbTextCompare) = 0 Then Set mFont = f: Exit For
+    Next f
+    Set FontVN = mFont
+End Function
+
+' Ve chu (goc rad), level lv, mau (-1 = mac dinh), Times New Roman, net 0
+Private Sub VeChu(ByVal x As Double, ByVal y As Double, ByVal s As String, ByVal cao As Double, _
+                  ByVal goc As Double, ByVal lv As Level, ByVal canh As Long, Optional ByVal mau As Long = -1)
+    Dim t As TextElement, ts As TextStyle, f As Object
+    On Error Resume Next
+    Set t = CreateTextElement1(Nothing, s, Point3dFromXYZ(x, y, 0#), Matrix3dFromAxisAndRotationAngle(2, goc))
+    If t Is Nothing Then Exit Sub
+    Set ts = t.TextStyle
+    ts.Height = cao: ts.Width = cao
+    ts.Justification = canh
+    Set f = FontVN()
+    If Not f Is Nothing Then Set ts.Font = f
+    Set t.TextStyle = ts
+    If Err.Number <> 0 Then Err.Clear: t.TextStyle = ts
+    If Not lv Is Nothing Then Set t.Level = lv
+    If mau >= 0 Then t.Color = mau
+    t.LineWeight = 0
+    ActiveModelReference.AddElement t
+End Sub
+
+Private Sub VeVong(ByVal x As Double, ByVal y As Double, ByVal r As Double, ByVal lv As Level, ByVal mau As Long)
+    Dim e As EllipseElement
+    On Error Resume Next
+    Set e = CreateEllipseElement2(Nothing, Point3dFromXYZ(x, y, 0#), r, r, Matrix3dIdentity)
+    If e Is Nothing Then Exit Sub
+    If Not lv Is Nothing Then Set e.Level = lv
+    If mau >= 0 Then e.Color = mau
+    e.LineWeight = 0
+    ActiveModelReference.AddElement e
+End Sub
