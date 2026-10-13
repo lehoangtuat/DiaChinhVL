@@ -50,3 +50,7 @@ modTachHop
 modChiaDoan
 modTienIch
 clsListEvent
+modConvertFont
+frmConvertFont
+modTachLop
+frmTachLop
