@@ -1,0 +1,258 @@
+'============================================================
+' frmDiemMia - Diem mia toa do (kieu LandMap): 3 trang
+'   Tep diem mia : dinh dang 5 cot + dau phan cach + chon tep
+'   Xem du lieu  : bang Ten / X / Y / H / Ma
+'   Hien diem mia: level, co chu, hien ten/H/ma, ky hieu -> Ve diem
+'   Can: modDiemMia, modConvertFont (CF_ChonMotFile), clsNutTL, modCauHinh
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+Private mp As Object
+Private mCot(0 To 4) As Object
+Private mLstF As Object, mLstD As Object
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Diem mia toa do"
+    Me.Font.Name = "Arial"
+    Me.Font.size = 8
+    Me.Width = 404
+    Me.Height = 318
+
+    Set mp = Me.Controls.Add("Forms.MultiPage.1", "mpg", True)
+    mp.Left = 2: mp.Top = 2: mp.Width = 394: mp.Height = 290
+    mp.Font.Name = "Arial": mp.Font.size = 8
+    Do While mp.Pages.Count < 3
+        mp.Pages.Add
+    Loop
+    mp.Pages(0).Caption = "T" & ChrW(7879) & "p " & ChrW(273) & "i" & ChrW(7875) & "m mia"
+    mp.Pages(1).Caption = "Xem d" & ChrW(7919) & " li" & ChrW(7879) & "u"
+    mp.Pages(2).Caption = "Hi" & ChrW(7879) & "n " & ChrW(273) & "i" & ChrW(7875) & "m mia"
+
+    TaoTrang1 mp.Pages(0)
+    TaoTrang2 mp.Pages(1)
+    TaoTrang3 mp.Pages(2)
+    mp.Value = 0
+End Sub
+
+'------------------------------------------------------------ trang 1
+Private Sub TaoTrang1(ByVal pg As Object)
+    Dim i As Long, c As Object, ten As Variant, macDinh() As String, j As Long
+    Nhan pg, ChrW(272) & ChrW(7883) & "nh d" & ChrW(7841) & "ng t" & ChrW(7879) & "p t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897), 6, 4, 200, True
+    ten = DM_TenCot()
+    macDinh = Split(DC_DocCauHinh("DM_COT", "0,1,2,3,4"), ",")
+    For i = 0 To 4
+        Nhan pg, "C" & ChrW(7897) & "t " & (i + 1), 6 + i * 76, 20, 70, False
+        Set c = pg.Controls.Add("Forms.ComboBox.1", "cboCot" & i, True)
+        c.Left = 6 + i * 76: c.Top = 33: c.Width = 72: c.Height = 18
+        c.Font.Name = "Arial": c.Font.size = 8: c.Style = 2
+        For j = 0 To UBound(ten)
+            c.AddItem ten(j)
+        Next j
+        If i <= UBound(macDinh) Then c.ListIndex = CLng(Val(macDinh(i))) Else c.ListIndex = 5
+        Set mCot(i) = c
+    Next i
+
+    Nhan pg, "D" & ChrW(7845) & "u ph" & ChrW(226) & "n c" & ChrW(225) & "ch c" & ChrW(225) & "c c" & ChrW(7897) & "t", 6, 60, 200, True
+    Dim sp As String
+    sp = DC_DocCauHinh("DM_SEP", "1,1,1,0")
+    HopChon pg, "chkCach", "D" & ChrW(7845) & "u c" & ChrW(225) & "ch (' ')", 6, 76, 70, Mid$(sp, 1, 1) = "1"
+    HopChon pg, "chkPhay", "D" & ChrW(7845) & "u ph" & ChrW(7849) & "y (,)", 82, 76, 66, Mid$(sp, 3, 1) = "1"
+    HopChon pg, "chkTab", "D" & ChrW(7845) & "u tab", 152, 76, 50, Mid$(sp, 5, 1) = "1"
+    HopChon pg, "chkKhac", "K" & ChrW(237) & " t" & ChrW(7921) & " kh" & ChrW(225) & "c", 206, 76, 60, Mid$(sp, 7, 1) = "1"
+    Set c = pg.Controls.Add("Forms.TextBox.1", "txtKhac", True)
+    c.Left = 268: c.Top = 75: c.Width = 40: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+    c.Text = DC_DocCauHinh("DM_SEPKHAC", ";")
+
+    ThemNut pg, "CHONTEP", "Ch" & ChrW(7885) & "n t" & ChrW(7879) & "p", 300, 98, 82, 20
+    ThemNut pg, "BOTEP", "B" & ChrW(7887) & " t" & ChrW(7879) & "p", 214, 98, 82, 20
+    Set mLstF = pg.Controls.Add("Forms.ListBox.1", "lstTep", True)
+    mLstF.Left = 4: mLstF.Top = 122: mLstF.Width = 380: mLstF.Height = 118
+    mLstF.Font.Name = "Arial": mLstF.Font.size = 8
+    ThemNut pg, "XEMDL", "Xem d" & ChrW(7919) & " li" & ChrW(7879) & "u >", 300, 244, 82, 20
+End Sub
+
+'------------------------------------------------------------ trang 2
+Private Sub TaoTrang2(ByVal pg As Object)
+    Dim hd As Variant, w As Variant, i As Long, x As Single
+    hd = Array("T" & ChrW(234) & "n " & ChrW(273) & "i" & ChrW(7875) & "m", "T" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " X(m)", "T" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " Y(m)", ChrW(272) & ChrW(7897) & " cao H(m)", "M" & ChrW(227) & " " & ChrW(273) & "i" & ChrW(7875) & "m")
+    w = Array(70, 80, 80, 66, 70)
+    x = 6
+    For i = 0 To 4
+        Nhan pg, CStr(hd(i)), x, 4, CSng(w(i)), True
+        x = x + w(i)
+    Next i
+    Set mLstD = pg.Controls.Add("Forms.ListBox.1", "lstDL", True)
+    mLstD.Left = 4: mLstD.Top = 18: mLstD.Width = 380: mLstD.Height = 222
+    mLstD.Font.Name = "Arial": mLstD.Font.size = 8
+    mLstD.ColumnCount = 5: mLstD.ColumnWidths = "70;80;80;66;70"
+    Nhan pg, "", 6, 248, 280, False, "lblDem"
+    ThemNut pg, "SANGVE", "V" & ChrW(7869) & " " & ChrW(273) & "i" & ChrW(7875) & "m >", 300, 244, 82, 20
+End Sub
+
+'------------------------------------------------------------ trang 3
+Private Sub TaoTrang3(ByVal pg As Object)
+    Dim c As Object
+    Nhan pg, "Hi" & ChrW(7879) & "n " & ChrW(273) & "i" & ChrW(7875) & "m mia l" & ChrW(234) & "n b" & ChrW(7843) & "n v" & ChrW(7869), 6, 4, 300, True
+    Nhan pg, "Level " & ChrW(273) & "i" & ChrW(7875) & "m:", 6, 26, 80, False
+    O pg, "txtLv", DC_DocCauHinh("DM_LV", "20"), 100, 24, 50
+    Nhan pg, "C" & ChrW(7905) & " ch" & ChrW(7919) & " (m):", 6, 50, 80, False
+    O pg, "txtCao", DC_DocCauHinh("DM_CAO", Format$(2 * DC_TyLeBD() / 1000#, "0.0#")), 100, 48, 50
+    Nhan pg, "(m" & ChrW(7863) & "c " & ChrW(273) & ChrW(7883) & "nh 2 mm gi" & ChrW(7845) & "y theo t" & ChrW(7927) & " l" & ChrW(7879) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " 1:" & DC_TyLeBD() & ")", 156, 50, 220, False
+    Nhan pg, "S" & ChrW(7889) & " l" & ChrW(7867) & " " & ChrW(273) & ChrW(7897) & " cao:", 6, 74, 80, False
+    O pg, "txtLe", DC_DocCauHinh("DM_LE", "2"), 100, 72, 50
+    HopChon pg, "chkTen", "Hi" & ChrW(7879) & "n t" & ChrW(234) & "n " & ChrW(273) & "i" & ChrW(7875) & "m", 6, 100, 120, DC_DocCauHinh("DM_TEN", "1") = "1"
+    HopChon pg, "chkH", "Hi" & ChrW(7879) & "n " & ChrW(273) & ChrW(7897) & " cao H", 6, 120, 120, DC_DocCauHinh("DM_HH", "1") = "1"
+    HopChon pg, "chkMa", "Hi" & ChrW(7879) & "n m" & ChrW(227) & " " & ChrW(273) & "i" & ChrW(7875) & "m", 6, 140, 120, DC_DocCauHinh("DM_MA", "0") = "1"
+    Nhan pg, "K" & ChrW(253) & " hi" & ChrW(7879) & "u " & ChrW(273) & "i" & ChrW(7875) & "m:", 150, 100, 80, False
+    Set c = pg.Controls.Add("Forms.ComboBox.1", "cboKyHieu", True)
+    c.Left = 230: c.Top = 98: c.Width = 100: c.Height = 18
+    c.Font.Name = "Arial": c.Font.size = 8: c.Style = 2
+    c.AddItem "V" & ChrW(242) & "ng tr" & ChrW(242) & "n"
+    c.AddItem "D" & ChrW(7845) & "u c" & ChrW(7897) & "ng (+)"
+    c.ListIndex = IIf(DC_DocCauHinh("DM_KH", "0") = "1", 1, 0)
+    Nhan pg, "X = t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " B" & ChrW(7855) & "c, Y = t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " " & ChrW(272) & ChrW(244) & "ng (VN2000). V" & ChrW(7869) & " xong t" & ChrW(7921) & " zoom t" & ChrW(7899) & "i c" & ChrW(225) & "c " & ChrW(273) & "i" & ChrW(7875) & "m.", 6, 170, 370, False
+    ThemNut pg, "VE", "V" & ChrW(7869) & " " & ChrW(273) & "i" & ChrW(7875) & "m", 300, 244, 82, 20
+End Sub
+
+'------------------------------------------------------------ xu ly nut
+Public Sub XuLyNut(ByVal ma As String)
+    Select Case ma
+    Case "CHONTEP": ChonTep
+    Case "BOTEP"
+        If mLstF.ListIndex >= 0 Then mLstF.RemoveItem mLstF.ListIndex
+    Case "XEMDL": XemDuLieu
+    Case "SANGVE": mp.Value = 2
+    Case "VE": VeDiem
+    End Select
+End Sub
+
+Private Function DauPhanCach() As String
+    Dim s As String
+    If Me.Controls("chkCach").Value Then s = s & " "
+    If Me.Controls("chkPhay").Value Then s = s & ","
+    If Me.Controls("chkTab").Value Then s = s & vbTab
+    If Me.Controls("chkKhac").Value Then s = s & Trim$(Me.Controls("txtKhac").Text)
+    If Len(s) = 0 Then s = " "
+    DauPhanCach = s
+End Function
+
+Private Sub ChonTep()
+    Dim f As String, d As String, a() As String, i As Long
+    f = CF_ChonMotFile("T" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " (*.txt;*.csv;*.dat)|*.txt;*.csv;*.dat|T" & ChrW(7845) & "t c" & ChrW(7843) & " (*.*)|*.*", "Ch" & ChrW(7885) & "n t" & ChrW(7879) & "p t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " " & ChrW(273) & "i" & ChrW(7875) & "m mia")
+    If Len(f) = 0 Then Exit Sub
+    For i = 0 To mLstF.ListCount - 1
+        If StrComp(mLstF.List(i), f, vbTextCompare) = 0 Then Exit Sub
+    Next i
+    mLstF.AddItem f
+    ' tep dau tien: tu doan thu tu cot
+    If mLstF.ListCount = 1 Then
+        d = DM_DoanCot(f, DauPhanCach())
+        If Len(d) > 0 Then
+            a = Split(d, ",")
+            For i = 0 To 4
+                mCot(i).ListIndex = CLng(a(i))
+            Next i
+        End If
+    End If
+End Sub
+
+Private Sub XemDuLieu()
+    Dim cot(0 To 4) As Long, i As Long, nBo As Long, n As Long, sep As String, r As Long, coX As Boolean, coY As Boolean
+    If mLstF.ListCount = 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a ch" & ChrW(7885) & "n t" & ChrW(7879) & "p t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & ".", ChrW(272) & "i" & ChrW(7875) & "m mia", vbExclamation
+        Exit Sub
+    End If
+    For i = 0 To 4
+        cot(i) = mCot(i).ListIndex
+        If cot(i) = 1 Then coX = True
+        If cot(i) = 2 Then coY = True
+    Next i
+    If Not (coX And coY) Then
+        DC_ThongBao "Ph" & ChrW(7843) & "i c" & ChrW(243) & " m" & ChrW(7897) & "t c" & ChrW(7897) & "t X v" & ChrW(224) & " m" & ChrW(7897) & "t c" & ChrW(7897) & "t Y.", ChrW(272) & "i" & ChrW(7875) & "m mia", vbExclamation
+        Exit Sub
+    End If
+    sep = DauPhanCach()
+    DC_GhiCauHinh "DM_COT", cot(0) & "," & cot(1) & "," & cot(2) & "," & cot(3) & "," & cot(4)
+    DC_GhiCauHinh "DM_SEP", IIf(Me.Controls("chkCach").Value, "1", "0") & "," & IIf(Me.Controls("chkPhay").Value, "1", "0") & "," & _
+                            IIf(Me.Controls("chkTab").Value, "1", "0") & "," & IIf(Me.Controls("chkKhac").Value, "1", "0")
+    DC_GhiCauHinh "DM_SEPKHAC", Me.Controls("txtKhac").Text
+
+    DM_XoaDuLieu
+    For i = 0 To mLstF.ListCount - 1
+        n = n + DM_DocFile(CStr(mLstF.List(i)), cot, sep, nBo)
+    Next i
+    mLstD.Clear
+    For i = 1 To DM_N
+        mLstD.AddItem DM_Ten(i)
+        r = mLstD.ListCount - 1
+        mLstD.List(r, 1) = Format$(DM_X(i), "0.000")
+        mLstD.List(r, 2) = Format$(DM_Y(i), "0.000")
+        mLstD.List(r, 3) = DM_H(i)
+        mLstD.List(r, 4) = DM_Ma(i)
+    Next i
+    Me.Controls("lblDem").Caption = DM_N & " " & ChrW(273) & "i" & ChrW(7875) & "m" & IIf(nBo > 0, " (b" & ChrW(7887) & " qua " & nBo & " d" & ChrW(242) & "ng kh" & ChrW(244) & "ng ph" & ChrW(7843) & "i t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & ")", "")
+    mp.Value = 1
+    If DM_N = 0 Then DC_ThongBao "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c " & ChrW(273) & "i" & ChrW(7875) & "m n" & ChrW(224) & "o. Ki" & ChrW(7875) & "m tra l" & ChrW(7841) & "i " & ChrW(273) & ChrW(7883) & "nh d" & ChrW(7841) & "ng c" & ChrW(7897) & "t v" & ChrW(224) & " d" & ChrW(7845) & "u ph" & ChrW(226) & "n c" & ChrW(225) & "ch.", ChrW(272) & "i" & ChrW(7875) & "m mia", vbExclamation
+End Sub
+
+Private Sub VeDiem()
+    Dim lv As Long, cao As Double, le As Long, n As Long, kh As Long
+    If DM_N = 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a c" & ChrW(243) & " d" & ChrW(7919) & " li" & ChrW(7879) & "u. Ch" & ChrW(7885) & "n t" & ChrW(7879) & "p r" & ChrW(7891) & "i b" & ChrW(7845) & "m 'Xem d" & ChrW(7919) & " li" & ChrW(7879) & "u' tr" & ChrW(432) & ChrW(7899) & "c.", ChrW(272) & "i" & ChrW(7875) & "m mia", vbExclamation
+        mp.Value = 0
+        Exit Sub
+    End If
+    lv = CLng(Val(Me.Controls("txtLv").Text)): If lv <= 0 Then lv = 20
+    cao = Val(Replace(Me.Controls("txtCao").Text, ",", ".")): If cao <= 0 Then cao = 1
+    le = CLng(Val(Me.Controls("txtLe").Text)): If le < 0 Then le = 0
+    kh = Me.Controls("cboKyHieu").ListIndex: If kh < 0 Then kh = 0
+    DC_GhiCauHinh "DM_LV", CStr(lv)
+    DC_GhiCauHinh "DM_CAO", Me.Controls("txtCao").Text
+    DC_GhiCauHinh "DM_LE", CStr(le)
+    DC_GhiCauHinh "DM_TEN", IIf(Me.Controls("chkTen").Value, "1", "0")
+    DC_GhiCauHinh "DM_HH", IIf(Me.Controls("chkH").Value, "1", "0")
+    DC_GhiCauHinh "DM_MA", IIf(Me.Controls("chkMa").Value, "1", "0")
+    DC_GhiCauHinh "DM_KH", CStr(kh)
+    n = DM_Ve(lv, cao, CBool(Me.Controls("chkTen").Value), CBool(Me.Controls("chkH").Value), _
+              CBool(Me.Controls("chkMa").Value), kh, le)
+    DC_ThongBao ChrW(272) & ChrW(227) & " v" & ChrW(7869) & " " & n & " " & ChrW(273) & "i" & ChrW(7875) & "m l" & ChrW(234) & "n level " & lv & ".", ChrW(272) & "i" & ChrW(7875) & "m mia"
+End Sub
+
+'------------------------------------------------------------ tao control
+Private Sub Nhan(ByVal pg As Object, ByVal cap As String, ByVal x As Single, ByVal y As Single, _
+                 ByVal w As Single, ByVal dam As Boolean, Optional ByVal nm As String = "")
+    Dim c As Object
+    If Len(nm) = 0 Then Set c = pg.Controls.Add("Forms.Label.1") Else Set c = pg.Controls.Add("Forms.Label.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 13
+    c.Font.Name = "Arial": c.Font.size = 8: c.Font.Bold = dam
+End Sub
+
+Private Sub O(ByVal pg As Object, ByVal nm As String, ByVal gt As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = pg.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Left = x: c.Top = y: c.Width = w: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+    c.Text = gt
+End Sub
+
+Private Sub HopChon(ByVal pg As Object, ByVal nm As String, ByVal cap As String, ByVal x As Single, ByVal y As Single, _
+                    ByVal w As Single, ByVal chon As Boolean)
+    Dim c As Object
+    Set c = pg.Controls.Add("Forms.CheckBox.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+    c.Value = chon
+End Sub
+
+Private Sub ThemNut(ByVal pg As Object, ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single, _
+                    ByVal w As Single, ByVal h As Single)
+    Dim b As Object, hd As clsNutTL
+    Set b = pg.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = w: b.Height = h
+    b.Font.Name = "Arial": b.Font.size = 8
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
+    mNut.Add hd
+End Sub
