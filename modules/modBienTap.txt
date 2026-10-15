@@ -1,0 +1,221 @@
+'============================================================
+' modBienTap - Menu Bien tap kieu LandMap
+'   Bang "Quy dinh lop": C:\DiaChinhVL\QuyDinhLop.txt (UTF-8, sua bang Notepad)
+'     Nhom|Ma|Ten hien thi|Loai|Level|Mau|KieuNet|LucNet|CoChu(mm giay)
+'     Loai: L = noi duong (Place SmartLine), T = ghi chu (Place Text), K = ky hieu (chua lam -> mo)
+'   Chon muc -> dat level/mau/net (va co chu theo ty le ban do) -> mo lenh ve.
+'   Ty le ban do: ini TYLE_BD (dung tinh co chu ghi chu).
+'============================================================
+Option Explicit
+
+Public Const BT_FILE As String = "C:\DiaChinhVL\QuyDinhLop.txt"
+
+Private mFont As Object
+
+Private Function TieuDe() As String
+    TieuDe = "Bi" & ChrW(234) & "n t" & ChrW(7853) & "p"
+End Function
+
+'------------------------------------------------------------ TY LE BAN DO
+Public Function DC_TyLeBD() As Long
+    DC_TyLeBD = CLng(Val(DC_DocCauHinh("TYLE_BD", "1000")))
+    If DC_TyLeBD <= 0 Then DC_TyLeBD = 1000
+End Function
+
+Public Sub DC_DatTyLeBD(ByVal tl As Long)
+    If tl <= 0 Then Exit Sub
+    DC_GhiCauHinh "TYLE_BD", CStr(tl)
+    On Error Resume Next
+    ShowStatus "Ty le ban do 1:" & tl
+End Sub
+
+'------------------------------------------------------------ BANG QUY DINH LOP
+' Tra ve Collection, moi phan tu = mang String(0..8)
+Public Function BT_DocBang() As Collection
+    Dim kq As New Collection, txt As String, dong() As String, i As Long, p() As String, j As Long
+    Set BT_DocBang = kq
+    If Len(Dir$(BT_FILE)) = 0 Then GhiBangMacDinh
+    txt = DocUtf8(BT_FILE)
+    If Len(txt) = 0 Then txt = BangMacDinh()
+    dong = Split(Replace(txt, vbCr, ""), vbLf)
+    For i = 0 To UBound(dong)
+        If Len(Trim$(dong(i))) > 0 And Left$(Trim$(dong(i)), 1) <> "#" Then
+            p = Split(dong(i), "|")
+            If UBound(p) >= 3 Then
+                ReDim Preserve p(0 To 8)
+                For j = 0 To 8
+                    p(j) = Trim$(p(j))
+                Next j
+                kq.Add p
+            End If
+        End If
+    Next i
+End Function
+
+Private Function TimMa(ByVal ma As String) As Variant
+    Dim ds As Collection, i As Long
+    Set ds = BT_DocBang()
+    For i = 1 To ds.Count
+        If StrComp(ds.Item(i)(1), ma, vbTextCompare) = 0 Then TimMa = ds.Item(i): Exit Function
+    Next i
+    TimMa = Empty
+End Function
+
+' Mo file quy dinh lop bang Notepad (tao mac dinh neu chua co)
+Public Sub DC_QuyDinhLop()
+    If Len(Dir$(BT_FILE)) = 0 Then GhiBangMacDinh
+    If Len(Dir$(BT_FILE)) = 0 Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(7841) & "o " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file " & BT_FILE, TieuDe, vbExclamation
+        Exit Sub
+    End If
+    Shell "notepad.exe """ & BT_FILE & """", vbNormalFocus
+    DC_ThongBao "S" & ChrW(7917) & "a level / m" & ChrW(224) & "u / ki" & ChrW(7875) & "u n" & ChrW(233) & "t / l" & ChrW(7921) & "c n" & ChrW(233) & "t / c" & ChrW(7905) & " ch" & ChrW(7919) & " trong file r" & ChrW(7891) & "i l" & ChrW(432) & "u l" & ChrW(7841) & "i." & vbCrLf & _
+                "Menu Bi" & ChrW(234) & "n t" & ChrW(7853) & "p d" & ChrW(249) & "ng ngay gi" & ChrW(225) & " tr" & ChrW(7883) & " m" & ChrW(7899) & "i (kh" & ChrW(244) & "ng c" & ChrW(7847) & "n m" & ChrW(7903) & " l" & ChrW(7841) & "i MicroStation)." & vbCrLf & _
+                "C" & ChrW(7905) & " ch" & ChrW(7919) & " ghi theo mm tr" & ChrW(234) & "n gi" & ChrW(7845) & "y; chi" & ChrW(7873) & "u cao th" & ChrW(7853) & "t = mm x t" & ChrW(7927) & " l" & ChrW(7879) & " / 1000.", TieuDe
+End Sub
+
+'------------------------------------------------------------ CHAY 1 MUC
+Public Sub DC_BienTap(ByVal ma As String)
+    Dim r As Variant, lv As Level, cao As Double, f As Object
+    r = TimMa(ma)
+    If IsEmpty(r) Then
+        DC_ThongBao "Ch" & ChrW(432) & "a c" & ChrW(243) & " m" & ChrW(7909) & "c '" & ma & "' trong " & BT_FILE, TieuDe, vbExclamation
+        Exit Sub
+    End If
+    On Error Resume Next
+    If Val(r(4)) > 0 Then
+        Set lv = DC_LevelTheoSo(CLng(Val(r(4))))
+        If Not lv Is Nothing Then Set ActiveSettings.Level = lv
+    End If
+    ActiveSettings.Color = CLng(Val(r(5)))
+    ActiveSettings.LineWeight = CLng(Val(r(7)))
+    CadInputQueue.SendKeyin "lc=" & CLng(Val(r(6)))
+    Select Case UCase$(r(3))
+    Case "L"
+        CadInputQueue.SendKeyin "place smartline"
+        ShowPrompt "DiaChinhVL: " & ma
+    Case "T"
+        cao = Val(Replace(r(8), ",", ".")) * DC_TyLeBD() / 1000#
+        If cao <= 0 Then cao = 2 * DC_TyLeBD() / 1000#
+        ActiveSettings.TextStyle.Height = cao
+        ActiveSettings.TextStyle.Width = cao
+        Set f = FontVN()
+        If Not f Is Nothing Then Set ActiveSettings.TextStyle.Font = f
+        CadInputQueue.SendKeyin "place text"
+        ShowPrompt "DiaChinhVL: " & ma & " (co chu " & Format$(cao, "0.00") & " m)"
+    Case Else
+        DC_ThongBao "M" & ChrW(7909) & "c k" & ChrW(253) & " hi" & ChrW(7879) & "u n" & ChrW(224) & "y ch" & ChrW(432) & "a l" & ChrW(224) & "m (c" & ChrW(7847) & "n th" & ChrW(432) & " vi" & ChrW(7879) & "n cell).", TieuDe, vbExclamation
+    End Select
+End Sub
+
+Private Function FontVN() As Object
+    Dim f As Object
+    If Not mFont Is Nothing Then Set FontVN = mFont: Exit Function
+    On Error Resume Next
+    For Each f In ActiveDesignFile.Fonts
+        If StrComp(f.Name, DC_FONT_VIET, vbTextCompare) = 0 Then Set mFont = f: Exit For
+    Next f
+    Set FontVN = mFont
+End Function
+
+'------------------------------------------------------------ FILE UTF-8
+Private Function DocUtf8(ByVal f As String) As String
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.LoadFromFile f
+    DocUtf8 = st.ReadText(-1)
+    st.Close
+    If Len(DocUtf8) > 0 Then
+        If AscW(Left$(DocUtf8, 1)) = &HFEFF Then DocUtf8 = Mid$(DocUtf8, 2)
+    End If
+End Function
+
+Private Sub GhiBangMacDinh()
+    Dim st As Object
+    On Error Resume Next
+    If Len(Dir$(DC_THUMUC, vbDirectory)) = 0 Then MkDir DC_THUMUC
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.WriteText BangMacDinh()
+    st.SaveToFile BT_FILE, 2
+    st.Close
+End Sub
+
+' Bang mac dinh (GOI Y - nguoi dung sua theo quy dinh lop cua don vi)
+Private Function BangMacDinh() As String
+    Dim s As String
+    s = "# QUY " & ChrW(272) & ChrW(7882) & "NH L" & ChrW(7898) & "P - DiaChinhVL (s" & ChrW(7917) & "a theo quy " & ChrW(273) & ChrW(7883) & "nh c" & ChrW(7911) & "a " & ChrW(273) & ChrW(417) & "n v" & ChrW(7883) & " r" & ChrW(7891) & "i l" & ChrW(432) & "u UTF-8)" & vbCrLf
+    s = s & "# Nh" & ChrW(243) & "m|M" & ChrW(227) & "|T" & ChrW(234) & "n hi" & ChrW(7875) & "n th" & ChrW(7883) & "|Lo" & ChrW(7841) & "i (L=n" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng, T=ghi ch" & ChrW(250) & ", K=k" & ChrW(253) & " hi" & ChrW(7879) & "u)|Level|M" & ChrW(224) & "u|Ki" & ChrW(7875) & "u n" & ChrW(233) & "t|L" & ChrW(7921) & "c n" & ChrW(233) & "t|C" & ChrW(7905) & " ch" & ChrW(7919) & " mm" & vbCrLf
+    s = s & "THUA|TD_RANH|N" & ChrW(7889) & "i ranh gi" & ChrW(7899) & "i th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t|L|10|0|0|0|" & vbCrLf
+    s = s & "THUA|TD_MEPGT|N" & ChrW(7889) & "i th" & ChrW(7917) & "a tr" & ChrW(249) & "ng m" & ChrW(233) & "p giao th" & ChrW(244) & "ng|L|10|0|0|0|" & vbCrLf
+    s = s & "THUA|TD_MEPTV|N" & ChrW(7889) & "i th" & ChrW(7917) & "a tr" & ChrW(249) & "ng m" & ChrW(233) & "p th" & ChrW(7911) & "y v" & ChrW(259) & "n|L|10|0|0|0|" & vbCrLf
+    s = s & "THUA|TD_KHEP|N" & ChrW(7889) & "i n" & ChrW(233) & "t th" & ChrW(7917) & "a kh" & ChrW(233) & "p m" & ChrW(432) & ChrW(417) & "ng " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng|L|10|0|2|0|" & vbCrLf
+    s = s & "THUA|TD_TRANHCHAP|N" & ChrW(7889) & "i ranh gi" & ChrW(7899) & "i th" & ChrW(7917) & "a " & ChrW(273) & "ang tranh ch" & ChrW(7845) & "p|L|10|3|3|0|" & vbCrLf
+    s = s & "NHA|NHA_TUONG|N" & ChrW(7889) & "i t" & ChrW(432) & ChrW(7901) & "ng nh" & ChrW(224) & "|L|14|0|0|0|" & vbCrLf
+    s = s & "NHA|NHA_VUONG|N" & ChrW(7889) & "i t" & ChrW(432) & ChrW(7901) & "ng nh" & ChrW(224) & " vu" & ChrW(244) & "ng g" & ChrW(243) & "c|L|14|0|0|0|" & vbCrLf
+    s = s & "NHA|NHA_GHICHU|Ghi ch" & ChrW(250) & " t" & ChrW(237) & "nh ch" & ChrW(7845) & "t nh" & ChrW(224) & "|T|15|0|0|0|1.5" & vbCrLf
+    s = s & "NHA|NHA_TUONGRIENG|K" & ChrW(237) & " hi" & ChrW(7879) & "u t" & ChrW(432) & ChrW(7901) & "ng ri" & ChrW(234) & "ng|K|14|0|0|0|" & vbCrLf
+    s = s & "NHA|NHA_TUONGCHUNG|K" & ChrW(237) & " hi" & ChrW(7879) & "u t" & ChrW(432) & ChrW(7901) & "ng chung|K|14|0|0|0|" & vbCrLf
+    s = s & "GT|GT_MEP|N" & ChrW(7889) & "i m" & ChrW(233) & "p " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng|L|23|0|0|0|" & vbCrLf
+    s = s & "GT|GT_NHUA|N" & ChrW(7889) & "i m" & ChrW(233) & "p nh" & ChrW(7921) & "a|L|24|0|0|0|" & vbCrLf
+    s = s & "GT|GT_1NET|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng m" & ChrW(7897) & "t n" & ChrW(233) & "t|L|25|0|0|0|" & vbCrLf
+    s = s & "GT|GT_RAY|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ray|L|27|0|0|0|" & vbCrLf
+    s = s & "GT|GT_CHIGIOIRAY|N" & ChrW(7889) & "i ch" & ChrW(7881) & " gi" & ChrW(7899) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ray|L|27|0|2|0|" & vbCrLf
+    s = s & "GT|GT_RAY1NET|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ray m" & ChrW(7897) & "t n" & ChrW(233) & "t|L|27|0|0|0|" & vbCrLf
+    s = s & "GT|GT_TRONGTHUA|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng trong th" & ChrW(7917) & "a|L|23|0|2|0|" & vbCrLf
+    s = s & "GT|GT_PHANCACH|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ph" & ChrW(226) & "n c" & ChrW(225) & "ch ch" & ChrW(7845) & "t li" & ChrW(7879) & "u r" & ChrW(7843) & "i m" & ChrW(7863) & "t|L|24|0|3|0|" & vbCrLf
+    s = s & "GT|GT_GC_LIENXA|Ghi ch" & ChrW(250) & " " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng li" & ChrW(234) & "n x" & ChrW(227) & ", li" & ChrW(234) & "n th" & ChrW(244) & "n|T|26|0|0|0|2.0" & vbCrLf
+    s = s & "GT|GT_GC_QUOCLO|Ghi ch" & ChrW(250) & " " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng qu" & ChrW(7889) & "c l" & ChrW(7897) & " + t" & ChrW(237) & "nh ch" & ChrW(7845) & "t|T|26|0|0|0|2.5" & vbCrLf
+    s = s & "GT|GT_GC_DAILO|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ph" & ChrW(7889) & " (" & ChrW(273) & ChrW(7841) & "i l" & ChrW(7897) & ")|T|26|0|0|0|3.0" & vbCrLf
+    s = s & "GT|GT_GC_PHOVUA|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ph" & ChrW(7889) & " (ph" & ChrW(7889) & " v" & ChrW(7915) & "a)|T|26|0|0|0|2.5" & vbCrLf
+    s = s & "GT|GT_GC_PHONHO|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ph" & ChrW(7889) & " (ph" & ChrW(7889) & " nh" & ChrW(7887) & ", h" & ChrW(7867) & "m)|T|26|0|0|0|2.0" & vbCrLf
+    s = s & "GT|GT_GC_DORONG|Ghi ch" & ChrW(250) & " " & ChrW(273) & ChrW(7897) & " r" & ChrW(7897) & "ng trung b" & ChrW(236) & "nh c" & ChrW(7911) & "a " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng|T|26|0|0|0|1.75" & vbCrLf
+    s = s & "GT|GT_MUITEN|M" & ChrW(361) & "i t" & ChrW(234) & "n ch" & ChrW(7881) & " ghi ch" & ChrW(250) & " " & ChrW(273) & ChrW(7897) & " r" & ChrW(7897) & "ng " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng|K|26|0|0|0|" & vbCrLf
+    s = s & "GT|GT_CAU2NET|C" & ChrW(7847) & "u 2 n" & ChrW(233) & "t (c" & ChrW(7847) & "u theo t" & ChrW(7927) & " l" & ChrW(7879) & ")|K|28|0|0|0|" & vbCrLf
+    s = s & "GT|GT_CAUPHI|C" & ChrW(7847) & "u phi t" & ChrW(7927) & " l" & ChrW(7879) & "|K|28|0|0|0|" & vbCrLf
+    s = s & "GT|GT_CAUNUA|C" & ChrW(7847) & "u n" & ChrW(7917) & "a theo t" & ChrW(7927) & " l" & ChrW(7879) & "|K|28|0|0|0|" & vbCrLf
+    s = s & "TV|TV_BONUOC|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng b" & ChrW(7901) & " n" & ChrW(432) & ChrW(7899) & "c|L|32|1|0|0|" & vbCrLf
+    s = s & "TV|TV_MEPNUOC|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng m" & ChrW(233) & "p n" & ChrW(432) & ChrW(7899) & "c|L|32|1|0|0|" & vbCrLf
+    s = s & "TV|TV_KENH|N" & ChrW(7889) & "i k" & ChrW(234) & "nh m" & ChrW(432) & ChrW(417) & "ng r" & ChrW(227) & "nh|L|33|1|0|0|" & vbCrLf
+    s = s & "TV|TV_1NET|N" & ChrW(7889) & "i th" & ChrW(7911) & "y v" & ChrW(259) & "n m" & ChrW(7897) & "t n" & ChrW(233) & "t|L|34|1|0|0|" & vbCrLf
+    s = s & "TV|TV_CHANDE|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ch" & ChrW(226) & "n " & ChrW(273) & ChrW(234) & "|L|36|0|0|0|" & vbCrLf
+    s = s & "TV|TV_MATDE|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng m" & ChrW(7863) & "t " & ChrW(273) & ChrW(234) & "|L|36|0|0|0|" & vbCrLf
+    s = s & "TV|TV_DE1NET|N" & ChrW(7889) & "i " & ChrW(273) & ChrW(234) & " m" & ChrW(7897) & "t n" & ChrW(233) & "t|L|36|0|0|0|" & vbCrLf
+    s = s & "TV|TV_TRONGTHUA|N" & ChrW(7889) & "i th" & ChrW(7911) & "y v" & ChrW(259) & "n trong th" & ChrW(7917) & "a|L|32|1|2|0|" & vbCrLf
+    s = s & "TV|TV_GC_SONGLON|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n s" & ChrW(244) & "ng l" & ChrW(7899) & "n|T|35|1|0|0|4.0" & vbCrLf
+    s = s & "TV|TV_GC_SONGVUA|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n s" & ChrW(244) & "ng v" & ChrW(7915) & "a|T|35|1|0|0|3.0" & vbCrLf
+    s = s & "TV|TV_GC_SONGNHO|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n s" & ChrW(244) & "ng nh" & ChrW(7887) & "|T|35|1|0|0|2.5" & vbCrLf
+    s = s & "TV|TV_GC_SUOI|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n su" & ChrW(7889) & "i, ao, h" & ChrW(7891) & "|T|35|1|0|0|2.0" & vbCrLf
+    s = s & "TV|TV_GC_RACH|Ghi ch" & ChrW(250) & " su" & ChrW(7889) & "i nh" & ChrW(7887) & ", r" & ChrW(227) & "nh, m" & ChrW(432) & ChrW(417) & "ng|T|35|1|0|0|1.75" & vbCrLf
+    s = s & "TV|TV_MUITENRONG|M" & ChrW(361) & "i t" & ChrW(234) & "n ch" & ChrW(7881) & " " & ChrW(273) & ChrW(7897) & " r" & ChrW(7897) & "ng trung b" & ChrW(236) & "nh|K|35|1|0|0|" & vbCrLf
+    s = s & "TV|TV_MUITENCHAY|M" & ChrW(361) & "i t" & ChrW(234) & "n h" & ChrW(432) & ChrW(7899) & "ng n" & ChrW(432) & ChrW(7899) & "c ch" & ChrW(7843) & "y|K|35|1|0|0|" & vbCrLf
+    s = s & "TV|TV_CONGDAP|C" & ChrW(7889) & "ng " & ChrW(273) & ChrW(7853) & "p theo t" & ChrW(7927) & " l" & ChrW(7879) & "|K|37|0|0|0|" & vbCrLf
+    s = s & "TV|TV_CONGDAPPHI|C" & ChrW(7889) & "ng " & ChrW(273) & ChrW(7853) & "p phi t" & ChrW(7927) & " l" & ChrW(7879) & "|K|37|0|0|0|" & vbCrLf
+    s = s & "TV|TV_CONGTHOAT|C" & ChrW(7889) & "ng tho" & ChrW(225) & "t n" & ChrW(432) & ChrW(7899) & "c|K|37|0|0|0|" & vbCrLf
+    s = s & "DG|DG_QG_XD|Bi" & ChrW(234) & "n gi" & ChrW(7899) & "i qu" & ChrW(7889) & "c gia x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh|L|41|0|0|0|" & vbCrLf
+    s = s & "DG|DG_QG_CXD|Bi" & ChrW(234) & "n gi" & ChrW(7899) & "i qu" & ChrW(7889) & "c gia ch" & ChrW(432) & "a x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh|L|41|0|2|0|" & vbCrLf
+    s = s & "DG|DG_QG_MOC|M" & ChrW(7889) & "c bi" & ChrW(234) & "n gi" & ChrW(7899) & "i qu" & ChrW(7889) & "c gia|K|41|0|0|0|" & vbCrLf
+    s = s & "DG|DG_QG_GCMOC|Ghi ch" & ChrW(250) & " s" & ChrW(7889) & " hi" & ChrW(7879) & "u m" & ChrW(7889) & "c qu" & ChrW(7889) & "c gia|T|41|0|0|0|2.0" & vbCrLf
+    s = s & "DG|DG_TINH_XD|" & ChrW(272) & ChrW(7883) & "a gi" & ChrW(7899) & "i t" & ChrW(7881) & "nh x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh|L|42|0|0|0|" & vbCrLf
+    s = s & "DG|DG_TINH_CXD|" & ChrW(272) & ChrW(7883) & "a gi" & ChrW(7899) & "i t" & ChrW(7881) & "nh ch" & ChrW(432) & "a x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh|L|42|0|2|0|" & vbCrLf
+    s = s & "DG|DG_TINH_MOC|M" & ChrW(7889) & "c " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i t" & ChrW(7881) & "nh|K|42|0|0|0|" & vbCrLf
+    s = s & "DG|DG_TINH_GCMOC|Ghi ch" & ChrW(250) & " s" & ChrW(7889) & " hi" & ChrW(7879) & "u m" & ChrW(7889) & "c (t" & ChrW(7881) & "nh)|T|42|0|0|0|1.75" & vbCrLf
+    s = s & "DG|DG_TINH_TEN|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n t" & ChrW(7881) & "nh " & ChrW(273) & ChrW(7847) & "u " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i|T|42|0|0|0|3.0" & vbCrLf
+    s = s & "DG|DG_TINH_TENNGOAI|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n t" & ChrW(7881) & "nh ti" & ChrW(7871) & "p gi" & ChrW(225) & "p ngo" & ChrW(224) & "i " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i|T|42|0|0|0|3.0" & vbCrLf
+    s = s & "DG|DG_HUYEN_XD|" & ChrW(272) & ChrW(7883) & "a gi" & ChrW(7899) & "i huy" & ChrW(7879) & "n x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh|L|43|0|0|0|" & vbCrLf
+    s = s & "DG|DG_HUYEN_CXD|" & ChrW(272) & ChrW(7883) & "a gi" & ChrW(7899) & "i huy" & ChrW(7879) & "n ch" & ChrW(432) & "a x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh|L|43|0|2|0|" & vbCrLf
+    s = s & "DG|DG_HUYEN_MOC|M" & ChrW(7889) & "c " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i huy" & ChrW(7879) & "n|K|43|0|0|0|" & vbCrLf
+    s = s & "DG|DG_HUYEN_GCMOC|Ghi ch" & ChrW(250) & " s" & ChrW(7889) & " hi" & ChrW(7879) & "u m" & ChrW(7889) & "c (huy" & ChrW(7879) & "n)|T|43|0|0|0|1.75" & vbCrLf
+    s = s & "DG|DG_HUYEN_TEN|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n huy" & ChrW(7879) & "n " & ChrW(273) & ChrW(7847) & "u " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i|T|43|0|0|0|2.5" & vbCrLf
+    s = s & "DG|DG_HUYEN_TENNGOAI|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n huy" & ChrW(7879) & "n ti" & ChrW(7871) & "p gi" & ChrW(225) & "p ngo" & ChrW(224) & "i " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i|T|43|0|0|0|2.5" & vbCrLf
+    s = s & "DG|DG_XA_XD|" & ChrW(272) & ChrW(7883) & "a gi" & ChrW(7899) & "i x" & ChrW(227) & " x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh|L|44|0|0|0|" & vbCrLf
+    s = s & "DG|DG_XA_CXD|" & ChrW(272) & ChrW(7883) & "a gi" & ChrW(7899) & "i x" & ChrW(227) & " ch" & ChrW(432) & "a x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh|L|44|0|2|0|" & vbCrLf
+    s = s & "DG|DG_XA_MOC|M" & ChrW(7889) & "c " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i x" & ChrW(227) & "|K|44|0|0|0|" & vbCrLf
+    s = s & "DG|DG_XA_GCMOC|Ghi ch" & ChrW(250) & " s" & ChrW(7889) & " hi" & ChrW(7879) & "u m" & ChrW(7889) & "c (x" & ChrW(227) & ")|T|44|0|0|0|1.75" & vbCrLf
+    s = s & "DG|DG_XA_TEN|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n x" & ChrW(227) & " " & ChrW(273) & ChrW(7847) & "u " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i|T|44|0|0|0|2.0" & vbCrLf
+    s = s & "DG|DG_XA_TENNGOAI|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n x" & ChrW(227) & " ti" & ChrW(7871) & "p gi" & ChrW(225) & "p ngo" & ChrW(224) & "i " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i|T|44|0|0|0|2.0" & vbCrLf
+    s = s & "DG|DG_DIADANH|Ghi ch" & ChrW(250) & " t" & ChrW(234) & "n " & ChrW(273) & ChrW(7883) & "a danh, c" & ChrW(7909) & "m d" & ChrW(226) & "n c" & ChrW(432) & "|T|45|0|0|0|2.5" & vbCrLf
+    BangMacDinh = s
+End Function
