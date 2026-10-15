@@ -55,3 +55,7 @@ frmConvertFont
 modTachLop
 frmTachLop
 modTriDo
+modBienTap
+modGanTag
+modDiemMia
+frmDiemMia
