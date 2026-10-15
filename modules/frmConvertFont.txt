@@ -230,6 +230,7 @@ Private Sub ChayConvert()
         kq = CF_XuLyFile(CStr(Lst.List(i, 0)), cheDo, lvSo, bak, soChu)
         If Len(kq) = 0 Then
             Lst.List(i, 1) = soChu & " ch" & ChrW(7919)
+            If Len(CF_FileMoi) > 0 Then Lst.List(i, 1) = soChu & " ch" & ChrW(7919) & " -> " & Mid$(CF_FileMoi, InStrRev(CF_FileMoi, "\") + 1)
             tong = tong + soChu
             nOK = nOK + 1
         Else
