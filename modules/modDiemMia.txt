@@ -1,0 +1,248 @@
+'============================================================
+' modDiemMia - Diem mia toa do (trien diem theo danh sach, kieu LandMap)
+'   Form frmDiemMia (tu tao): Tep diem mia -> Xem du lieu -> Hien diem mia.
+'   Du lieu nap vao mang trong module; X = Bac (y ban ve), Y = Dong (x ban ve).
+'============================================================
+Option Explicit
+
+Public DM_N As Long
+Public DM_Ten() As String, DM_Ma() As String, DM_H() As String
+Public DM_X() As Double, DM_Y() As Double
+
+Private mFont As Object
+
+Public Sub DC_MoDiemMia()
+    DC_MoFormTuTao "frmDiemMia"
+End Sub
+
+Public Function DM_TenCot() As Variant
+    DM_TenCot = Array("T" & ChrW(234) & "n " & ChrW(273) & "i" & ChrW(7875) & "m", "X", "Y", "H", "M" & ChrW(227) & " " & ChrW(273) & "i" & ChrW(7875) & "m", "(b" & ChrW(7887) & " qua)")
+End Function
+
+' Doc 1 file. cot(0..4) = loai cot (0 Ten,1 X,2 Y,3 H,4 Ma,5 bo qua); sep = cac ky tu phan cach
+' (chuoi, " " = dau cach). Tra ve so diem them; nBo = so dong bo qua.
+Public Function DM_DocFile(ByVal f As String, ByRef cot() As Long, ByVal sep As String, ByRef nBo As Long) As Long
+    Dim txt As String, dong() As String, i As Long, p() As String, j As Long
+    Dim ten As String, ma As String, h As String, sx As String, sy As String, ok As Boolean
+    txt = DocChuDM(f)
+    If Len(txt) = 0 Then Exit Function
+    dong = Split(Replace(txt, vbCr, ""), vbLf)
+    For i = 0 To UBound(dong)
+        If Len(Trim$(dong(i))) > 0 Then
+            p = TachDM(dong(i), sep)
+            ten = "": ma = "": h = "": sx = "": sy = ""
+            For j = 0 To 4
+                If j <= UBound(p) Then
+                    Select Case cot(j)
+                        Case 0: ten = p(j)
+                        Case 1: sx = p(j)
+                        Case 2: sy = p(j)
+                        Case 3: h = p(j)
+                        Case 4: ma = p(j)
+                    End Select
+                End If
+            Next j
+            ok = LaSoDM(sx) And LaSoDM(sy)
+            If ok Then
+                DM_N = DM_N + 1
+                If DM_N = 1 Then
+                    ReDim DM_Ten(1 To 64): ReDim DM_Ma(1 To 64): ReDim DM_H(1 To 64)
+                    ReDim DM_X(1 To 64): ReDim DM_Y(1 To 64)
+                ElseIf DM_N > UBound(DM_X) Then
+                    ReDim Preserve DM_Ten(1 To DM_N * 2): ReDim Preserve DM_Ma(1 To DM_N * 2): ReDim Preserve DM_H(1 To DM_N * 2)
+                    ReDim Preserve DM_X(1 To DM_N * 2): ReDim Preserve DM_Y(1 To DM_N * 2)
+                End If
+                DM_Ten(DM_N) = ten: DM_Ma(DM_N) = ma: DM_H(DM_N) = h
+                DM_X(DM_N) = SoDM(sx): DM_Y(DM_N) = SoDM(sy)
+                DM_DocFile = DM_DocFile + 1
+            Else
+                nBo = nBo + 1
+            End If
+        End If
+    Next i
+End Function
+
+Public Sub DM_XoaDuLieu()
+    DM_N = 0
+    Erase DM_Ten, DM_Ma, DM_H, DM_X, DM_Y
+End Sub
+
+' Tu nhan dang cot tu vai dong dau: tra ve chuoi 5 so (vd "0,1,2,3,5")
+Public Function DM_DoanCot(ByVal f As String, ByVal sep As String) As String
+    Dim txt As String, dong() As String, i As Long, p() As String, j As Long, n As Long
+    Dim lon(0 To 9) As Long, le(0 To 9) As Long, so(0 To 9) As Long, kq(0 To 4) As Long, v As Double
+    txt = DocChuDM(f)
+    If Len(txt) = 0 Then Exit Function
+    dong = Split(Replace(txt, vbCr, ""), vbLf)
+    For i = 0 To UBound(dong)
+        If n >= 10 Then Exit For
+        If Len(Trim$(dong(i))) > 0 Then
+            p = TachDM(dong(i), sep)
+            If UBound(p) >= 2 Then
+                n = n + 1
+                For j = 0 To UBound(p)
+                    If j > 9 Then Exit For
+                    If LaSoDM(p(j)) Then
+                        so(j) = so(j) + 1
+                        v = SoDM(p(j))
+                        If Abs(v) > 100000 Then lon(j) = lon(j) + 1
+                        If InStr(p(j), ".") > 0 Or InStr(p(j), ",") > 0 Then le(j) = le(j) + 1
+                    End If
+                Next j
+            End If
+        End If
+    Next i
+    If n = 0 Then Exit Function
+    ' 2 cot so lon lien tiep = X (Bac, lon hon) / Y
+    Dim cx As Long, cy As Long, cH As Long, cM As Long
+    cx = -1: cy = -1: cH = -1: cM = -1
+    For j = 0 To 8
+        If lon(j) * 2 > n And lon(j + 1) * 2 > n Then cx = j: cy = j + 1: Exit For
+    Next j
+    If cx < 0 Then Exit Function
+    For j = 0 To 4
+        kq(j) = 5
+    Next j
+    If cx <= 4 Then kq(cx) = 1
+    If cy <= 4 Then kq(cy) = 2
+    If cx > 0 Then kq(0) = 0                          ' ten diem o cot dau
+    If cx = 2 Then kq(1) = 4                          ' Ten, Ma, X, Y
+    If cy + 1 <= 4 Then If so(cy + 1) * 2 > n And le(cy + 1) * 2 > n Then kq(cy + 1) = 3: cH = cy + 1
+    If cH > 0 And cH + 1 <= 4 Then If kq(cH + 1) = 5 Then kq(cH + 1) = 4
+    DM_DoanCot = kq(0) & "," & kq(1) & "," & kq(2) & "," & kq(3) & "," & kq(4)
+End Function
+
+' Ve diem: lv, co chu (m); hien ten / H / ma; kieu ky hieu 0 = vong tron, 1 = dau cong
+Public Function DM_Ve(ByVal lvSo As Long, ByVal cao As Double, ByVal coTen As Boolean, ByVal coH As Boolean, _
+                      ByVal coMa As Boolean, ByVal kieu As Long, ByVal soLeH As Long) As Long
+    Dim i As Long, lv As Level, r As Double, x As Double, y As Double, d As Double
+    Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double, s As String
+    If DM_N = 0 Then Exit Function
+    Set lv = DC_LevelTheoSo(lvSo)
+    r = cao * 0.25
+    For i = 1 To DM_N
+        x = DM_Y(i): y = DM_X(i)                ' Y = Dong -> x ban ve
+        If kieu = 1 Then
+            VeDoan x - r, y, x + r, y, lv
+            VeDoan x, y - r, x, y + r, lv
+        Else
+            VeVongDM x, y, r, lv
+        End If
+        If coTen And Len(DM_Ten(i)) > 0 Then VeChuDM x + cao * 0.4, y + cao * 0.15, DM_Ten(i), cao, lv, msdTextJustificationLeftBottom
+        s = ""
+        If coH And Len(DM_H(i)) > 0 Then s = Format$(SoDM(DM_H(i)), IIf(soLeH > 0, "0." & String$(soLeH, "0"), "0"))
+        If coMa And Len(DM_Ma(i)) > 0 Then s = s & IIf(Len(s) > 0, "  ", "") & DM_Ma(i)
+        If Len(s) > 0 Then VeChuDM x + cao * 0.4, y - cao * 0.15, s, cao * 0.8, lv, msdTextJustificationLeftTop
+        If i = 1 Then
+            x1 = x: x2 = x: y1 = y: y2 = y
+        Else
+            If x < x1 Then x1 = x
+            If x > x2 Then x2 = x
+            If y < y1 Then y1 = y
+            If y > y2 Then y2 = y
+        End If
+        DM_Ve = DM_Ve + 1
+    Next i
+    d = x2 - x1: If y2 - y1 > d Then d = y2 - y1
+    If d < 20 Then d = 20
+    DC_ZoomVung (x1 + x2) / 2 - d * 0.6, (y1 + y2) / 2 - d * 0.6, (x1 + x2) / 2 + d * 0.6, (y1 + y2) / 2 + d * 0.6
+End Function
+
+'------------------------------------------------------------ dung chung
+Public Function TachDM(ByVal s As String, ByVal sep As String) As String()
+    Dim t As String, a() As String, i As Long, kq() As String, n As Long, c As String
+    t = s
+    If Len(t) > 0 Then
+        If AscW(Left$(t, 1)) = &HFEFF Then t = Mid$(t, 2)
+    End If
+    If InStr(sep, " ") > 0 Then
+        t = Replace(t, vbTab, IIf(InStr(sep, vbTab) > 0, Chr$(1), " "))
+        t = Trim$(t)
+        Do While InStr(t, "  ") > 0: t = Replace(t, "  ", " "): Loop
+    End If
+    For i = 1 To Len(sep)
+        c = Mid$(sep, i, 1)
+        t = Replace(t, c, Chr$(1))
+    Next i
+    a = Split(t, Chr$(1))
+    ReDim kq(0 To UBound(a))
+    For i = 0 To UBound(a)
+        If InStr(sep, " ") > 0 And Len(Trim$(a(i))) = 0 Then GoTo tiep
+        kq(n) = Trim$(a(i)): n = n + 1
+tiep:
+    Next i
+    If n = 0 Then ReDim kq(0 To 0) Else ReDim Preserve kq(0 To n - 1)
+    TachDM = kq
+End Function
+
+Private Function LaSoDM(ByVal s As String) As Boolean
+    Dim t As String
+    t = Replace(Trim$(s), ",", ".")
+    If Len(t) = 0 Then Exit Function
+    LaSoDM = (t Like "*#*") And Not (t Like "*[!0-9.+-]*")
+End Function
+
+Private Function SoDM(ByVal s As String) As Double
+    SoDM = Val(Replace(Trim$(s), ",", "."))
+End Function
+
+Public Function DocChuDM(ByVal f As String) As String
+    Dim st As Object
+    On Error Resume Next
+    Set st = CreateObject("ADODB.Stream")
+    st.Type = 2: st.Charset = "utf-8": st.Open
+    st.LoadFromFile f
+    DocChuDM = st.ReadText(-1)
+    st.Close
+    If Len(DocChuDM) > 0 Then
+        If AscW(Left$(DocChuDM, 1)) = &HFEFF Then DocChuDM = Mid$(DocChuDM, 2)
+    End If
+End Function
+
+Private Function FontDM() As Object
+    Dim f As Object
+    If Not mFont Is Nothing Then Set FontDM = mFont: Exit Function
+    On Error Resume Next
+    For Each f In ActiveDesignFile.Fonts
+        If StrComp(f.Name, DC_FONT_VIET, vbTextCompare) = 0 Then Set mFont = f: Exit For
+    Next f
+    Set FontDM = mFont
+End Function
+
+Private Sub VeChuDM(ByVal x As Double, ByVal y As Double, ByVal s As String, ByVal cao As Double, _
+                    ByVal lv As Level, ByVal canh As Long)
+    Dim t As TextElement, ts As TextStyle, f As Object
+    On Error Resume Next
+    Set t = CreateTextElement1(Nothing, s, Point3dFromXYZ(x, y, 0#), Matrix3dIdentity)
+    If t Is Nothing Then Exit Sub
+    Set ts = t.TextStyle
+    ts.Height = cao: ts.Width = cao
+    ts.Justification = canh
+    Set f = FontDM()
+    If Not f Is Nothing Then Set ts.Font = f
+    Set t.TextStyle = ts
+    If Err.Number <> 0 Then Err.Clear: t.TextStyle = ts
+    If Not lv Is Nothing Then Set t.Level = lv
+    t.LineWeight = 0
+    ActiveModelReference.AddElement t
+End Sub
+
+Private Sub VeVongDM(ByVal x As Double, ByVal y As Double, ByVal r As Double, ByVal lv As Level)
+    Dim e As EllipseElement
+    On Error Resume Next
+    Set e = CreateEllipseElement2(Nothing, Point3dFromXYZ(x, y, 0#), r, r, Matrix3dIdentity)
+    If e Is Nothing Then Exit Sub
+    If Not lv Is Nothing Then Set e.Level = lv
+    e.LineWeight = 0
+    ActiveModelReference.AddElement e
+End Sub
+
+Private Sub VeDoan(ByVal ax As Double, ByVal ay As Double, ByVal bx As Double, ByVal by As Double, ByVal lv As Level)
+    Dim e As LineElement
+    On Error Resume Next
+    Set e = CreateLineElement2(Nothing, Point3dFromXYZ(ax, ay, 0#), Point3dFromXYZ(bx, by, 0#))
+    If e Is Nothing Then Exit Sub
+    If Not lv Is Nothing Then Set e.Level = lv
+    e.LineWeight = 0
+    ActiveModelReference.AddElement e
+End Sub
