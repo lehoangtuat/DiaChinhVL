@@ -37,6 +37,7 @@ Private Const MF_STRING As Long = &H0
 Private Const MF_GRAYED As Long = &H1
 Private Const MF_SEPARATOR As Long = &H800
 Private Const MF_POPUP As Long = &H10
+Private Const MF_CHECKED As Long = &H8
 Private Const TPM_LEFTBUTTON As Long = &H0
 Private Const TPM_NONOTIFY As Long = &H80
 Private Const TPM_RETURNCMD As Long = &H100
@@ -106,14 +107,46 @@ Private Function TaoMenu(ByVal ten As String) As Long
         Muc h, "B" & ChrW(7843) & "ng d" & ChrW(7919) & " li" & ChrW(7879) & "u", "BANGDL"
 
     Case "BIENTAP"
+        Dim hS As Long, tl As Variant, tlCu As Long, hQ As Long
+        hS = MenuCon(h, "T" & ChrW(7927) & " l" & ChrW(7879) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891))
+        tlCu = DC_TyLeBD()
+        For Each tl In Array(200, 500, 1000, 2000, 5000, 10000)
+            MucTick hS, "T" & ChrW(7927) & " l" & ChrW(7879) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " 1:" & tl, "TY:" & tl, (CLng(tl) = tlCu)
+        Next tl
+        Gach h
+        NhomBT h, "THUA", "Th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t"
+        NhomBT h, "NHA", "Nh" & ChrW(224)
+        NhomBT h, "GT", "Giao th" & ChrW(244) & "ng"
+        NhomBT h, "TV", "Th" & ChrW(7911) & "y h" & ChrW(7879)
+        NhomBT h, "DG", ChrW(272) & ChrW(7883) & "a gi" & ChrW(7899) & "i"
+        hQ = MenuCon(h, "Quy ho" & ChrW(7841) & "ch"): Muc hQ, "(s" & ChrW(7855) & "p c" & ChrW(243) & ")", ""
+        hQ = MenuCon(h, "K" & ChrW(253) & " hi" & ChrW(7879) & "u"): Muc hQ, "(s" & ChrW(7855) & "p c" & ChrW(243) & ")", ""
+        hQ = MenuCon(h, "T" & ChrW(234) & "n ri" & ChrW(234) & "ng"): Muc hQ, "(s" & ChrW(7855) & "p c" & ChrW(243) & ")", ""
+        Gach h
+        Muc h, "Thanh c" & ChrW(244) & "ng c" & ChrW(7909), ""
+        Muc h, "Ghi ch" & ChrW(250) & " t" & ChrW(7855) & "t", ""
+        Muc h, "Quy " & ChrW(273) & ChrW(7883) & "nh l" & ChrW(7899) & "p (level, m" & ChrW(224) & "u, n" & ChrW(233) & "t, c" & ChrW(7905) & " ch" & ChrW(7919) & ")...", "QDLOP"
+        Muc h, "B" & ChrW(7897) & " bi" & ChrW(234) & "n t" & ChrW(7853) & "p", ""
+        Gach h
         Muc h, "G" & ChrW(225) & "n nh" & ChrW(227) & "n th" & ChrW(7917) & "a", "GANNHAN"
         Gach h
         Muc h, "T" & ChrW(244) & " m" & ChrW(224) & "u theo lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", ""
         Muc h, "Chia " & ChrW(273) & "o" & ChrW(7841) & "n t" & ChrW(7841) & "i giao " & ChrW(273) & "i" & ChrW(7875) & "m (c" & ChrW(7855) & "t n" & ChrW(233) & "t ranh)", "CHIADOAN"
 
+
     Case "KIEMKE"
-        Muc h, "L" & ChrW(7853) & "p b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ki" & ChrW(7875) & "m k" & ChrW(234), ""
-        Muc h, "Th" & ChrW(7889) & "ng k" & ChrW(234) & " di" & ChrW(7879) & "n t" & ChrW(237) & "ch theo lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", ""
+        Dim hK As Long, tk As Variant
+        For Each tk In Array("C" & ChrW(244) & "ng c" & ChrW(7909) & " h" & ChrW(7895) & " tr" & ChrW(7907) & " bi" & ChrW(234) & "n t" & ChrW(7853) & "p", "B" & ChrW(7843) & "ng m" & ChrW(224) & "u s" & ChrW(7917) & " d" & ChrW(7909) & "ng khi t" & ChrW(244), "-", _
+                             "T" & ChrW(7841) & "o l" & ChrW(7853) & "p b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ki" & ChrW(7875) & "m k" & ChrW(234), "Th" & ChrW(244) & "ng tin b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ki" & ChrW(7875) & "m k" & ChrW(234), "Tr" & ChrW(236) & "nh b" & ChrW(224) & "y b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ki" & ChrW(7875) & "m k" & ChrW(234), "-", _
+                             "B" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " hi" & ChrW(7879) & "n tr" & ChrW(7841) & "ng s" & ChrW(7917) & " d" & ChrW(7909) & "ng " & ChrW(273) & ChrW(7845) & "t", "Nh" & ChrW(7853) & "p, hi" & ChrW(7875) & "n th" & ChrW(7883) & " d" & ChrW(7919) & " li" & ChrW(7879) & "u " & ChrW(273) & ChrW(7883) & "a ch" & ChrW(237) & "nh", "Ki" & ChrW(7875) & "m tra chu" & ChrW(7849) & "n h" & ChrW(243) & "a d" & ChrW(7919) & " li" & ChrW(7879) & "u", _
+                             "Xu" & ChrW(7845) & "t bi" & ChrW(7875) & "u th" & ChrW(7889) & "ng k" & ChrW(234) & ", ki" & ChrW(7875) & "m k" & ChrW(234), "-", "Xu" & ChrW(7845) & "t d" & ChrW(7919) & " li" & ChrW(7879) & "u b" & ChrW(225) & "o c" & ChrW(225) & "o, giao n" & ChrW(7897) & "p")
+            If tk = "-" Then
+                Gach h
+            Else
+                hK = MenuCon(h, CStr(tk))
+                Muc hK, "(s" & ChrW(7855) & "p c" & ChrW(243) & ")", ""
+            End If
+        Next tk
 
     Case "TIENICH"
         Muc h, "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t", "TRICHLUC"
@@ -139,6 +172,7 @@ Private Function TaoMenu(ByVal ten As String) As Long
         Muc h, "Ghi ch" & ChrW(250) & " chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh th" & ChrW(7917) & "a", "GHICD"
         Muc h, "Convert Font TCVN3 - Unicode", "DOIFONT"
         Muc h, "Convert Font nhi" & ChrW(7873) & "u file (TCVN3 / Unicode)...", "CFONT"
+        Muc h, "G" & ChrW(7855) & "n tag b" & ChrW(7843) & "ng t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " (l" & ChrW(224) & "m file m" & ChrW(7851) & "u tr" & ChrW(237) & "ch l" & ChrW(7909) & "c)...", "GANTAG"
 
     Case "TROGIUP"
         Muc h, "H" & ChrW(432) & ChrW(7899) & "ng d" & ChrW(7851) & "n s" & ChrW(7917) & " d" & ChrW(7909) & "ng", "HUONGDAN"
@@ -174,12 +208,14 @@ Public Sub DC_ChayLenh(ByVal ma As String)
     Case "GHICD":      DC_GhiChieuDaiCanh
     Case "DOIFONT":    DC_DoiFontTcvn3
     Case "CFONT":      DC_MoConvertFont
+    Case "GANTAG":     DC_GanTagBang
     Case "TDTOADO":    DC_TDToaDo
     Case "TDGOCCANH":  DC_TDGocCanh
-    Case "TRIENDS":    DC_TrienDiemDS
+    Case "TRIENDS":    DC_MoDiemMia
     Case "CANHNGAN":   DC_TimCanhNgan
     Case "LAMTRON":    DC_LamTronToaDo
     Case "GOCNHO":     DC_TimGocNho
+    Case "QDLOP":      DC_QuyDinhLop
     Case "VETINH":    DC_XemVeTinh
     Case "GEARTH":    DC_MoGoogleEarth
     Case "MACDINH"
@@ -195,6 +231,8 @@ Public Sub DC_ChayLenh(ByVal ma As String)
         CadInputQueue.SendKeyin "vba run [DiaChinhVL]modCapNhatWeb.DC_KiemTraCapNhat"
     Case "DONG":      Unload frmDiaChinh
     Case Else
+        If Left$(ma, 3) = "BT:" Then DC_BienTap Mid$(ma, 4): Exit Sub
+        If Left$(ma, 3) = "TY:" Then DC_DatTyLeBD CLng(Val(Mid$(ma, 4))): Exit Sub
         DC_ThongBao "Ch" & ChrW(7913) & "c n" & ChrW(259) & "ng " & ChrW(273) & "ang ph" & ChrW(225) & "t tri" & ChrW(7875) & "n.", ChrW(272) & ChrW(7883) & "a Ch" & ChrW(237) & "nh VL"
     End Select
 End Sub
@@ -248,6 +286,34 @@ Private Sub Muc(ByVal h As Long, ByVal cap As String, ByVal ma As String)
     Else
         AppendMenuW h, MF_STRING, mN, StrPtr(cap)
     End If
+End Sub
+
+Private Sub MucTick(ByVal h As Long, ByVal cap As String, ByVal ma As String, ByVal tick As Boolean)
+    mN = mN + 1
+    ReDim Preserve mMa(1 To mN)
+    mMa(mN) = ma
+    AppendMenuW h, MF_STRING Or IIf(tick, MF_CHECKED, 0), mN, StrPtr(cap)
+End Sub
+
+' Menu con theo nhom trong bang Quy dinh lop (modBienTap). K = ky hieu chua lam -> mo.
+Private Sub NhomBT(ByVal h As Long, ByVal nhom As String, ByVal cap As String)
+    Dim ds As Collection, i As Long, hc As Long, r As Variant, loaiTruoc As String, coMuc As Boolean
+    hc = MenuCon(h, cap)
+    If hc = 0 Then Exit Sub
+    Set ds = BT_DocBang()
+    For i = 1 To ds.Count
+        r = ds.Item(i)
+        If StrComp(r(0), nhom, vbTextCompare) = 0 Then
+            If coMuc And UCase$(r(3)) <> loaiTruoc And loaiTruoc = "L" Then Gach hc
+            If UCase$(r(3)) = "K" Then
+                Muc hc, r(2), ""
+            Else
+                Muc hc, r(2), "BT:" & r(1)
+            End If
+            loaiTruoc = UCase$(r(3)): coMuc = True
+        End If
+    Next i
+    If Not coMuc Then Muc hc, "(ch" & ChrW(432) & "a c" & ChrW(243) & " trong Quy " & ChrW(273) & ChrW(7883) & "nh l" & ChrW(7899) & "p)", ""
 End Sub
 
 ' Menu con (submenu); id cac muc trong menu con dung chung day so mN
