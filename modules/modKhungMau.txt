@@ -701,7 +701,10 @@ boTxt2:
     End If
 
     ' SUA 09/10/2026: bang phu o trang Ho so (tths/cdhs): so hieu dinh + chieu dai
-    DienBangPhu "tths", "cdhs", nR, rSo, rCanh, cxb, cyb, k, Cpx, Cpy
+    DienBangPhu "tths", "cdhs", nR, rSo, rCanh, cxb, cyb, k, Cpx, Cpy, rX, rY
+    ' SUA 14/10/2026: bang ttkq NHO (vd trang "9. Toa do dinh thua") = ban sao bang
+    ' tttl: dien tu hang 1 (truoc day chi dien bang ttkq dai cho hang 17+)
+    DienBangKQ 1, nR, rSo, rX, rY, rCanh, slTD, slCD, cxb, cyb, k, Cpx, Cpy, True
 
     ' So do thua: THU NHO vua o (kp), tam o = tam khung (Cpx,Cpy)
     VeThuaTrongO found, Cpx, Cpy, kp, bwm * 0.03
@@ -774,7 +777,8 @@ End Sub
 ' va chieu dai canh (tag tagCD, canh thu i vao tag cd thu i). So hang theo thua.
 Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ByVal nR As Long, _
                         rSo() As String, rCanh() As Double, ByVal cxb As Double, ByVal cyb As Double, _
-                        ByVal k As Double, ByVal Cpx As Double, ByVal Cpy As Double)
+                        ByVal k As Double, ByVal Cpx As Double, ByVal Cpy As Double, _
+                        rX() As Double, rY() As Double)
     Dim tx() As Double, ty() As Double, cx() As Double, cy() As Double
     Dim ct As Long, cc As Long, i As Long, hT As Double, hC As Double, lvT As Long
     ReDim tx(1 To gNT + 1): ReDim ty(1 To gNT + 1)
@@ -805,6 +809,26 @@ Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ByVal nR A
             DienCell xc, cy(i), FNum(rCanh(i), 2), hC * k, cxb, cyb, k, Cpx, Cpy, w * k
         End If
     Next i
+    ' SUA 14/10/2026: bang phu co cot toa do (tag tamxhs = X Bac, tamyhs = Y Dong)
+    ' -> dien theo hang cua tag tths (chi lay tag cung hang, bo tag rac o cho khac)
+    Dim m As Long, yRow As Double, best As Long, dBest As Double, dd As Double, tg As Variant, gTri As Double
+    For Each tg In Array("tamxhs", "tamyhs")
+        For i = 1 To nR
+            If i > ct Then Exit For
+            best = 0: dBest = hT * 0.8
+            For m = 1 To gNT
+                If gTS(m) = tg Then
+                    dd = Abs(TamHang(gTX(m), gTY(m)) - ty(i))
+                    If dd < dBest And gTX(m) > tx(i) Then dBest = dd: best = m
+                End If
+            Next m
+            If best > 0 Then
+                If tg = "tamxhs" Then gTri = rX(i) Else gTri = rY(i)
+                xc = TamCot(gTX(best), gTY(best), w)
+                DienCell xc, ty(i), FNum(gTri, 2), gTCao(best) * k, cxb, cyb, k, Cpx, Cpy, w * k
+            End If
+        Next i
+    Next tg
 End Sub
 
 ' Danh sach hang bang toa do: vong ngoai + cac vong dao
@@ -841,7 +865,8 @@ End Sub
 Private Function DienBangKQ(ByVal r0 As Long, ByVal nR As Long, rSo() As String, rX() As Double, rY() As Double, _
                             rCanh() As Double, ByVal slTD As Long, ByVal slCD As Long, _
                             ByVal cxb As Double, ByVal cyb As Double, ByVal k As Double, _
-                            ByVal Cpx As Double, ByVal Cpy As Double) As Boolean
+                            ByVal Cpx As Double, ByVal Cpy As Double, _
+                            Optional ByVal bangNho As Boolean = False) As Boolean
     Dim tx() As Double, ty() As Double, ct As Long, i As Long, hT As Double, lvT As Long
     ReDim tx(1 To gNT + 1): ReDim ty(1 To gNT + 1)
     For i = 1 To gNT
@@ -865,9 +890,10 @@ Private Function DienBangKQ(ByVal r0 As Long, ByVal nR As Long, rSo() As String,
     Next i
     dem = 0
     For i = 1 To ct
-        If nCot(i) * 2 > demMax Then dem = dem + 1: tx(dem) = tx(i): ty(dem) = ty(i)
+        If (nCot(i) * 2 > demMax) Xor bangNho Then dem = dem + 1: tx(dem) = tx(i): ty(dem) = ty(i)
     Next i
     ct = dem
+    If ct = 0 Then Exit Function
     SapCotHang tx, ty, ct, hT * 2#
     DatLvTag lvT
 
@@ -895,7 +921,7 @@ Private Function DienBangKQ(ByVal r0 As Long, ByVal nR As Long, rSo() As String,
         End If
         r = r + 1
     Loop
-    If r <= nR Then MsgBox "Thua co " & nR & " hang toa do, bang khong du cho (con " & (nR - r + 1) & " hang).", vbExclamation, "Trich luc"
+    If r <= nR And Not bangNho Then MsgBox "Thua co " & nR & " hang toa do, bang khong du cho (con " & (nR - r + 1) & " hang).", vbExclamation, "Trich luc"
     DienBangKQ = True
 End Function
 
@@ -1022,9 +1048,13 @@ Private Sub VeThuaTrongO(ByVal v As clsVung, ByVal cx As Double, ByVal cy As Dou
     DatLv mLvSo                       ' so hieu dinh
     ' SUA 12/10/2026: so hieu dinh = 80% co chu nhan thua (nhan = cao * 0.84)
     Dim caoS As Double: caoS = cao * 0.84 * 0.8
+    ' SUA 15/10/2026: so hieu dinh dat RA NGOAI thua theo phan giac goc
+    Dim hx As Double, hy As Double, kc As Double
     For i = 0 To n - 1
         ax = cx + (ring(i, 0) - v.cx) * kp: ay = cy + (ring(i, 1) - v.cy) * kp
-        VeText ax + rMoc * 1.6, ay + rMoc * 1.6, CStr(i + 1), caoS, -1
+        HuongNgoai ring, n, i, False, hx, hy
+        kc = caoS * (0.75 + 0.3 * Len(CStr(i + 1)))
+        VeText ax + hx * kc, ay + hy * kc, CStr(i + 1), caoS, -1
     Next i
     ' SUA 11/10/2026: so hieu dinh cac vong dao (thua con lot trong) - danh tiep
     Dim soTiep As Long: soTiep = n
@@ -1032,7 +1062,9 @@ Private Sub VeThuaTrongO(ByVal v As clsVung, ByVal cx As Double, ByVal cy As Dou
         dr = v.Dao.Item(k2): m = UBound(dr, 1)
         For i = 0 To m - 1
             ax = cx + (dr(i, 0) - v.cx) * kp: ay = cy + (dr(i, 1) - v.cy) * kp
-            VeText ax + rMoc * 1.6, ay + rMoc * 1.6, CStr(soTiep + i + 1), caoS, -1
+            HuongNgoai dr, m, i, True, hx, hy
+            kc = caoS * (0.75 + 0.3 * Len(CStr(soTiep + i + 1)))
+            VeText ax + hx * kc, ay + hy * kc, CStr(soTiep + i + 1), caoS, -1
         Next i
         soTiep = soTiep + m
     Next k2
@@ -1061,6 +1093,21 @@ End Sub
 '============================================================
 ' Cot bang muc 8 (tam X va be rong o, toa do MAU)
 '============================================================
+' Huong don vi tu dinh i ra NGOAI thua (vong dao: vao trong lo)
+Private Sub HuongNgoai(r() As Double, ByVal n As Long, ByVal i As Long, ByVal dao As Boolean, dx As Double, dy As Double)
+    Dim p As Long, q As Long, ux As Double, uy As Double, wx As Double, wy As Double, L As Double, e As Double
+    p = i - 1: If p < 0 Then p = n - 1
+    q = i + 1
+    ux = r(i, 0) - r(p, 0): uy = r(i, 1) - r(p, 1): L = Sqr(ux * ux + uy * uy): If L > 0 Then ux = ux / L: uy = uy / L
+    wx = r(i, 0) - r(q, 0): wy = r(i, 1) - r(q, 1): e = Sqr(wx * wx + wy * wy): If e > 0 Then wx = wx / e: wy = wy / e
+    If e > L Then e = L
+    dx = ux + wx: dy = uy + wy: L = Sqr(dx * dx + dy * dy)
+    If L < 0.2 Then dx = -uy: dy = ux: L = 1
+    dx = dx / L: dy = dy / L
+    e = e * 0.05
+    If DiemTrongPolygon(r, r(i, 0) + dx * e, r(i, 1) + dy * e) Xor dao Then dx = -dx: dy = -dy
+End Sub
+
 Private Sub DatCotMacDinh()
     CX_DINH = 117720.35: CX_X = 117842.1: CX_Y = 118014.25: CX_CANH = 118237.4
     CW_DINH = 74.7: CW_X = 168.8: CW_Y = 175.5: CW_CANH = 270.8
