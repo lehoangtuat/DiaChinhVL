@@ -1,0 +1,168 @@
+'============================================================
+' modGanTag - Gan chu danh dau (tag) vao bang toa do cua FILE MAU
+'   Dung khi lam / sua file mau trich luc: mo file mau .dgn, chon cac
+'   duong ke cua bang (ca tieu de cung duoc), chay lenh -> tu do luoi o,
+'   dat tag vao giua tung o:
+'     bang phu  : tths | tamxhs | tamyhs | cdhs  (cd dat giua 2 hang)
+'     bang chinh: tttl | tamYtl | tamXtl | cdtl
+'   Tag cung level voi duong ke, chu Times New Roman.
+'============================================================
+Option Explicit
+
+Private Function TieuDe() As String
+    TieuDe = "G" & ChrW(7855) & "n tag b" & ChrW(7843) & "ng t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897)
+End Function
+
+Public Sub DC_GanTagBang()
+    Dim ee As ElementEnumerator, el As Element, pts() As Point3d, i As Long, j As Long
+    Dim vx As New Collection, hy As New Collection, lv As Level, t As Long
+    Dim x1 As Double, x2 As Double, y1 As Double, y2 As Double, dau As Boolean
+    On Error Resume Next
+    Set ee = ActiveModelReference.GetSelectedElements
+    On Error GoTo 0
+    If ee Is Nothing Then GoTo ChuaChon
+    Do While ee.MoveNext
+        Set el = ee.Current
+        t = el.Type
+        If t = msdElementTypeLine Or t = msdElementTypeLineString Or t = msdElementTypeShape Then
+            If lv Is Nothing Then Set lv = el.Level
+            If t = msdElementTypeShape Then pts = el.AsShapeElement.GetVertices Else pts = el.AsLineElement.GetVertices
+            For i = LBound(pts) To UBound(pts) - 1
+                If Abs(pts(i + 1).X - pts(i).X) < 0.001 * Abs(pts(i + 1).Y - pts(i).Y) Then vx.Add (pts(i).X + pts(i + 1).X) / 2
+                If Abs(pts(i + 1).Y - pts(i).Y) < 0.001 * Abs(pts(i + 1).X - pts(i).X) Then hy.Add (pts(i).Y + pts(i + 1).Y) / 2
+            Next i
+            For i = LBound(pts) To UBound(pts)
+                If Not dau Then
+                    x1 = pts(i).X: x2 = x1: y1 = pts(i).Y: y2 = y1: dau = True
+                Else
+                    If pts(i).X < x1 Then x1 = pts(i).X
+                    If pts(i).X > x2 Then x2 = pts(i).X
+                    If pts(i).Y < y1 Then y1 = pts(i).Y
+                    If pts(i).Y > y2 Then y2 = pts(i).Y
+                End If
+            Next i
+        End If
+    Loop
+    If vx.Count < 2 Or hy.Count < 3 Then GoTo ChuaChon
+
+    Dim tol As Double, xs() As Double, ys() As Double, nX As Long, nY As Long
+    tol = (x2 - x1 + y2 - y1) * 0.002
+    nX = Gop(vx, tol, xs, False)
+    nY = Gop(hy, tol, ys, True)            ' tren xuong
+    If nX < 2 Or nY < 3 Then GoTo ChuaChon
+
+    ' Hang tieu de: cac hang dau cao khac hang pho bien
+    Dim hTB As Double, nTD As Long, s As String, ok As Boolean
+    hTB = CaoPhoBien(ys, nY)
+    nTD = 0
+    For i = 0 To nY - 2
+        If Abs((ys(i) - ys(i + 1)) - hTB) > hTB * 0.15 Then nTD = i + 1 Else Exit For
+    Next i
+    s = InputBox("Bang co " & (nX - 1) & " cot, " & (nY - 1) & " hang." & vbCrLf & _
+                 "So hang TIEU DE tren cung (bo qua, khong dat tag):", "DiaChinhVL", CStr(nTD))
+    If StrPtr(s) = 0 Then Exit Sub
+    nTD = CLng(Val(s))
+    If nTD < 0 Or nTD >= nY - 1 Then nTD = 0
+
+    Dim macDinh As String
+    Select Case nX - 1
+        Case 4: macDinh = "tths,tamxhs,tamyhs,cdhs"
+        Case 3: macDinh = "tths,tamxhs,tamyhs"
+        Case 2: macDinh = "tths,cdhs"
+        Case Else: macDinh = ""
+    End Select
+    s = InputBox("Tag cho tung cot (trai -> phai, cach nhau dau phay, '-' = bo cot):" & vbCrLf & _
+                 "Bang phu: tths,tamxhs,tamyhs,cdhs (X = Bac, Y = Dong)" & vbCrLf & _
+                 "Bang chinh: tttl,tamYtl,tamXtl,cdtl", "DiaChinhVL", macDinh)
+    If StrPtr(s) = 0 Then Exit Sub
+    Dim tg() As String
+    tg = Split(Replace(s, " ", ""), ",")
+    If UBound(tg) <> nX - 2 Then
+        DC_ThongBao "S" & ChrW(7889) & " tag (" & (UBound(tg) + 1) & ") kh" & ChrW(244) & "ng b" & ChrW(7857) & "ng s" & ChrW(7889) & " c" & ChrW(7897) & "t (" & (nX - 1) & ").", TieuDe, vbExclamation
+        Exit Sub
+    End If
+
+    Dim r As Long, c As Long, xc As Double, yc As Double, cao As Double, dem As Long, cuoi As Long
+    cuoi = nY - 2                          ' hang du lieu cuoi (chi so hang)
+    For r = nTD To cuoi
+        cao = (ys(r) - ys(r + 1)) * 0.45
+        For c = 0 To nX - 2
+            If Len(tg(c)) > 0 And tg(c) <> "-" Then
+                xc = (xs(c) + xs(c + 1)) / 2
+                If LCase$(Left$(tg(c), 2)) = "cd" Then
+                    If r < cuoi Then
+                        yc = ys(r + 1)                 ' canh r -> r+1: giua 2 hang
+                        DatTag xc, yc, tg(c), cao, lv: dem = dem + 1
+                    End If
+                Else
+                    yc = (ys(r) + ys(r + 1)) / 2
+                    DatTag xc, yc, tg(c), cao, lv: dem = dem + 1
+                End If
+            End If
+        Next c
+    Next r
+    RedrawAllViews
+    DC_ThongBao ChrW(272) & ChrW(227) & " " & ChrW(273) & ChrW(7863) & "t " & dem & " tag v" & ChrW(224) & "o " & (cuoi - nTD + 1) & " h" & ChrW(224) & "ng." & vbCrLf & _
+                "L" & ChrW(432) & "u file m" & ChrW(7851) & "u (File > Save) r" & ChrW(7891) & "i xu" & ChrW(7845) & "t tr" & ChrW(237) & "ch l" & ChrW(7909) & "c " & ChrW(273) & ChrW(7875) & " ki" & ChrW(7875) & "m tra." & vbCrLf & _
+                "(N" & ChrW(7871) & "u " & ChrW(273) & ChrW(7863) & "t sai: Undo ho" & ChrW(7863) & "c x" & ChrW(243) & "a c" & ChrW(225) & "c ch" & ChrW(7919) & " tag v" & ChrW(7915) & "a " & ChrW(273) & ChrW(7863) & "t.)", TieuDe
+    Exit Sub
+ChuaChon:
+    DC_ThongBao "M" & ChrW(7903) & " file m" & ChrW(7851) & "u, ch" & ChrW(7885) & "n c" & ChrW(225) & "c " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng k" & ChrW(7867) & " c" & ChrW(7911) & "a b" & ChrW(7843) & "ng t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " (d" & ChrW(249) & "ng Fence ho" & ChrW(7863) & "c k" & ChrW(233) & "o ch" & ChrW(7885) & "n), r" & ChrW(7891) & "i ch" & ChrW(7841) & "y l" & ChrW(7841) & "i l" & ChrW(7879) & "nh.", TieuDe, vbExclamation
+End Sub
+
+' Gop cac gia tri gan nhau (< tol) -> mang da sap (giam dan neu giam = True)
+Private Function Gop(ByVal ds As Collection, ByVal tol As Double, ByRef kq() As Double, ByVal giam As Boolean) As Long
+    Dim a() As Double, n As Long, i As Long, j As Long, t As Double, m As Long
+    n = ds.Count
+    ReDim a(0 To n - 1)
+    For i = 1 To n
+        a(i - 1) = ds.Item(i)
+    Next i
+    For i = 0 To n - 2
+        For j = i + 1 To n - 1
+            If (a(j) < a(i)) Xor giam Then t = a(i): a(i) = a(j): a(j) = t
+        Next j
+    Next i
+    ReDim kq(0 To n - 1)
+    m = 0
+    For i = 0 To n - 1
+        If m = 0 Then
+            kq(0) = a(i): m = 1
+        ElseIf Abs(a(i) - kq(m - 1)) > tol Then
+            kq(m) = a(i): m = m + 1
+        End If
+    Next i
+    ReDim Preserve kq(0 To m - 1)
+    Gop = m
+End Function
+
+' Chieu cao hang xuat hien nhieu nhat
+Private Function CaoPhoBien(ByRef ys() As Double, ByVal n As Long) As Double
+    Dim i As Long, j As Long, dem As Long, demMax As Long, h As Double, hj As Double
+    For i = 0 To n - 2
+        h = ys(i) - ys(i + 1): dem = 0
+        For j = 0 To n - 2
+            hj = ys(j) - ys(j + 1)
+            If Abs(hj - h) <= h * 0.05 Then dem = dem + 1
+        Next j
+        If dem > demMax Then demMax = dem: CaoPhoBien = h
+    Next i
+End Function
+
+Private Sub DatTag(ByVal x As Double, ByVal y As Double, ByVal s As String, ByVal cao As Double, ByVal lv As Level)
+    Dim t As TextElement, ts As TextStyle, f As Object
+    On Error Resume Next
+    Set t = CreateTextElement1(Nothing, s, Point3dFromXYZ(x, y, 0#), Matrix3dIdentity)
+    If t Is Nothing Then Exit Sub
+    Set ts = t.TextStyle
+    ts.Height = cao: ts.Width = cao
+    ts.Justification = msdTextJustificationCenterCenter
+    For Each f In ActiveDesignFile.Fonts
+        If StrComp(f.Name, DC_FONT_VIET, vbTextCompare) = 0 Then Set ts.Font = f: Exit For
+    Next f
+    Set t.TextStyle = ts
+    If Err.Number <> 0 Then Err.Clear: t.TextStyle = ts
+    If Not lv Is Nothing Then Set t.Level = lv
+    t.LineWeight = 0
+    ActiveModelReference.AddElement t
+End Sub
