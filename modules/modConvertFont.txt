@@ -37,6 +37,10 @@ Private Declare Function CF_GetActiveWindow Lib "user32" Alias "GetActiveWindow"
 Private Const TCVN_MAP As String = "A10102,A200C2,A300CA,A400D4,A501A0,A601AF,A70110,A80103,A900E2,AA00EA,AB00F4,AC01A1,AD01B0,AE0111,B500E0,B61EA3,B700E3,B800E1,B91EA1,BB1EB1,BC1EB3,BD1EB5,BE1EAF,C61EB7,C71EA7,C81EA9,C91EAB,CA1EA5,CB1EAD,CC00E8,CE1EBB,CF1EBD,D000E9,D11EB9,D21EC1,D31EC3,D41EC5,D51EBF,D61EC7,D700EC,D81EC9,DC0129,DD00ED,DE1ECB,DF00F2,E11ECF,E200F5,E300F3,E41ECD,E51ED3,E61ED5,E71ED7,E81ED1,E91ED9,EA1EDD,EB1EDF,EC1EE1,ED1EDB,EE1EE3,EF00F9,F11EE7,F20169,F300FA,F41EE5,F51EEB,F61EED,F71EEF,F81EE9,F91EF1,FA1EF3,FB1EF7,FC1EF9,FD00FD,FE1EF5"
 
 Private mRev As Object          ' Unicode -> byte TCVN3
+Private mFwd As Object          ' byte TCVN3 -> Unicode
+Private mByte As Object         ' ky tu ma 1252/1258 (>255) -> byte goc
+Private Const BYTE_MAP As String = "0102C3,0103E3,0110D0,0111F0,01528C,01539C,01608A,01619A,01789F,017D8E,017E9E,019283,01A0D5,01A1F5,01AFDD,01B0FD,02C688,02DC98,0300CC,0301EC,0303DE,0309D2,0323F2,201396,201497,201891,201992,201A82,201C93,201D94,201E84,202086,202187,202295,202685,203089,20398B,203A9B,20ABFE,20AC80,212299"
+Public CF_FileMoi As String     ' file V8 moi tao khi file goc la V7 ("" neu khong)
 Private Const FONT_TCVN As String = ".VnTime"
 Private Const FONT_TCVN_H As String = ".VnTimeH"
 
@@ -246,6 +250,35 @@ Public Function CF_XuLyFile(ByVal path As String, ByVal cheDo As Long, ByVal lvS
         End If
     End If
 
+    ' File V7 (dinh dang cu, font 1 byte) khong luu duoc Unicode/TrueType
+    ' -> luu thanh file V8 moi "<ten>_unicode.dgn" roi xu ly file moi
+    CF_FileMoi = ""
+    GhiLog "", True
+    GhiLog "FILE " & path & " cheDo=" & cheDo & " lv=" & lvSo
+    If LaFileV7(path) Then
+        Dim pMoi As String, o As Object
+        pMoi = Left$(path, InStrRev(path, ".") - 1) & "_unicode.dgn"
+        Err.Clear
+        If laHienTai Then
+            Set o = ActiveDesignFile
+            o.SaveAs pMoi, True, msdDesignFileFormatV8
+        Else
+            Set o = Application.OpenDesignFileForProgram(path, True)
+            o.SaveAs pMoi, True, msdDesignFileFormatV8
+            o.Close
+            Set o = Nothing
+        End If
+        If Err.Number <> 0 Or Dir$(pMoi) = "" Then
+            CF_XuLyFile = "File V7 (" & ChrW(273) & ChrW(7883) & "nh d" & ChrW(7841) & "ng c" & ChrW(361) & ") kh" & ChrW(244) & "ng chuy" & ChrW(7875) & "n sang V8 " & ChrW(273) & ChrW(432) & ChrW(7907) & "c. M" & ChrW(7903) & " file n" & ChrW(224) & "y r" & ChrW(7891) & "i d" & ChrW(249) & "ng '+ File hi" & ChrW(7879) & "n t" & ChrW(7841) & "i'."
+            Exit Function
+        End If
+        Err.Clear
+        path = pMoi
+        CF_FileMoi = pMoi
+        laHienTai = (StrComp(ActiveDesignFile.FullName, path, vbTextCompare) = 0)
+        Err.Clear
+    End If
+
     On Error GoTo Loi
     If laHienTai Then
         Set df = ActiveDesignFile
@@ -262,9 +295,12 @@ Public Function CF_XuLyFile(ByVal path As String, ByVal cheDo As Long, ByVal lvS
     If cheDo = 1 And fV Is Nothing Then Err.Raise vbObjectError + 2, , "Kh" & ChrW(244) & "ng c" & ChrW(243) & " font " & FONT_TCVN
 
     For Each m In df.Models
+        GhiLog "MODEL " & m.Name
         soChu = soChu + XuLyModel(m, cheDo, lvSo, fU, fV, fVH)
     Next m
+    GhiLog "SAVE soChu=" & soChu
     If soChu > 0 Then df.Save
+    GhiLog "XONG"
     If Not laHienTai Then df.Close
     Exit Function
 Loi:
@@ -293,15 +329,111 @@ Private Function XuLyModel(ByVal m As ModelReference, ByVal cheDo As Long, ByVal
             ds.Add el
         End If
     Loop
+    GhiLog "  so phan tu chu: " & ds.Count
     For i = 1 To ds.Count
         Set el = ds.Item(i)
+        GhiLog "  #" & i & " type=" & el.Type & " id=" & DLongToString(el.ID)
         If el.Type = msdElementTypeTextNode Then
-            XuLyModel = XuLyModel + DoiNode(el, cheDo, fU, fV, fVH)
+            XuLyModel = XuLyModel + ThayNode(m, el, cheDo, fU, fV, fVH)
         Else
-            XuLyModel = XuLyModel + DoiText(el, cheDo, fU, fV, fVH, True)
+            XuLyModel = XuLyModel + ThayText(m, el, cheDo, fU, fV, fVH)
         End If
     Next i
 End Function
+
+' ------------------------------------------------------------
+' Cach an toan: KHONG sua font tren phan tu cu (doi font RSC -> TrueType
+' tren phan tu co san lam MicroStation treo). Tao phan tu MOI tu dau
+' (giong modGanTag.DatTag), chep thuoc tinh, roi ReplaceElement.
+' ------------------------------------------------------------
+Private Function ThayText(ByVal m As ModelReference, ByVal el As Element, ByVal cheDo As Long, _
+                          ByVal fU As Object, ByVal fV As Object, ByVal fVH As Object) As Long
+    Dim oT As TextElement, sMoi As String, fMoi As Object, nT As TextElement
+    On Error Resume Next
+    Set oT = el.AsTextElement
+    If oT Is Nothing Then Exit Function
+    If Not CanDoi(TenFontAT(oT), oT.Text, cheDo, fU, fV, fVH, sMoi, fMoi) Then Exit Function
+    If fMoi Is Nothing Then Exit Function
+    GhiLog "    text: tao moi"
+    Set nT = TaoText(oT, sMoi, fMoi)
+    If nT Is Nothing Then GhiLog "    khong tao duoc": Exit Function
+    ChepThuocTinh el, nT
+    Err.Clear
+    GhiLog "    text: replace"
+    m.ReplaceElement el, nT
+    If Err.Number = 0 Then ThayText = 1 Else GhiLog "    loi replace: " & Err.Description
+End Function
+
+' Text node: tao tung dong thanh chu moi (cung vi tri), them vao, xoa node cu.
+Private Function ThayNode(ByVal m As ModelReference, ByVal el As Element, ByVal cheDo As Long, _
+                          ByVal fU As Object, ByVal fV As Object, ByVal fVH As Object) As Long
+    Dim subs As ElementEnumerator, oT As TextElement, n As Long, i As Long, coDoi As Boolean
+    Dim ds As New Collection, txt() As String, sMoi As String, fMoi As Object, fDung As Object, nT As TextElement
+    On Error Resume Next
+    Set subs = el.AsComplexElement.GetSubElements
+    ReDim txt(0 To 0)
+    Do While subs.MoveNext
+        If subs.Current.Type = msdElementTypeText Then
+            Set oT = subs.Current.AsTextElement
+            n = n + 1
+            ReDim Preserve txt(0 To n)
+            ds.Add oT
+            txt(n) = oT.Text
+            If CanDoi(TenFontAT(oT), oT.Text, cheDo, fU, fV, fVH, sMoi, fMoi) Then
+                txt(n) = sMoi: coDoi = True
+                If fDung Is Nothing Then Set fDung = fMoi
+                If cheDo = 1 And fMoi Is fV Then Set fDung = fV
+            End If
+        End If
+    Loop
+    If Not coDoi Or n = 0 Or fDung Is Nothing Then Exit Function
+    GhiLog "    node: " & n & " dong -> tach thanh chu"
+    For i = 1 To n
+        Err.Clear
+        Set nT = Nothing
+        Set nT = TaoText(ds.Item(i), txt(i), fDung)
+        If Not nT Is Nothing Then
+            ChepThuocTinh el, nT
+            m.AddElement nT
+        End If
+    Next i
+    Err.Clear
+    GhiLog "    node: xoa node cu"
+    m.RemoveElement el
+    If Err.Number = 0 Then ThayNode = 1 Else GhiLog "    loi xoa node: " & Err.Description
+End Function
+
+' Tao chu moi (khong mau) cung vi tri/goc/co chu/canh le voi oT, font f
+Private Function TaoText(ByVal oT As TextElement, ByVal s As String, ByVal f As Object) As TextElement
+    Dim nT As TextElement, ts As TextStyle, h As Double, w As Double, j As Long, org As Point3d, rot As Matrix3d
+    On Error Resume Next
+    Err.Clear
+    h = oT.TextStyle.Height: w = oT.TextStyle.Width: j = oT.TextStyle.Justification
+    org = oT.Origin
+    rot = oT.Rotation
+    If Err.Number <> 0 Then GhiLog "    loi doc: " & Err.Description: Err.Clear
+    Set nT = CreateTextElement1(Nothing, s, org, rot)
+    If nT Is Nothing Then Exit Function
+    Set ts = nT.TextStyle
+    Set ts.Font = f
+    If Err.Number <> 0 Then Err.Clear: ts.Font = f
+    If h > 0 Then ts.Height = h
+    If w > 0 Then ts.Width = w
+    ts.Justification = j
+    Set nT.TextStyle = ts
+    If Err.Number <> 0 Then Err.Clear: nT.TextStyle = ts
+    Set TaoText = nT
+End Function
+
+Private Sub ChepThuocTinh(ByVal cu As Element, ByVal moi As Element)
+    On Error Resume Next
+    Set moi.Level = cu.Level
+    moi.Color = cu.Color
+    moi.LineWeight = cu.LineWeight
+    Set moi.LineStyle = cu.LineStyle
+    moi.GraphicGroup = cu.GraphicGroup
+    moi.Class = cu.Class
+End Sub
 
 ' Quyet dinh co doi khong; tra ve chuoi moi + font moi
 Private Function CanDoi(ByVal tenFont As String, ByVal s As String, ByVal cheDo As Long, _
@@ -311,9 +443,15 @@ Private Function CanDoi(ByVal tenFont As String, ByVal s As String, ByVal cheDo 
     fn = LCase$(Trim$(tenFont))
     laVn = (Left$(fn, 2) = "vn" Or Left$(fn, 3) = ".vn")
     If cheDo = 0 Then
-        If Not laVn Then Exit Function
-        sMoi = DC_Tcvn3SangUnicode(s)
-        If Right$(fn, 1) = "h" Then sMoi = UCase$(sMoi)      ' .VnTimeH, .VnArialH: font chu hoa
+        If laVn Then
+            sMoi = TcvnSangUni(s)
+            If Right$(fn, 1) = "h" Then sMoi = UCase$(sMoi)      ' .VnTimeH, .VnArialH: font chu hoa
+        ElseIf (Len(fn) = 0 Or Not FontUnicode(fn)) And LaTcvn3(s) Then
+            ' font so (V7 / RSC: 160, 155...) nhung noi dung la ma TCVN3
+            sMoi = TcvnSangUni(s)
+        Else
+            Exit Function
+        End If
         Set fMoi = fU
         CanDoi = True
     Else
@@ -325,6 +463,94 @@ Private Function CanDoi(ByVal tenFont As String, ByVal s As String, ByVal cheDo 
     End If
 End Function
 
+' Ten font an toan ("" neu font khong co trong bang font, vd font so 160 cua file V7)
+Private Function TenFontAT(ByVal oT As TextElement) As String
+    Dim f As Object
+    On Error Resume Next
+    Set f = oT.TextStyle.Font
+    If Not f Is Nothing Then TenFontAT = f.Name
+End Function
+
+' Nhat ky de tim cho bi treo: C:\DiaChinhVL\convertfont_log.txt (dong file moi dong)
+Private Sub GhiLog(ByVal s As String, Optional ByVal moi As Boolean = False)
+    Dim f As Integer
+    On Error Resume Next
+    f = FreeFile
+    If moi Then
+        Open "C:\DiaChinhVL\convertfont_log.txt" For Output As #f
+    Else
+        Open "C:\DiaChinhVL\convertfont_log.txt" For Append As #f
+        Print #f, Format$(Now, "hh:nn:ss") & " " & s
+    End If
+    Close #f
+End Sub
+
+' Font TrueType Unicode (hoac VNI) -> khong coi la TCVN3
+Private Function FontUnicode(ByVal fn As String) As Boolean
+    Select Case fn
+        Case "times new roman", "arial", "tahoma", "calibri", "cambria", "verdana", "segoe ui", "courier new", "arial unicode ms"
+            FontUnicode = True
+    End Select
+    If Left$(fn, 3) = "vni" Then FontUnicode = True
+End Function
+
+' Doi ky tu da bi giai ma theo 1252/1258 ve lai byte goc. ok = False neu co ky tu Unicode that.
+Private Function ChuoiByte(ByVal s As String, ByRef ok As Boolean) As String
+    Dim i As Long, c As Long, r As String
+    NapRev
+    ok = True
+    For i = 1 To Len(s)
+        c = AscW(Mid$(s, i, 1)) And &HFFFF&
+        If c < 256 Then
+            r = r & ChrW(c)
+        ElseIf mByte.Exists(c) Then
+            r = r & ChrW(mByte(c))
+        Else
+            ok = False
+            r = r & ChrW(c)
+        End If
+    Next i
+    ChuoiByte = r
+End Function
+
+' Chuoi 8-bit co ky tu Viet ma TCVN3
+Private Function LaTcvn3(ByVal s As String) As Boolean
+    Dim b As String, ok As Boolean, i As Long, c As Long
+    b = ChuoiByte(s, ok)
+    If Not ok Then Exit Function
+    For i = 1 To Len(b)
+        c = AscW(Mid$(b, i, 1))
+        If c >= &HA1 Then
+            If mFwd.Exists(c) Then LaTcvn3 = True: Exit Function
+        End If
+    Next i
+End Function
+
+Private Function TcvnSangUni(ByVal s As String) As String
+    Dim b As String, ok As Boolean, i As Long, c As Long, r As String
+    b = ChuoiByte(s, ok)
+    For i = 1 To Len(b)
+        c = AscW(Mid$(b, i, 1)) And &HFFFF&
+        If mFwd.Exists(c) Then r = r & ChrW(mFwd(c)) Else r = r & ChrW(c)
+    Next i
+    TcvnSangUni = r
+End Function
+
+' DGN V7: khong phai file OLE (V8 bat dau D0 CF 11 E0), phan tu dau la TCB (type 9)
+Private Function LaFileV7(ByVal path As String) As Boolean
+    Dim f As Integer, b(0 To 1) As Byte
+    On Error GoTo Thoat
+    f = FreeFile
+    Open path For Binary Access Read Shared As #f
+    Get #f, 1, b
+    Close #f
+    LaFileV7 = (b(0) <> &HD0 And (b(1) And &H7F) = 9)
+    Exit Function
+Thoat:
+    On Error Resume Next
+    Close #f
+End Function
+
 Private Function CoKyTuViet(ByVal s As String) As Boolean
     Dim i As Long
     For i = 1 To Len(s)
@@ -332,83 +558,7 @@ Private Function CoKyTuViet(ByVal s As String) As Boolean
     Next i
 End Function
 
-Private Function DoiText(ByVal el As Element, ByVal cheDo As Long, ByVal fU As Object, _
-                         ByVal fV As Object, ByVal fVH As Object, ByVal ghi As Boolean) As Long
-    Dim oT As TextElement, ts As TextStyle, sMoi As String, fMoi As Object
-    On Error Resume Next
-    Set oT = el.AsTextElement
-    If oT Is Nothing Then Exit Function
-    If Not CanDoi(oT.TextStyle.Font.Name, oT.Text, cheDo, fU, fV, fVH, sMoi, fMoi) Then Exit Function
-    If fMoi Is Nothing Then Exit Function
-    Err.Clear
-    Set ts = oT.TextStyle
-    Set ts.Font = fMoi
-    If Err.Number <> 0 Then Err.Clear: ts.Font = fMoi
-    Set oT.TextStyle = ts
-    If Err.Number <> 0 Then Err.Clear: oT.TextStyle = ts
-    oT.Text = sMoi
-    Err.Clear
-    If ghi Then oT.Rewrite
-    If Err.Number = 0 Then DoiText = 1
-End Function
-
-' Text node: lay cac dong -> xoa dong -> them lai dong da doi -> Rewrite.
-' Neu cach nay loi -> doi tung dong con (cach cu).
-Private Function DoiNode(ByVal el As Element, ByVal cheDo As Long, ByVal fU As Object, _
-                        ByVal fV As Object, ByVal fVH As Object) As Long
-    Dim subs As ElementEnumerator, oT As TextElement, n As Long, i As Long, coDoi As Boolean
-    Dim txt() As String, sMoi As String, fMoi As Object, fDung As Object
-    On Error Resume Next
-    Set subs = el.AsComplexElement.GetSubElements
-    ReDim txt(0 To 0)
-    Do While subs.MoveNext
-        If subs.Current.Type = msdElementTypeText Then
-            Set oT = subs.Current.AsTextElement
-            n = n + 1
-            ReDim Preserve txt(0 To n)
-            txt(n) = oT.Text
-            If CanDoi(oT.TextStyle.Font.Name, oT.Text, cheDo, fU, fV, fVH, sMoi, fMoi) Then
-                txt(n) = sMoi: coDoi = True
-                If fDung Is Nothing Then Set fDung = fMoi
-                If cheDo = 1 And fMoi Is fV Then Set fDung = fV
-            End If
-        End If
-    Loop
-    If Not coDoi Or n = 0 Or fDung Is Nothing Then Exit Function
-
-    ' Cach 1: dung lai noi dung text node
-    Dim nd As TextNodeElement, ts As TextStyle
-    Err.Clear
-    Set nd = el.AsTextNodeElement
-    Set ts = nd.TextStyle
-    Set ts.Font = fDung
-    If Err.Number <> 0 Then Err.Clear: ts.Font = fDung
-    Set nd.TextStyle = ts
-    If Err.Number <> 0 Then Err.Clear: nd.TextStyle = ts
-    Err.Clear
-    nd.DeleteAllTextLines
-    If Err.Number = 0 Then
-        For i = 1 To n
-            nd.AddTextLine txt(i)
-        Next i
-        If Err.Number = 0 Then
-            nd.Rewrite
-            If Err.Number = 0 Then DoiNode = 1
-        End If
-        Exit Function       ' da xoa dong -> khong chay cach 2 (tranh ghi node rong)
-    End If
-
-    ' Cach 2 (du phong): doi tung dong con
-    Err.Clear
-    Set subs = el.AsComplexElement.GetSubElements
-    Do While subs.MoveNext
-        DoiNode = DoiNode + DoiText(subs.Current, cheDo, fU, fV, fVH, False)
-    Loop
-    Err.Clear
-    el.Rewrite
-    If Err.Number <> 0 Then DoiNode = 0
-    If DoiNode > 1 Then DoiNode = 1
-End Function
+' (DoiText/DoiNode cu da bo: sua font tren phan tu co san lam MicroStation treo)
 
 '============================================================
 ' Unicode -> TCVN3. hoa = True khi chuoi la chu HOA co dau
@@ -450,11 +600,20 @@ Private Sub NapRev()
     Dim a() As String, i As Long, b As Long, u As Long
     If Not mRev Is Nothing Then Exit Sub
     Set mRev = CreateObject("Scripting.Dictionary")
+    Set mFwd = CreateObject("Scripting.Dictionary")
+    Set mByte = CreateObject("Scripting.Dictionary")
     a = Split(TCVN_MAP, ",")
     For i = LBound(a) To UBound(a)
         b = CLng("&H" & Left$(a(i), 2))
         u = CLng("&H" & Mid$(a(i), 3, 4))
         If Not mRev.Exists(u) Then mRev.Add u, b
+        If Not mFwd.Exists(b) Then mFwd.Add b, u
+    Next i
+    a = Split(BYTE_MAP, ",")
+    For i = LBound(a) To UBound(a)
+        u = CLng("&H" & Left$(a(i), 4))
+        b = CLng("&H" & Mid$(a(i), 5, 2))
+        If Not mByte.Exists(u) Then mByte.Add u, b
     Next i
 End Sub
 
