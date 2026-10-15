@@ -199,3 +199,129 @@ Loi:
         If Not df Is Nothing Then df.Close
     End If
 End Function
+
+'============================================================
+' PHA KHOI (drop cell) co chua chu tren lop can tach
+'   Cell thuong: chep cac phan tu con (Clone) ra ngoai roi xoa cell.
+'   Shared cell: chua pha duoc bang VBA -> chi dem de bao.
+'   lvNguon <= 0 : khoi co chu o bat ky lop nao.
+'============================================================
+Public Function TL_PhaKhoiFile(ByVal path As String, ByVal lvNguon As Long, ByVal saoLuu As Boolean, _
+                               ByVal chiChon As Boolean, ByRef nPha As Long, ByRef nShared As Long) As String
+    Dim df As DesignFile, laHienTai As Boolean, m As ModelReference
+    nPha = 0: nShared = 0
+    On Error Resume Next
+    laHienTai = (StrComp(ActiveDesignFile.FullName, path, vbTextCompare) = 0)
+    Err.Clear
+    If saoLuu And Not laHienTai Then
+        Dim fso As Object
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        fso.CopyFile path, path & ".bak", True
+        If Err.Number <> 0 Then
+            TL_PhaKhoiFile = "Kh" & ChrW(244) & "ng sao l" & ChrW(432) & "u " & ChrW(273) & ChrW(432) & ChrW(7907) & "c (.bak): " & Err.Description
+            Exit Function
+        End If
+    End If
+
+    On Error GoTo Loi
+    If laHienTai Then
+        If chiChon Then
+            PhaKhoiDs ActiveModelReference, ActiveModelReference.GetSelectedElements, lvNguon, nPha, nShared
+            RedrawAllViews
+            Exit Function
+        End If
+        Set df = ActiveDesignFile
+    Else
+        Set df = Application.OpenDesignFileForProgram(path, False)
+    End If
+    If df Is Nothing Then TL_PhaKhoiFile = "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file": Exit Function
+    For Each m In df.Models
+        PhaKhoiDs m, QuetKhoi(m), lvNguon, nPha, nShared
+    Next m
+    If nPha > 0 Then df.Save
+    If Not laHienTai Then df.Close Else RedrawAllViews
+    Exit Function
+Loi:
+    TL_PhaKhoiFile = Err.Description
+    On Error Resume Next
+    If Not laHienTai Then
+        If Not df Is Nothing Then df.Close
+    End If
+End Function
+
+Private Function QuetKhoi(ByVal m As ModelReference) As ElementEnumerator
+    Dim esc As ElementScanCriteria
+    On Error Resume Next
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeCellHeader
+    esc.IncludeType msdElementTypeSharedCell
+    Set QuetKhoi = m.Scan(esc)
+End Function
+
+Private Sub PhaKhoiDs(ByVal m As ModelReference, ByVal ee As ElementEnumerator, ByVal lvNguon As Long, _
+                      ByRef nPha As Long, ByRef nShared As Long)
+    Dim ds As New Collection, el As Element, i As Long, loi As Boolean
+    If ee Is Nothing Then Exit Sub
+    On Error Resume Next
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If el.Type = msdElementTypeSharedCell Then
+            nShared = nShared + 1
+        ElseIf el.Type = msdElementTypeCellHeader Then
+            If KhoiCoChu(el, lvNguon) Then ds.Add el
+        End If
+    Loop
+    For i = 1 To ds.Count
+        Set el = ds.Item(i)
+        loi = False
+        ChepConKhoi m, el, loi
+        If Not loi Then
+            Err.Clear
+            m.RemoveElement el
+            If Err.Number = 0 Then nPha = nPha + 1
+        End If
+    Next i
+End Sub
+
+' Khoi co chu (text / text node) tren lop lvNguon (<= 0: lop bat ky), tim ca khoi long nhau
+Private Function KhoiCoChu(ByVal el As Element, ByVal lvNguon As Long) As Boolean
+    Dim subs As ElementEnumerator, c As Element
+    On Error Resume Next
+    Set subs = el.AsComplexElement.GetSubElements
+    If subs Is Nothing Then Exit Function
+    Do While subs.MoveNext
+        Set c = subs.Current
+        If c.Type = msdElementTypeText Or c.Type = msdElementTypeTextNode Then
+            If lvNguon <= 0 Then KhoiCoChu = True: Exit Function
+            If DC_LevelSo(c) = lvNguon Then KhoiCoChu = True: Exit Function
+        ElseIf c.Type = msdElementTypeCellHeader Then
+            If KhoiCoChu(c, lvNguon) Then KhoiCoChu = True: Exit Function
+        End If
+    Loop
+End Function
+
+' Chep cac phan tu con cua khoi ra model (khoi long nhau -> pha tiep)
+Private Sub ChepConKhoi(ByVal m As ModelReference, ByVal el As Element, ByRef loi As Boolean)
+    Dim subs As ElementEnumerator, c As Element, cp As Element, o As Object
+    On Error Resume Next
+    Set subs = el.AsComplexElement.GetSubElements
+    If subs Is Nothing Then loi = True: Exit Sub
+    Do While subs.MoveNext
+        Set c = subs.Current
+        If c.Type = msdElementTypeCellHeader Then
+            ChepConKhoi m, c, loi
+        Else
+            Err.Clear
+            Set cp = Nothing
+            Set o = c
+            Set cp = o.Clone              ' late binding: thieu Clone -> loi chay (bat duoc), khong loi bien dich
+            If Err.Number = 0 And Not cp Is Nothing Then
+                m.AddElement cp
+                If Err.Number <> 0 Then loi = True
+            Else
+                loi = True
+            End If
+        End If
+    Loop
+End Sub
