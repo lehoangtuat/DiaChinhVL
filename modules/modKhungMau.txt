@@ -18,7 +18,7 @@ Private gTyLeCu As Double
 ' co co "DGN") thi TINH LAI tu luoi ke doc cua bang + vi tri tag (TinhCotTuLuoi).
 Private CX_DINH As Double, CX_X As Double, CX_Y As Double, CX_CANH As Double
 Private CW_DINH As Double, CW_X As Double, CW_Y As Double, CW_CANH As Double
-Private gTuDgn As Boolean
+Private gTuDgn As Boolean, gCotDgn As Boolean
 Private gScDgn As Double, gDgnPath As String     ' chep thang phan tu tu file mau .dgn
 ' Vi tri tam o so do cua lan trich luc vua ve (modMoTrichLuc dung de zoom)
 Public gTLCx As Double, gTLCy As Double
@@ -29,27 +29,7 @@ Public gTyLeTuDong As Boolean
 ' Chi giu chut bien an toan. Chu con tran -> tang; chu bi thu nho oan -> giam.
 Private Const C_CAL As Double = 1.05
 
-'============================================================
-' GHI CHU - do lai 04/08/2026 tu TrichLucBanDo_mau.txt
-'
-' Vach ke DOC cua bang muc 8 (do tu cac dong L trong file mau):
-'   117643.7 | 117683.0 | 117757.7 | 117926.5 | 118102.0 | 118372.8
-'   cot "Dinh" = 117683.0..117757.7   cot "X(m)" = 117757.7..117926.5
-'   cot "Y(m)" = 117926.5..118102.0   cot "Canh" = 118102.0..118372.8
-'   (tieu de X(m) o x=117817.7 ; Y(m) o x=117992.7)
-'
-' TAG danh dau o lai nam NGUOC TEN so voi cot:
-'   tag "tamYtl" x=117756.0 -> nam trong cot X(m)
-'   tag "tamXtl" x=117928.2 -> nam trong cot Y(m)
-'
-' Vi vay ben duoi cellX_yy (tu tamYtl) nhan toa do X, cellX_xx (tu tamXtl)
-' nhan toa do Y. NHIN QUA TUONG LA SAI - nhung day moi dung. Dung "sua lai
-' cho khop ten tag".
-'
-' Quy uoc VN-2000: X(m) = toa do BAC (~1.0xx.xxx) = ring(i,1) = y cua DGN
-'                  Y(m) = toa do DONG (~5xx.xxx)  = ring(i,0) = x cua DGN
-' Doi chieu ban gCadas: X(m)=1098785,32  Y(m)=591277,93
-'============================================================
+' GHI CHU cot bang muc 8 / quy uoc X-Y: xem ban luu truoc 15/10/2026.
 
 '============================================================
 ' modKhungMau - Chen khung mau Phu luc 19 (TT26) + dien tag
@@ -155,6 +135,7 @@ tiep:
     Next i
 
     DatCotMacDinh
+    gCotDgn = False
     If gTuDgn Then TinhCotTuLuoi
     gLoaded = True
     NapMau = True
@@ -609,6 +590,7 @@ boLine2:
     ReDim cellX_yy(1 To gNT) As Double: ReDim cellY_yy(1 To gNT) As Double: Dim c_yy As Long
     ReDim cellX_cd(1 To gNT) As Double: ReDim cellY_cd(1 To gNT) As Double: Dim c_cd As Long
     c_tt = 0: c_xx = 0: c_yy = 0: c_cd = 0
+    Dim nTLThem As Long
 
     Dim s As String, gt As String, mx As Double, my As Double, hc As Double
     For i = 1 To gNT
@@ -622,10 +604,19 @@ boLine2:
             If Not chep Then VeTextMau mx, my, s, hc
         Else
             Select Case s
-                Case "tttl": c_tt = c_tt + 1: cellX_tt(c_tt) = gTX(i): cellY_tt(c_tt) = TamHang(gTX(i), gTY(i))
-                Case "tamXtl": c_xx = c_xx + 1: cellX_xx(c_xx) = gTX(i): cellY_xx(c_xx) = TamHang(gTX(i), gTY(i))
-                Case "tamYtl": c_yy = c_yy + 1: cellX_yy(c_yy) = gTX(i): cellY_yy(c_yy) = TamHang(gTX(i), gTY(i))
-                Case "cdtl": c_cd = c_cd + 1: cellX_cd(c_cd) = gTX(i): cellY_cd(c_cd) = TamHang(gTX(i), gTY(i))
+                ' SUA 15/10: mau .dgn co them bang tttl dai (trang bo sung) -> chi lay bang chinh
+                Case "tttl", "tamXtl", "tamYtl", "cdtl"
+                    If gCotDgn And (gTX(i) < CX_DINH - CW_DINH Or gTX(i) > CX_CANH + CW_CANH) Then
+                        If s = "tttl" Then nTLThem = nTLThem + 1
+                    ElseIf s = "tttl" Then
+                        c_tt = c_tt + 1: cellX_tt(c_tt) = gTX(i): cellY_tt(c_tt) = TamHang(gTX(i), gTY(i))
+                    ElseIf s = "tamXtl" Then
+                        c_xx = c_xx + 1: cellX_xx(c_xx) = gTX(i): cellY_xx(c_xx) = TamHang(gTX(i), gTY(i))
+                    ElseIf s = "tamYtl" Then
+                        c_yy = c_yy + 1: cellX_yy(c_yy) = gTX(i): cellY_yy(c_yy) = TamHang(gTX(i), gTY(i))
+                    Else
+                        c_cd = c_cd + 1: cellX_cd(c_cd) = gTX(i): cellY_cd(c_cd) = TamHang(gTX(i), gTY(i))
+                    End If
                 Case Else
                     If Not chep Then
                         gt = GiaTriTag(s, found, toBanDo, tenXa, tenHuyen, tenTinh, slDT)
@@ -680,9 +671,11 @@ boTxt2:
     ' Hang 1..c_tt dien o day; hang c_tt+1 tro di (vd tu 17) dua sang bang
     ' trang "Trich luc ban do dia chinh" (ttkq/tamykq/tamxkq/cdkq), bang TRAI truoc.
     If nR > c_tt And c_tt > 0 Then
-        If Not DienBangKQ(c_tt + 1, nR, rSo, rX, rY, rCanh, slTD, slCD, cxb, cyb, k, Cpx, Cpy) Then
+        ' SUA 16/10: bang noi tiep bat dau LAP LAI dinh cuoi (16) de co canh 16-17
+        If Not DienBangKQ(c_tt, nR, rSo, rX, rY, rCanh, slTD, slCD, cxb, cyb, k, Cpx, Cpy) Then
             MsgBox "Thua co " & nR & " hang toa do, mau chi co " & c_tt & " hang (khong co bang ttkq).", vbExclamation, "Trich luc"
         End If
+        If nTLThem > 0 Then DienBangKQ c_tt, nR, rSo, rX, rY, rCanh, slTD, slCD, cxb, cyb, k, Cpx, Cpy, False, "tl"
     End If
     If True Then
         DatLv mLvBang
@@ -866,11 +859,11 @@ Private Function DienBangKQ(ByVal r0 As Long, ByVal nR As Long, rSo() As String,
                             rCanh() As Double, ByVal slTD As Long, ByVal slCD As Long, _
                             ByVal cxb As Double, ByVal cyb As Double, ByVal k As Double, _
                             ByVal Cpx As Double, ByVal Cpy As Double, _
-                            Optional ByVal bangNho As Boolean = False) As Boolean
+                            Optional ByVal bangNho As Boolean = False, Optional ByVal hau As String = "kq") As Boolean
     Dim tx() As Double, ty() As Double, ct As Long, i As Long, hT As Double, lvT As Long
     ReDim tx(1 To gNT + 1): ReDim ty(1 To gNT + 1)
     For i = 1 To gNT
-        If gTS(i) = "ttkq" Then
+        If gTS(i) = "tt" & hau Then
             ct = ct + 1: tx(ct) = gTX(i): ty(ct) = TamHang(gTX(i), gTY(i))
             hT = gTCao(i): lvT = gTL(i)
         End If
@@ -905,19 +898,23 @@ Private Function DienBangKQ(ByVal r0 As Long, ByVal nR As Long, rSo() As String,
         sl = sl + 1
         xc = TamCot(tx(sl), ty(sl), w)
         DienCell xc, ty(sl), rSo(r), hc, cxb, cyb, k, Cpx, Cpy, w * k
-        xT = TagCanhPhai("tamykq", tx(sl), ty(sl), hT)
+        xT = TagCanhPhai("tamy" & hau, tx(sl), ty(sl), hT)
         If xT > -1E+29 Then xc = TamCot(xT, ty(sl), w): DienCell xc, ty(sl), FNum(rX(r), slTD), hc, cxb, cyb, k, Cpx, Cpy, w * k
-        xT = TagCanhPhai("tamxkq", tx(sl), ty(sl), hT)
+        xT = TagCanhPhai("tamx" & hau, tx(sl), ty(sl), hT)
         If xT > -1E+29 Then xc = TamCot(xT, ty(sl), w): DienCell xc, ty(sl), FNum(rY(r), slTD), hc, cxb, cyb, k, Cpx, Cpy, w * k
         ' canh r -> r+1: giua 2 o, chi khi o ke tiep cung 1 bang (cung cot)
         If rCanh(r) >= 0# And r < nR And sl + 1 <= ct Then
             If Abs(tx(sl + 1) - tx(sl)) < hT * 2# Then
-                xT = TagCanhPhai("cdkq", tx(sl), (ty(sl) + ty(sl + 1)) / 2#, hT * 2#)
+                xT = TagCanhPhai("cd" & hau, tx(sl), (ty(sl) + ty(sl + 1)) / 2#, hT * 2#)
                 If xT > -1E+29 Then
                     xc = TamCot(xT, ty(sl), w)
                     DienCell xc, (ty(sl) + ty(sl + 1)) / 2#, FNum(rCanh(r), slCD), hc, cxb, cyb, k, Cpx, Cpy, w * k
                 End If
             End If
+        End If
+        ' SUA 16/10: sang cot/bang moi -> lap lai dinh vua ghi (co canh noi tiep)
+        If sl + 1 <= ct And r < nR Then
+            If Abs(tx(sl + 1) - tx(sl)) >= hT * 2# Then r = r - 1
         End If
         r = r + 1
     Loop
@@ -932,7 +929,7 @@ Private Function TagCanhPhai(ByVal ten As String, ByVal x0 As Double, ByVal y0 A
     TagCanhPhai = -1E+30: best = 1E+30
     If dyMax <= 0 Then dyMax = 1#
     For i = 1 To gNT
-        If gTS(i) = ten Then
+        If StrComp(gTS(i), ten, vbTextCompare) = 0 Then
             If gTX(i) > x0 Then
                 yy = TamHang(gTX(i), gTY(i))
                 If Abs(yy - y0) <= dyMax * 1.5 Or Abs(gTY(i) - y0) <= dyMax * 1.5 Then
@@ -1176,7 +1173,7 @@ Private Sub TinhCotTuLuoi()
             Next j
             If xl > -1E+29 And xr < 1E+29 Then
                 Select Case t
-                    Case 0: CX_DINH = (xl + xr) / 2#: CW_DINH = xr - xl
+                    Case 0: CX_DINH = (xl + xr) / 2#: CW_DINH = xr - xl: gCotDgn = True
                     Case 1: CX_X = (xl + xr) / 2#: CW_X = xr - xl
                     Case 2: CX_Y = (xl + xr) / 2#: CW_Y = xr - xl
                     Case 3: CX_CANH = (xl + xr) / 2#: CW_CANH = xr - xl
@@ -1281,7 +1278,7 @@ Public Function DC_TyLeTachHop(ByVal mauPath As String, ByVal pw As Double, ByVa
         If bwt < bw Then bw = bwt
         If bht < bh Then bh = bht
     End If
-    ds = Array(200#, 500#, 1000#, 2000#, 5000#, 10000#)
+    ds = Array(200#, 500#, 700#, 1000#, 2000#, 5000#, 10000#)
     For i = 0 To UBound(ds)
         If pw <= bw * ds(i) / 20000# * 0.85 And ph <= bh * ds(i) / 20000# * 0.85 Then
             DC_TyLeTachHop = ds(i): Exit Function
@@ -1352,6 +1349,7 @@ Private Sub VeSoDoTH(ByVal ds As Collection, ByVal ox As Double, ByVal oy As Dou
     Dim j As Long, kv As Long, i As Long, m As Long, v As clsVung, rg() As Double
     Dim ax As Double, ay As Double, bx As Double, by As Double, key As String, s As String
     Dim rMoc As Double: rMoc = cao * 0.5
+    Dim hx As Double, hy As Double, kc As Double
 
     For j = 1 To ds.Count
         Set v = ds.Item(j)
@@ -1372,7 +1370,11 @@ Private Sub VeSoDoTH(ByVal ds As Collection, ByVal ox As Double, ByVal oy As Dou
                 If Len(s) > 0 And Not daSo.Exists(s) Then
                     daSo.Add s, True
                     DatLv mLvSo
-                    VeText ax + rMoc * 1.6, ay + rMoc * 1.6, s, cao * 0.84 * 0.8, -1
+                    ' SUA 16/10: so hieu dinh RA NGOAI nhom thua (modViTriSo)
+                    kc = cao * 0.84 * 0.8 * (0.75 + 0.3 * Len(s))
+                    hx = 0.7071: hy = 0.7071
+                    DC_HuongSoDinh ds, rg, m, i, (kv > 0), kc / kp, hx, hy
+                    VeText ax + hx * kc, ay + hy * kc, s, cao * 0.84 * 0.8, -1
                 End If
             Next i
         Next kv
