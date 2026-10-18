@@ -63,6 +63,8 @@ Public Sub ChayTrichLucThua(ByVal found As clsVung, _
                             ByVal lvXuat As String, ByVal cao As Double, _
                             ByVal cheDoMau As Boolean, ByVal tyLe As Double)
 
+    ' SUA 16/10/2026: lan truoc da tu tat lop -> bat lai truoc khi xuat thua moi
+    If DC_DaTatLop() Then DC_BatLopBanDo
     ' File mau .dgn (kieu gCadas) -> bat mau ra .txt (co cache)
     mauPath = DC_ChuanBiMau(mauPath)
 
@@ -126,6 +128,14 @@ Public Sub ChayTrichLucThua(ByVal found As clsVung, _
     gTLx1 = zx1: gTLy1 = zy1: gTLx2 = zx2: gTLy2 = zy2
     gTLTen = "TL_To" & toBanDo & "_Thua" & found.soThua
     DC_ZoomVung zx1, zy1, zx2, zy2
+    ' SUA 16/10/2026: xuat xong TU TAT lop ban do, chi de Level ho so + Level so do
+    '   (tat tinh nang: DiaChinhVL.ini -> TL_TUTATLOP=0)
+    If DC_DocCauHinh("TL_TUTATLOP", "1") = "1" And DC_DocCauHinh("LV_HS_ON", "1") = "1" _
+       And DC_DocCauHinh("LV_SD_ON", "1") = "1" Then
+        If Len(Trim$(DC_DocCauHinh("LV_HS", ""))) > 0 And Len(Trim$(DC_DocCauHinh("LV_SD", ""))) > 0 Then
+            DC_TatLopBanDo DC_DocCauHinh("LV_HS", ""), DC_DocCauHinh("LV_SD", "")
+        End If
+    End If
 
     DC_ThongBao ChrW(272) & ChrW(227) & " tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a s" & ChrW(7889) & " " & found.soThua & _
            " (di" & ChrW(7879) & "n t" & ChrW(237) & "ch " & Format$(Round(found.Dt, 1), "0.0") & " m2)." & vbCrLf & _
@@ -153,7 +163,7 @@ End Function
 Private Function TyLeTuDong(ByVal v As clsVung, ByVal mauPath As String) As Double
     Dim ds As Variant, i As Long, pw As Double, ph As Double
     Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
-    ds = Array(200#, 500#, 1000#, 2000#, 5000#, 10000#)
+    ds = Array(200#, 500#, 700#, 1000#, 2000#, 5000#, 10000#)
     If Not DocKhungMau(mauPath) Then mBoxW = 989.8: mBoxH = 1048#
     BaoThua v, x1, y1, x2, y2
     pw = x2 - x1: ph = y2 - y1
@@ -337,9 +347,25 @@ Public Sub DC_LuuFileHoSo(ByVal dsHS As String, ByVal dsSD As String)
     End If
     Err.Clear
 
-    ' Tao file moi tu ban ve dang mo (seed) roi xoa sach
-    Dim df As DesignFile, md As ModelReference
-    Application.CreateDesignFile ActiveDesignFile.FullName, f, False
+    ' SUA 16/10/2026: NHANH - file seed RONG theo HE TOA DO (don vi + goc toa do):
+    ' C:\DiaChinhVL\Mau\seed_hoso_<chu ky>.dgn. Cung he toa do -> dung lai;
+    ' he toa do khac -> tao them 1 file seed moi (chi 1 lan cho he do).
+    ' Truoc day chep ca ban do roi xoa tung phan tu -> rat cham.
+    Dim df As DesignFile, md As ModelReference, seedF As String, ky As String
+    ky = DC_ChuKySeed()
+    If Len(ky) = 0 Then ky = "macdinh"
+    seedF = DC_THUMUC & "\Mau\seed_hoso_" & ky & ".dgn"
+    If Len(Dir$(seedF)) = 0 Then
+        ShowStatus "Tao file seed cho he toa do moi (chi 1 lan)..."
+        Err.Clear
+        If Not TaoSeedRong(seedF) Then seedF = ""
+    End If
+    Err.Clear
+    If Len(seedF) > 0 Then
+        FileCopy seedF, f
+    Else
+        Application.CreateDesignFile ActiveDesignFile.FullName, f, False
+    End If
     Err.Clear
     Set df = Application.OpenDesignFileForProgram(f, False)
     If df Is Nothing Or Err.Number <> 0 Then
@@ -347,17 +373,7 @@ Public Sub DC_LuuFileHoSo(ByVal dsHS As String, ByVal dsSD As String)
         Exit Sub
     End If
     Set md = df.DefaultModelReference
-
-    Dim escX As New ElementScanCriteria, eX As ElementEnumerator, cu() As Element, nCu As Long
-    escX.ExcludeNonGraphical
-    Set eX = md.Scan(escX)
-    nCu = DemMang(eX, cu)
-    For i = 0 To nCu - 1
-        md.RemoveElement cu(i)
-    Next i
-    For i = md.Attachments.Count To 1 Step -1
-        md.Attachments.Remove md.Attachments(i)
-    Next i
+    If Len(seedF) = 0 Then XoaSach md          ' du phong: khong tao duoc seed
     Err.Clear
 
     ' Chep phan tu trich luc
@@ -376,6 +392,35 @@ Public Sub DC_LuuFileHoSo(ByVal dsHS As String, ByVal dsSD As String)
 End Sub
 
 '--- Bo loc theo danh sach so level (chi level da co trong ban ve)
+' File seed rong = ban sao ban ve dang mo da xoa sach phan tu + tham chieu
+Private Function TaoSeedRong(ByVal seedF As String) As Boolean
+    Dim df As DesignFile
+    On Error Resume Next
+    If Len(Dir$(DC_THUMUC & "\Mau", vbDirectory)) = 0 Then MkDir DC_THUMUC & "\Mau"
+    Err.Clear
+    Application.CreateDesignFile ActiveDesignFile.FullName, seedF, False
+    Set df = Application.OpenDesignFileForProgram(seedF, False)
+    If df Is Nothing Or Err.Number <> 0 Then Exit Function
+    XoaSach df.DefaultModelReference
+    df.Save
+    df.Close
+    TaoSeedRong = (Err.Number = 0 And Len(Dir$(seedF)) > 0)
+End Function
+
+Private Sub XoaSach(ByVal md As ModelReference)
+    Dim escX As New ElementScanCriteria, eX As ElementEnumerator, cu() As Element, nCu As Long, i As Long
+    On Error Resume Next
+    escX.ExcludeNonGraphical
+    Set eX = md.Scan(escX)
+    nCu = DemMang(eX, cu)
+    For i = 0 To nCu - 1
+        md.RemoveElement cu(i)
+    Next i
+    For i = md.Attachments.Count To 1 Step -1
+        md.Attachments.Remove md.Attachments(i)
+    Next i
+End Sub
+
 Private Function TaoLocLevel(ByVal dsLv As String, ByRef co As Boolean) As ElementScanCriteria
     Dim esc As New ElementScanCriteria, ds() As Long, c As Long, i As Long, lv As Level
     esc.ExcludeNonGraphical
@@ -452,6 +497,10 @@ Public Sub DC_TatLopBanDo(ByVal dsHS As String, ByVal dsSD As String)
     On Error GoTo 0
     RedrawAllViews
 End Sub
+
+Public Function DC_DaTatLop() As Boolean
+    DC_DaTatLop = Not (mLvTat Is Nothing And mAttTat Is Nothing)
+End Function
 
 Public Sub DC_BatLopBanDo()
     Dim vw As View, vi As Long, lv As Level, i As Long, p As Long, it As String
