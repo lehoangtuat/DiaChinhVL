@@ -1,0 +1,77 @@
+'============================================================
+' frmTroLy - Tro ly lenh: go cau lenh tieng Viet -> phan mem tu lam
+'   Can: modTroLy, clsNutTL, modCauHinh. Tao bang DC_MoFormTuTao.
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+
+Private Sub UserForm_Initialize()
+    Dim c As Object
+    Me.Caption = "Tro ly lenh DiaChinhVL"
+    Me.Width = 420: Me.Height = 330
+    Me.Font.Name = "Arial": Me.Font.size = 8
+
+    Set c = Me.Controls.Add("Forms.Label.1", "lblMau", True)
+    c.Left = 8: c.Top = 4: c.Width = 400: c.Height = 14: c.Font.Name = "Arial": c.Font.size = 9: c.Font.Bold = True
+    c.ForeColor = &H800000
+
+    Set c = Me.Controls.Add("Forms.Label.1", "lblHD", True)
+    c.Caption = "G" & ChrW(245) & " vi" & ChrW(7879) & "c c" & ChrW(7847) & "n l" & ChrW(224) & "m b" & ChrW(7857) & "ng ti" & ChrW(7871) & "ng Vi" & ChrW(7879) & "t (nhi" & ChrW(7873) & "u vi" & ChrW(7879) & "c c" & ChrW(225) & "ch nhau b" & ChrW(7857) & "ng d" & ChrW(7845) & "u ; ho" & ChrW(7863) & "c xu" & ChrW(7889) & "ng d" & ChrW(242) & "ng), r" & ChrW(7891) & "i b" & ChrW(7845) & "m Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n:"
+    c.Left = 8: c.Top = 20: c.Width = 400: c.Height = 14: c.Font.Name = "Arial": c.Font.size = 8
+
+    Set c = Me.Controls.Add("Forms.TextBox.1", "txtLenh", True)
+    c.Left = 8: c.Top = 36: c.Width = 398: c.Height = 52
+    c.MultiLine = True: c.EnterKeyBehavior = True: c.WordWrap = True
+    c.Font.Name = "Arial": c.Font.size = 10
+    c.Text = DC_DocCauHinh("AI_LENH" & gTLMau, TL_ViDu(gTLMau))
+
+    Set c = Me.Controls.Add("Forms.Label.1", "lblVD", True)
+    c.Caption = "V" & ChrW(237) & " d" & ChrW(7909) & ": t" & ChrW(7841) & "o v" & ChrW(249) & "ng l" & ChrW(7899) & "p 10 " & ChrW(183) & " g" & ChrW(225) & "n th" & ChrW(7917) & "a l" & ChrW(7899) & "p 13 " & ChrW(183) & " g" & ChrW(225) & "n lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t l" & ChrW(7899) & "p 6 " & ChrW(183) & " tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a 15 t" & ChrW(7927) & " l" & ChrW(7879) & " 500 " & ChrW(183) & " t" & ChrW(225) & "ch th" & ChrW(7917) & "a 15 l" & ChrW(7899) & "p c" & ChrW(7855) & "t 18 " & ChrW(183) & " h" & ChrW(7907) & "p th" & ChrW(7917) & "a 12, 13 " & ChrW(183) & " t" & ChrW(244) & " m" & ChrW(224) & "u " & ChrW(183) & " xu" & ChrW(7845) & "t polygon " & ChrW(183) & " chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh " & ChrW(183) & " t" & ChrW(7855) & "t l" & ChrW(7899) & "p " & ChrW(183) & " l" & ChrW(432) & "u h" & ChrW(7891) & " s" & ChrW(417)
+    c.Left = 8: c.Top = 92: c.Width = 400: c.Height = 26: c.WordWrap = True
+    c.Font.Name = "Arial": c.Font.size = 7: c.ForeColor = &H808080
+
+    Set c = Me.Controls.Add("Forms.TextBox.1", "txtKQ", True)
+    c.Left = 8: c.Top = 120: c.Width = 398: c.Height = 146
+    c.MultiLine = True: c.ScrollBars = 2: c.Locked = True: c.BackColor = &HF4F4F4
+    c.Font.Name = "Arial": c.Font.size = 8
+
+    ThemNut "CHAY", "Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n", 240, 274, 80
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 326, 274, 80
+    HienMau
+End Sub
+
+Private Sub UserForm_Activate()
+    HienMau
+End Sub
+
+' Cap nhat tieu de theo mau dang chon (mo lai tu menu mau khac)
+Private Sub HienMau()
+    Static mCu As Long, daCo As Boolean
+    On Error Resume Next
+    Me.Controls("lblMau").Caption = "M" & ChrW(7851) & "u: " & TL_TenMau(gTLMau)
+    If daCo And mCu <> gTLMau Then Me.Controls("txtLenh").Text = DC_DocCauHinh("AI_LENH" & gTLMau, TL_ViDu(gTLMau))
+    mCu = gTLMau: daCo = True
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then Unload Me: Exit Sub
+    Dim lenh As String, kq As String
+    lenh = Me.Controls("txtLenh").Text
+    DC_GhiCauHinh "AI_LENH" & gTLMau, Replace(Replace(lenh, vbCr, " "), vbLf, " ")
+    Me.Controls("txtKQ").Text = ChrW(272) & "ang ch" & ChrW(7841) & "y ..."
+    Me.Hide
+    kq = TL_ChayLenh(lenh)
+    Me.Show vbModeless
+    Me.Controls("txtKQ").Text = kq
+End Sub
+
+Private Sub ThemNut(ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim b As Object, hd As clsNutTL
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = w: b.Height = 22
+    b.Font.Name = "Arial": b.Font.size = 8
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
+    mNut.Add hd
+End Sub
