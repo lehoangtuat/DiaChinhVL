@@ -174,7 +174,7 @@ Public Sub DC_TaoCSDL()
     Dim i As Long, v As clsVung
     For i = 1 To vungs.Count
         Set v = vungs.Item(i)
-        VeTam v.cx, v.cy, size, 4
+        VeTamHong v.cx, v.cy, size, 5
     Next i
 
     Dim ok As Boolean
