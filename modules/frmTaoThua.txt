@@ -32,7 +32,7 @@ Private Sub UserForm_Initialize()
     AddPair "B" & ChrW(7887) & " v" & ChrW(249) & "ng <(m" & ChrW(178) & "):", "txtBoNho", "0", x, 92
     AddPair "Snap:", "txtSnap", "0.05", x, 116
     AddPair "L" & ChrW(7899) & "p t" & ChrW(226) & "m:", "txtLevelTam", "Level 11", x, 140
-    AddPair "M" & ChrW(224) & "u t" & ChrW(226) & "m:", "txtMau", "4", x, 164
+    AddPair "M" & ChrW(224) & "u t" & ChrW(226) & "m:", "txtMau", "5", x, 164
     AddPair "KT t" & ChrW(226) & "m (m):", "txtKT", "0.3", x, 188
     AddPair "File CSDL:", "txtCSDL", "", x, 212
     AddPair "M" & ChrW(224) & "u ranh (tr" & ChrW(7889) & "ng=h" & ChrW(7871) & "t):", "txtMauRanh", "", x, 236
