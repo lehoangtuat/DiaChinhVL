@@ -1,0 +1,289 @@
+'============================================================
+' modTroLy - TRO LY LENH tieng Viet (khong can mang / API key)
+'   Go cau lenh, vd:
+'     tao vung lop 10 ; gan thua lop 13 ; trich luc thua 15
+'     tao vung lop 10, 12 roi gan thua lop 13, gan loai dat lop 6
+'     trich luc thua 15 ty le 500 ; to mau ; xuat polygon ; chieu dai canh
+'   Bo dau tieng Viet, tach thanh tung lenh theo dong tu (tao/gan/trich...),
+'   doc so level / so thua, roi goi dung chuc nang co san.
+'   Form: frmTroLy (DC_MoTroLy). Thong so mac dinh lay tu ini / form cu.
+'============================================================
+Option Explicit
+
+Private mLog As String
+' Mau ho so dang dung cho tro ly: 0 = Trich luc TT26, 1 = Tach thua, 2 = Hop thua, 3 = Trich luc + Phieu VL
+Public gTLMau As Long
+
+Public Sub DC_MoTroLy()
+    DC_MoTroLyMau CLng(Val(DC_DocCauHinh("AI_MAU", "0")))
+End Sub
+
+Public Sub DC_MoTroLyMau(ByVal m As Long)
+    If m < 0 Or m > 3 Then m = 0
+    gTLMau = m
+    DC_GhiCauHinh "AI_MAU", CStr(m)
+    DC_MoFormTuTao "frmTroLy"
+End Sub
+
+Public Function TL_TenMau(ByVal m As Long) As String
+    Select Case m
+        Case 1: TL_TenMau = "T" & ChrW(225) & "ch th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t (TT26 - m" & ChrW(7851) & "u 22/" & ChrW(272) & "K)"
+        Case 2: TL_TenMau = "H" & ChrW(7907) & "p th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t (TT26 - m" & ChrW(7851) & "u 22/" & ChrW(272) & "K)"
+        Case 3: TL_TenMau = "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c + Phi" & ChrW(7871) & "u " & ChrW(273) & "o " & ChrW(273) & ChrW(7841) & "c ch" & ChrW(7881) & "nh l" & ChrW(253) & " (m" & ChrW(7851) & "u VL)"
+        Case Else: TL_TenMau = "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " " & ChrW(273) & ChrW(7883) & "a ch" & ChrW(237) & "nh (TT26)"
+    End Select
+End Function
+
+Public Function TL_ViDu(ByVal m As Long) As String
+    Select Case m
+        Case 1: TL_ViDu = "t" & ChrW(7841) & "o v" & ChrW(249) & "ng l" & ChrW(7899) & "p 10; g" & ChrW(225) & "n th" & ChrW(7917) & "a l" & ChrW(7899) & "p 13; t" & ChrW(225) & "ch th" & ChrW(7917) & "a 15 l" & ChrW(7899) & "p c" & ChrW(7855) & "t 18 t" & ChrW(7927) & " l" & ChrW(7879) & " 500"
+        Case 2: TL_ViDu = "t" & ChrW(7841) & "o v" & ChrW(249) & "ng l" & ChrW(7899) & "p 10; g" & ChrW(225) & "n th" & ChrW(7917) & "a l" & ChrW(7899) & "p 13; h" & ChrW(7907) & "p th" & ChrW(7917) & "a 12, 13"
+        Case Else: TL_ViDu = "t" & ChrW(7841) & "o v" & ChrW(249) & "ng l" & ChrW(7899) & "p 10; g" & ChrW(225) & "n th" & ChrW(7917) & "a l" & ChrW(7899) & "p 13; tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a 15"
+    End Select
+End Function
+
+' Chay chuoi lenh -> tra ve nhat ky (moi lenh 1 dong)
+Public Function TL_ChayLenh(ByVal cau As String) As String
+    Dim s As String, ds As Collection, i As Long
+    mLog = ""
+    s = Chuan(cau)
+    If Len(s) = 0 Then TL_ChayLenh = "(ch" & ChrW(432) & "a nh" & ChrW(7853) & "p l" & ChrW(7879) & "nh)": Exit Function
+    Set ds = TachLenh(s)
+    If ds.Count = 0 Then
+        TL_ChayLenh = "Kh" & ChrW(244) & "ng hi" & ChrW(7875) & "u l" & ChrW(7879) & "nh: " & cau & vbCrLf & GoiY()
+        Exit Function
+    End If
+    For i = 1 To ds.Count
+        ChayMot CStr(ds.Item(i))
+    Next i
+    TL_ChayLenh = mLog
+End Function
+
+Private Sub Ghi(ByVal s As String)
+    If Len(mLog) > 0 Then mLog = mLog & vbCrLf
+    mLog = mLog & s
+End Sub
+
+Private Function GoiY() As String
+    GoiY = "V" & ChrW(237) & " d" & ChrW(7909) & ": t" & ChrW(7841) & "o v" & ChrW(249) & "ng l" & ChrW(7899) & "p 10 ; g" & ChrW(225) & "n th" & ChrW(7917) & "a l" & ChrW(7899) & "p 13 ; tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a 15 t" & ChrW(7927) & " l" & ChrW(7879) & " 500 ; t" & ChrW(225) & "ch th" & ChrW(7917) & "a 15 l" & ChrW(7899) & "p c" & ChrW(7855) & "t 18 ; h" & ChrW(7907) & "p th" & ChrW(7917) & "a 12, 13 ; " & _
+           "g" & ChrW(225) & "n lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t l" & ChrW(7899) & "p 6 ; t" & ChrW(244) & " m" & ChrW(224) & "u ; xu" & ChrW(7845) & "t polygon ; chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh ; t" & ChrW(236) & "m l" & ChrW(7895) & "i ; t" & ChrW(7855) & "t l" & ChrW(7899) & "p ; b" & ChrW(7853) & "t l" & ChrW(7899) & "p ; l" & ChrW(432) & "u h" & ChrW(7891) & " s" & ChrW(417)
+End Function
+
+'------------------------------------------------------------ chuan hoa
+Private Function Chuan(ByVal s As String) As String
+    s = LCase$(s)
+    BoDauNhom s, ChrW(224) & ChrW(225) & ChrW(7843) & ChrW(227) & ChrW(7841) & ChrW(259) & ChrW(7857) & ChrW(7855) & ChrW(7859) & ChrW(7861) & ChrW(7863) & ChrW(226) & ChrW(7847) & ChrW(7845) & ChrW(7849) & ChrW(7851) & ChrW(7853) & ChrW(192) & ChrW(193) & ChrW(7842) & ChrW(195) & ChrW(7840) & ChrW(258) & ChrW(7856) & ChrW(7854) & ChrW(7858) & ChrW(7860) & ChrW(7862) & ChrW(194) & ChrW(7846) & ChrW(7844) & ChrW(7848) & ChrW(7850) & ChrW(7852), "a"
+    BoDauNhom s, ChrW(232) & ChrW(233) & ChrW(7867) & ChrW(7869) & ChrW(7865) & ChrW(234) & ChrW(7873) & ChrW(7871) & ChrW(7875) & ChrW(7877) & ChrW(7879) & ChrW(200) & ChrW(201) & ChrW(7866) & ChrW(7868) & ChrW(7864) & ChrW(202) & ChrW(7872) & ChrW(7870) & ChrW(7874) & ChrW(7876) & ChrW(7878), "e"
+    BoDauNhom s, ChrW(236) & ChrW(237) & ChrW(7881) & ChrW(297) & ChrW(7883) & ChrW(204) & ChrW(205) & ChrW(7880) & ChrW(296) & ChrW(7882), "i"
+    BoDauNhom s, ChrW(242) & ChrW(243) & ChrW(7887) & ChrW(245) & ChrW(7885) & ChrW(244) & ChrW(7891) & ChrW(7889) & ChrW(7893) & ChrW(7895) & ChrW(7897) & ChrW(417) & ChrW(7901) & ChrW(7899) & ChrW(7903) & ChrW(7905) & ChrW(7907) & ChrW(210) & ChrW(211) & ChrW(7886) & ChrW(213) & ChrW(7884) & ChrW(212) & ChrW(7890) & ChrW(7888) & ChrW(7892) & ChrW(7894) & ChrW(7896) & ChrW(416) & ChrW(7900) & ChrW(7898) & ChrW(7902) & ChrW(7904) & ChrW(7906), "o"
+    BoDauNhom s, ChrW(249) & ChrW(250) & ChrW(7911) & ChrW(361) & ChrW(7909) & ChrW(432) & ChrW(7915) & ChrW(7913) & ChrW(7917) & ChrW(7919) & ChrW(7921) & ChrW(217) & ChrW(218) & ChrW(7910) & ChrW(360) & ChrW(7908) & ChrW(431) & ChrW(7914) & ChrW(7912) & ChrW(7916) & ChrW(7918) & ChrW(7920), "u"
+    BoDauNhom s, ChrW(7923) & ChrW(253) & ChrW(7927) & ChrW(7929) & ChrW(7925) & ChrW(7922) & ChrW(221) & ChrW(7926) & ChrW(7928) & ChrW(7924), "y"
+    BoDauNhom s, ChrW(273) & ChrW(272), "d"
+    s = Replace(s, vbCr, " ; "): s = Replace(s, vbLf, " ; "): s = Replace(s, vbTab, " ")
+    s = Replace(s, " 1:", " "): s = Replace(s, ":", " ")
+    s = Replace(s, ".", " ; ")
+    Do While InStr(s, "  ") > 0: s = Replace(s, "  ", " "): Loop
+    Chuan = " " & Trim$(s) & " "
+End Function
+
+Private Sub BoDauNhom(ByRef s As String, ByVal nhom As String, ByVal thay As String)
+    Dim i As Long
+    For i = 1 To Len(nhom)
+        s = Replace(s, Mid$(nhom, i, 1), thay)
+    Next i
+End Sub
+
+'------------------------------------------------------------ tach lenh theo dong tu
+Private Function DongTu() As Variant
+    DongTu = Array(" tach thua", " hop thua", " tao vung", " tao topo", " tao thua", " gan ", " trich luc", " to mau", " xuat polygon", _
+                   " xuat poly", " tim loi", " chieu dai", " bat lop", " tat lop", " luu ho so", " luu file ho so")
+End Function
+
+Private Function TachLenh(ByVal s As String) As Collection
+    Dim c As New Collection, vt() As Long, n As Long, i As Long, j As Long, p As Long, dt As Variant, t As Long
+    ReDim vt(1 To 200)
+    s = Replace(Replace(s, ";", " ; "), ",", " , ")
+    s = Replace(s, " roi ", " ; "): s = Replace(s, " sau do ", " ; "): s = Replace(s, " xong ", " ; ")
+    For Each dt In DongTu()
+        p = 1
+        Do
+            p = InStr(p, s, dt)
+            If p = 0 Then Exit Do
+            ' bo trung (vd " xuat poly" nam trong " xuat polygon", " luu ho so" trong " luu file ho so")
+            For j = 1 To n
+                If Abs(vt(j) - p) < 4 Then Exit For
+            Next j
+            If j > n And n < 200 Then n = n + 1: vt(n) = p
+            p = p + Len(dt)
+        Loop
+    Next dt
+    For i = 2 To n
+        t = vt(i): j = i - 1
+        Do While j >= 1
+            If vt(j) <= t Then Exit Do
+            vt(j + 1) = vt(j): j = j - 1
+        Loop
+        vt(j + 1) = t
+    Next i
+    For i = 1 To n
+        If i < n Then c.Add Mid$(s, vt(i), vt(i + 1) - vt(i)) Else c.Add Mid$(s, vt(i))
+    Next i
+    Set TachLenh = c
+End Function
+
+'------------------------------------------------------------ doc so
+' Cac so dung sau tu khoa (vd "lop" -> "10,12")
+Private Function SoSau(ByVal s As String, ByVal tuKhoa As String) As String
+    Dim p As Long, i As Long, ch As String, kq As String, so As String, dangDoc As Boolean
+    p = InStr(s, " " & tuKhoa & " ")
+    If p = 0 Then Exit Function
+    p = p + Len(tuKhoa) + 2
+    For i = p To Len(s)
+        ch = Mid$(s, i, 1)
+        If ch Like "[0-9]" Then
+            so = so & ch: dangDoc = True
+        ElseIf ch = " " Or ch = "," Or ch = "+" Or ch = "-" Then
+            If Len(so) > 0 Then kq = kq & IIf(Len(kq) > 0, ",", "") & so: so = ""
+        ElseIf Mid$(s, i, 2) = "va" Then
+            i = i + 1
+        Else
+            Exit For
+        End If
+    Next i
+    If Len(so) > 0 Then kq = kq & IIf(Len(kq) > 0, ",", "") & so
+    SoSau = kq
+End Function
+
+Private Function DsLevel(ByVal so As String) As String
+    Dim a() As String, i As Long, kq As String
+    If Len(so) = 0 Then Exit Function
+    a = Split(so, ",")
+    For i = 0 To UBound(a)
+        kq = kq & IIf(Len(kq) > 0, ",", "") & "Level " & a(i)
+    Next i
+    DsLevel = kq
+End Function
+
+Private Function DauSo(ByVal so As String) As String
+    If InStr(so, ",") > 0 Then DauSo = Left$(so, InStr(so, ",") - 1) Else DauSo = so
+End Function
+
+'------------------------------------------------------------ thuc thi 1 lenh
+Private Sub ChayMot(ByVal c As String)
+    Dim lv As String, csdl As String
+    csdl = CsdlMacDinh()
+    On Error GoTo Loi
+    If InStr(c, " tao vung") = 1 Or InStr(c, " tao topo") = 1 Or InStr(c, " tao thua") = 1 Then
+        lv = SoSau(c, "lop"): If Len(lv) = 0 Then lv = SoSau(c, "level")
+        If Len(lv) = 0 Then lv = DC_DocCauHinh("AI_LV_RANH", "10")
+        DC_GhiCauHinh "AI_LV_RANH", lv
+        Ghi ChrW(9654) & " T" & ChrW(7841) & "o v" & ChrW(249) & "ng (Topology) t" & ChrW(7915) & " l" & ChrW(7899) & "p " & lv & " ..."
+        ChayTaoThua DsLevel(lv), "", "", 1, 0, 0.05, "Level 11", 5, 0.3, csdl, "", 0
+        Ghi "   xong."
+    ElseIf InStr(c, " gan ") = 1 Then
+        GanTT c, csdl
+    ElseIf InStr(c, " tach thua") = 1 Then
+        TachHop c, csdl, 1
+    ElseIf InStr(c, " hop thua") = 1 Then
+        TachHop c, csdl, 2
+    ElseIf InStr(c, " trich luc") = 1 Then
+        If gTLMau = 1 Or gTLMau = 2 Then TachHop c, csdl, gTLMau Else TrichLuc c, csdl
+    ElseIf InStr(c, " to mau") = 1 Then
+        Ghi ChrW(9654) & " T" & ChrW(244) & " m" & ChrW(224) & "u b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " hi" & ChrW(7879) & "n tr" & ChrW(7841) & "ng ...": DC_ToMauHienTrang
+    ElseIf InStr(c, " xuat poly") = 1 Then
+        Ghi ChrW(9654) & " Xu" & ChrW(7845) & "t polygon khoanh " & ChrW(273) & ChrW(7845) & "t ...": DC_XuatPolygonKhoanh
+    ElseIf InStr(c, " tim loi") = 1 Then
+        Ghi ChrW(9654) & " M" & ChrW(7903) & " T" & ChrW(236) & "m l" & ChrW(7895) & "i ...": DC_MoTimLoi
+    ElseIf InStr(c, " chieu dai") = 1 Then
+        Ghi ChrW(9654) & " M" & ChrW(7903) & " Chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh ...": DC_MoChieuDaiCanh
+    ElseIf InStr(c, " tat lop") = 1 Then
+        Ghi ChrW(9654) & " T" & ChrW(7855) & "t l" & ChrW(7899) & "p b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " (gi" & ChrW(7919) & " l" & ChrW(7899) & "p h" & ChrW(7891) & " s" & ChrW(417) & " / s" & ChrW(417) & " " & ChrW(273) & ChrW(7891) & ") ..."
+        DC_TatLopBanDo DC_DocCauHinh("LV_HS", "50"), DC_DocCauHinh("LV_SD", "51")
+    ElseIf InStr(c, " bat lop") = 1 Then
+        Ghi ChrW(9654) & " B" & ChrW(7853) & "t l" & ChrW(7841) & "i l" & ChrW(7899) & "p b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ...": DC_BatLopBanDo
+    ElseIf InStr(c, " luu") = 1 Then
+        Ghi ChrW(9654) & " L" & ChrW(432) & "u file h" & ChrW(7891) & " s" & ChrW(417) & " ...": DC_LuuFileHoSo DC_DocCauHinh("LV_HS", "50"), DC_DocCauHinh("LV_SD", "51")
+    Else
+        Ghi "? Kh" & ChrW(244) & "ng hi" & ChrW(7875) & "u: " & Trim$(c)
+    End If
+    Exit Sub
+Loi:
+    Ghi ChrW(10006) & " L" & ChrW(7895) & "i khi ch" & ChrW(7841) & "y '" & Trim$(c) & "': " & Err.Description
+End Sub
+
+' "gan thua lop 13", "gan loai dat lop 6", "gan to lop 8", "gan chu lop 9", "gan dia chi lop 7"
+Private Sub GanTT(ByVal c As String, ByVal csdl As String)
+    Dim lvSo As String, lvTo As String, lvLoai As String, lvChu As String, lvDC As String, i As Long, phan() As String, p As String
+    phan = Split(Replace(c, " gan ", " | "), " , ")
+    For i = 0 To UBound(phan)
+        p = " " & Trim$(Replace(phan(i), "|", "")) & " "
+        If InStr(p, " loai dat ") > 0 Or InStr(p, " loai ") > 0 Then
+            lvLoai = DauSo(SoSau(p, "lop"))
+        ElseIf InStr(p, " chu ") > 0 Or InStr(p, " ten ") > 0 Then
+            lvChu = DauSo(SoSau(p, "lop"))
+        ElseIf InStr(p, " dia chi ") > 0 Then
+            lvDC = DauSo(SoSau(p, "lop"))
+        ElseIf InStr(p, " to ") > 0 Then
+            lvTo = DauSo(SoSau(p, "lop"))
+        ElseIf InStr(p, " thua ") > 0 Or InStr(p, " so ") > 0 Then
+            lvSo = DauSo(SoSau(p, "lop"))
+        End If
+    Next i
+    If Len(lvSo & lvTo & lvLoai & lvChu & lvDC) = 0 Then
+        Ghi "? G" & ChrW(225) & "n: ch" & ChrW(432) & "a r" & ChrW(245) & " l" & ChrW(7899) & "p (vd: g" & ChrW(225) & "n th" & ChrW(7917) & "a l" & ChrW(7899) & "p 13, g" & ChrW(225) & "n lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t l" & ChrW(7899) & "p 6)": Exit Sub
+    End If
+    Ghi ChrW(9654) & " G" & ChrW(225) & "n th" & ChrW(244) & "ng tin t" & ChrW(7915) & " nh" & ChrW(227) & "n:" & IIf(Len(lvSo) > 0, " s" & ChrW(7889) & " th" & ChrW(7917) & "a=l" & ChrW(7899) & "p " & lvSo, "") & IIf(Len(lvLoai) > 0, " lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t=l" & ChrW(7899) & "p " & lvLoai, "") & _
+        IIf(Len(lvTo) > 0, " t" & ChrW(7901) & "=l" & ChrW(7899) & "p " & lvTo, "") & IIf(Len(lvChu) > 0, " ch" & ChrW(7911) & "=l" & ChrW(7899) & "p " & lvChu, "") & IIf(Len(lvDC) > 0, " " & ChrW(273) & ChrW(7883) & "a ch" & ChrW(7881) & "=l" & ChrW(7899) & "p " & lvDC, "")
+    ChayGanTT csdl, lvSo, lvTo, lvLoai, lvChu, lvDC, "", 1, False, False
+End Sub
+
+' "trich luc thua 15 [ty le 500] [to 12]"
+Private Sub TrichLuc(ByVal c As String, ByVal csdl As String)
+    Dim so As String, tl As Double, mau As String, toBD As String, lo As Long
+    so = DauSo(SoSau(c, "thua"))
+    If Len(so) = 0 Then so = DauSo(SoSau(c, "luc"))
+    If Len(so) = 0 Then Ghi "? Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c: ch" & ChrW(432) & "a c" & ChrW(243) & " s" & ChrW(7889) & " th" & ChrW(7917) & "a (vd: tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a 15)": Exit Sub
+    tl = Val(DauSo(SoSau(c, "le")))
+    If tl <= 0 Then tl = Val(DC_DocCauHinh("TL_TYLE_TAY", ""))
+    If tl <= 0 Then tl = Val(DC_DocCauHinh("TL_TYLE", "0"))
+    toBD = DauSo(SoSau(c, "to"))
+    lo = gTLMau
+    If lo = 3 Then
+        mau = DC_DocCauHinh("MAU_TL3", "C:\DiaChinhVL\MAU\trichluc.dgn")
+        DC_GhiCauHinh "INI_TL", DC_DocCauHinh("INI_TL3", "C:\DiaChinhVL\MAU\trichluc.ini")
+    Else
+        mau = DC_DocCauHinh("MAU_TL", "C:\DiaChinhVL\TrichLucBanDo_mau.txt")
+        DC_GhiCauHinh "INI_TL", DC_DocCauHinh("INI_TL0", DC_DocCauHinh("INI_TL", ""))
+    End If
+    Ghi ChrW(9654) & " [" & TL_TenMau(lo) & "] Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c th" & ChrW(7917) & "a " & so & IIf(tl > 0, " t" & ChrW(7927) & " l" & ChrW(7879) & " 1:" & tl, " (t" & ChrW(7927) & " l" & ChrW(7879) & " t" & ChrW(7921) & " " & ChrW(273) & ChrW(7897) & "ng)") & " ..."
+    ChayTrichLuc csdl, so, mau, "T", toBD, DC_DocCauHinh("XA", ""), DC_DocCauHinh("HUYEN", ""), _
+                 DC_DocCauHinh("TINH", ""), "", 1, True, tl
+End Sub
+
+' "tach thua 15 [lop cat 18] [ty le 500]" ; "hop thua 12, 13 [ty le 500]"
+Private Sub TachHop(ByVal c As String, ByVal csdl As String, ByVal cheDo As Long)
+    Dim ds As String, tl As Double, mau As String, ini As String, lvCat As String, goc As Collection, loi As String
+    ds = SoSau(c, "thua")
+    If Len(ds) = 0 Then ds = SoSau(c, "luc")
+    If Len(ds) = 0 Then Ghi "? " & IIf(cheDo = 2, "H" & ChrW(7907) & "p", "T" & ChrW(225) & "ch") & " th" & ChrW(7917) & "a: ch" & ChrW(432) & "a c" & ChrW(243) & " s" & ChrW(7889) & " th" & ChrW(7917) & "a": Exit Sub
+    If cheDo = 1 Then ds = DauSo(ds)
+    If cheDo = 2 And InStr(ds, ",") = 0 Then Ghi "? H" & ChrW(7907) & "p th" & ChrW(7917) & "a: c" & ChrW(7847) & "n " & ChrW(237) & "t nh" & ChrW(7845) & "t 2 th" & ChrW(7917) & "a (vd: h" & ChrW(7907) & "p th" & ChrW(7917) & "a 12, 13)": Exit Sub
+    tl = Val(DauSo(SoSau(c, "le")))
+    If tl <= 0 Then tl = Val(DC_DocCauHinh("TL_TYLE_TAY", ""))
+    If tl <= 0 Then tl = Val(DC_DocCauHinh("TL_TYLE", "0"))
+    If cheDo = 1 Then
+        mau = DC_DocCauHinh("MAU_TACH", "C:\DiaChinhVL\MAU\22tach.dgn")
+        ini = DC_DocCauHinh("INI_TACH", "C:\DiaChinhVL\MAU\22tach.ini")
+        lvCat = DauSo(SoSau(c, "cat"))
+        If Len(lvCat) = 0 Then lvCat = DC_DocCauHinh("TACH_LV", "18")
+    Else
+        mau = DC_DocCauHinh("MAU_HOP", "C:\DiaChinhVL\MAU\22hop.dgn")
+        ini = DC_DocCauHinh("INI_HOP", "C:\DiaChinhVL\MAU\22hop.ini")
+    End If
+    Set goc = DC_LayThuaCSDL(csdl, ds, loi)
+    If goc Is Nothing Then Ghi ChrW(10006) & " " & loi: Exit Sub
+    Ghi ChrW(9654) & " [" & TL_TenMau(cheDo) & "] " & IIf(cheDo = 2, "H" & ChrW(7907) & "p th" & ChrW(7917) & "a ", "T" & ChrW(225) & "ch th" & ChrW(7917) & "a ") & ds & _
+        IIf(cheDo = 1, " (l" & ChrW(7899) & "p c" & ChrW(7855) & "t " & lvCat & ")", "") & IIf(tl > 0, " t" & ChrW(7927) & " l" & ChrW(7879) & " 1:" & tl, " (t" & ChrW(7927) & " l" & ChrW(7879) & " t" & ChrW(7921) & " " & ChrW(273) & ChrW(7897) & "ng)") & " ..."
+    DC_ChayTachHop cheDo, goc, mau, ini, DauSo(SoSau(c, "to")), DC_DocCauHinh("XA", ""), DC_DocCauHinh("HUYEN", ""), _
+                   DC_DocCauHinh("TINH", ""), tl, lvCat
+End Sub
