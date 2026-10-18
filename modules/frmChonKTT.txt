@@ -1,0 +1,90 @@
+'============================================================
+' frmChonKTT - Chon tinh / kinh tuyen truc truoc khi xem anh ve tinh
+'   Can: modKTT, modVeTinh, clsNutTL, modCauHinh.
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+Private mDs As Collection
+
+Private Sub UserForm_Initialize()
+    Dim c As Object, i As Long, chon As String, it As Variant
+    Me.Caption = "Chon tinh - kinh tuyen truc"
+    Me.Width = 360: Me.Height = 196
+    Me.Font.Name = "Arial": Me.Font.size = 8
+    Set mDs = KTT_DanhSach()
+
+    Nhan "T" & ChrW(7881) & "nh / th" & ChrW(224) & "nh ph" & ChrW(7889) & " (v" & ChrW(249) & "ng c" & ChrW(7911) & "a b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " theo " & ChrW(273) & ChrW(7883) & "a gi" & ChrW(7899) & "i C" & ChrW(360) & "):", 8, 8, 340, True
+    Set c = Me.Controls.Add("Forms.ComboBox.1", "cboTinh", True)
+    c.Left = 8: c.Top = 24: c.Width = 336: c.Height = 18: c.Style = 2
+    c.Font.Name = "Arial": c.Font.size = 9
+    For i = 1 To mDs.Count
+        it = mDs(i): c.AddItem it(0)
+    Next i
+    chon = DC_DocCauHinh("KTT_TINH", "")
+    For i = 0 To c.ListCount - 1
+        If c.List(i) = chon Then c.ListIndex = i: Exit For
+    Next i
+
+    Nhan "Kinh tuy" & ChrW(7871) & "n tr" & ChrW(7909) & "c (" & ChrW(273) & ChrW(7897) & ", vd 105.5 = 105" & ChrW(176) & "30'):", 8, 52, 200, False
+    Set c = Me.Controls.Add("Forms.TextBox.1", "txtKTT", True)
+    c.Left = 210: c.Top = 50: c.Width = 70: c.Height = 16: c.Font.Name = "Arial": c.Font.size = 9
+    c.Text = DC_DocCauHinh("KTT", "105.5")
+
+    Set c = Me.Controls.Add("Forms.CheckBox.1", "chkD7", True)
+    c.Caption = "Chuy" & ChrW(7875) & "n VN-2000 " & ChrW(8594) & " WGS84 b" & ChrW(7857) & "ng 7 tham s" & ChrW(7889) & " (ch" & ChrW(237) & "nh x" & ChrW(225) & "c h" & ChrW(417) & "n)"
+    c.Left = 8: c.Top = 74: c.Width = 330: c.Height = 16: c.Font.Name = "Arial": c.Font.size = 8
+    c.Value = (DC_DocCauHinh("DATUM7", "1") <> "0")
+
+    Nhan "Sau s" & ChrW(225) & "p nh" & ChrW(7853) & "p 2025 m" & ChrW(7897) & "t t" & ChrW(7881) & "nh m" & ChrW(7899) & "i c" & ChrW(243) & " th" & ChrW(7875) & " g" & ChrW(7891) & "m v" & ChrW(249) & "ng c" & ChrW(361) & " kh" & ChrW(225) & "c kinh tuy" & ChrW(7871) & "n tr" & ChrW(7909) & "c (vd V" & ChrW(297) & "nh Long: V" & ChrW(297) & "nh Long, Tr" & ChrW(224) & " Vinh 105" & ChrW(176) & "30'; B" & ChrW(7871) & "n Tre 105" & ChrW(176) & "45'). Ch" & ChrW(7885) & "n " & ChrW(273) & ChrW(250) & "ng v" & ChrW(249) & "ng c" & ChrW(361) & " c" & ChrW(7911) & "a t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ".", 8, 94, 340, False
+    Me.Controls(Me.Controls.Count - 1).Height = 28
+    Me.Controls(Me.Controls.Count - 1).WordWrap = True
+    Me.Controls(Me.Controls.Count - 1).ForeColor = &H808080
+
+    ThemNut "VETINH", "Xem v" & ChrW(7879) & " tinh", 96, 134, 80
+    ThemNut "GEARTH", "Google Earth", 180, 134, 80
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 264, 134, 80
+End Sub
+
+' Doi tinh -> dien KTT (goi tu XuLyNut khi bam, va khi chay)
+Private Function KTTTheoTinh() As Double
+    Dim it As Variant, cb As Object
+    Set cb = Me.Controls("cboTinh")
+    If cb.ListIndex >= 0 Then
+        it = mDs(cb.ListIndex + 1)
+        KTTTheoTinh = it(1)
+    End If
+End Function
+
+Public Sub XuLyNut(ByVal ma As String)
+    Dim k As Double, kTinh As Double, tay As Double
+    If ma = "DONG" Then Unload Me: Exit Sub
+    kTinh = KTTTheoTinh()
+    tay = Val(Replace(Me.Controls("txtKTT").Text, ",", "."))
+    ' chon tinh -> dung KTT cua tinh (tru khi nguoi dung sua tay o KTT khac gia tri cu)
+    If kTinh > 0 And (tay = Val(DC_DocCauHinh("KTT", "105.5")) Or tay <= 0) Then k = kTinh Else k = tay
+    If k < 100 Or k > 112 Then
+        DC_ThongBao "Kinh tuy" & ChrW(7871) & "n tr" & ChrW(7909) & "c kh" & ChrW(244) & "ng h" & ChrW(7907) & "p l" & ChrW(7879) & " (100 - 112 " & ChrW(273) & ChrW(7897) & ").", "V" & ChrW(7879) & " tinh", vbExclamation
+        Exit Sub
+    End If
+    Me.Controls("txtKTT").Text = CStr(k)
+    If Me.Controls("cboTinh").ListIndex >= 0 Then DC_GhiCauHinh "KTT_TINH", Me.Controls("cboTinh").Text
+    KTT_ChayViec k, Me.Controls("chkD7").Value, ma
+End Sub
+
+Private Sub Nhan(ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal dam As Boolean)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1")
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 14
+    c.Font.Name = "Arial": c.Font.size = 8: c.Font.Bold = dam
+End Sub
+
+Private Sub ThemNut(ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim b As Object, hd As clsNutTL
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = w: b.Height = 22
+    b.Font.Name = "Arial": b.Font.size = 8
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
+    mNut.Add hd
+End Sub
