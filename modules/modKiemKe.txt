@@ -1,0 +1,256 @@
+'============================================================
+' modKiemKe - Cong cu ban do kiem ke (menu Kiem ke, kieu LandMap)
+'   DC_XuatPolygonKhoanh : moi khoanh dat (vung Topology trong CSDL ban ve
+'                          dang mo) -> 1 shape kin tren level chon; lo (dao)
+'                          -> shape rieng cung graphic group.
+'   DC_DatBangMauKK      : chon kieu bang mau khi to (ini KK_MAU 0/1)
+'============================================================
+Option Explicit
+
+Private Function TieuDe() As String
+    TieuDe = "Xu" & ChrW(7845) & "t Polygon khoanh " & ChrW(273) & ChrW(7845) & "t"
+End Function
+
+Public Sub DC_XuatPolygonKhoanh()
+    Dim csdl As String, vungs As Collection, s As String, lv As Level
+    csdl = CsdlMacDinh()
+    If Len(Dir$(csdl)) > 0 Then Set vungs = MoCSDL(csdl)
+    If vungs Is Nothing Then Set vungs = New Collection
+    If vungs.Count = 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a c" & ChrW(243) & " d" & ChrW(7919) & " li" & ChrW(7879) & "u khoanh " & ChrW(273) & ChrW(7845) & "t (CSDL) cho b" & ChrW(7843) & "n v" & ChrW(7869) & " n" & ChrW(224) & "y:" & vbCrLf & csdl & vbCrLf & vbCrLf & _
+                    "Ch" & ChrW(7841) & "y Ki" & ChrW(7875) & "m k" & ChrW(234) & " > T" & ChrW(7841) & "o l" & ChrW(7853) & "p b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ki" & ChrW(7875) & "m k" & ChrW(234) & " > T" & ChrW(7841) & "o Topology b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " ki" & ChrW(7875) & "m k" & ChrW(234) & " tr" & ChrW(432) & ChrW(7899) & "c.", TieuDe, vbExclamation
+        Exit Sub
+    End If
+    s = InputBox("Co " & vungs.Count & " khoanh dat." & vbCrLf & _
+                 "Level dat polygon (TT 08 - khoanh dat: 5):", "Xuat Polygon", DC_DocCauHinh("KK_LVPOLY", "5"))
+    If StrPtr(s) = 0 Or Len(Trim$(s)) = 0 Then Exit Sub
+    If IsNumeric(Trim$(s)) Then Set lv = DC_LevelTheoSo(CLng(Val(s))) Else Set lv = DC_TimLevel(s)
+    If lv Is Nothing Then
+        DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y / kh" & ChrW(244) & "ng t" & ChrW(7841) & "o " & ChrW(273) & ChrW(432) & ChrW(7907) & "c level: " & s, TieuDe, vbExclamation
+        Exit Sub
+    End If
+    DC_GhiCauHinh "KK_LVPOLY", Trim$(s)
+
+    Dim i As Long, kv As Long, v As clsVung, rg() As Double, n As Long, dem As Long, bo As Long
+    Dim gg As Long, o As Object
+    On Error Resume Next
+    CadInputQueue.SendKeyin "mark"
+    Set o = ActiveDesignFile
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        If v.HasRing Then
+            gg = 0
+            If v.Dao.Count > 0 Then Err.Clear: gg = o.GetNextGraphicGroup: If Err.Number <> 0 Then gg = 0
+            For kv = 0 To v.Dao.Count
+                If kv = 0 Then rg = v.ring Else rg = v.Dao.Item(kv)
+                If VeShape(rg, lv, gg) Then
+                    If kv = 0 Then dem = dem + 1
+                Else
+                    If kv = 0 Then bo = bo + 1
+                End If
+            Next kv
+        End If
+    Next i
+    On Error GoTo 0
+    RedrawAllViews
+    DC_ThongBao ChrW(272) & ChrW(227) & " xu" & ChrW(7845) & "t " & dem & " polygon khoanh " & ChrW(273) & ChrW(7845) & "t l" & ChrW(234) & "n level " & lv.Name & "." & _
+                IIf(bo > 0, vbCrLf & "B" & ChrW(7887) & " qua " & bo & " khoanh (qu" & ChrW(225) & " nhi" & ChrW(7873) & "u " & ChrW(273) & ChrW(7881) & "nh ho" & ChrW(7863) & "c l" & ChrW(7895) & "i h" & ChrW(236) & "nh h" & ChrW(7885) & "c).", "") & vbCrLf & _
+                "(Sai: key-in  undo mark)", TieuDe
+End Sub
+
+Private Function VeShape(rg() As Double, ByVal lv As Level, ByVal gg As Long) As Boolean
+    Dim n As Long, i As Long, pts() As Point3d, sh As ShapeElement
+    On Error GoTo Loi
+    n = UBound(rg, 1)                     ' rg(n) = rg(0) (vong kin)
+    If n < 3 Or n > 4999 Then Exit Function
+    ReDim pts(0 To n)
+    For i = 0 To n
+        pts(i).X = rg(i, 0): pts(i).Y = rg(i, 1): pts(i).Z = 0#
+    Next i
+    Set sh = CreateShapeElement1(Nothing, pts, msdFillModeNotFilled)
+    If sh Is Nothing Then Exit Function
+    Set sh.Level = lv
+    On Error Resume Next
+    sh.LineWeight = 0
+    If gg > 0 Then sh.GraphicGroup = gg
+    On Error GoTo Loi
+    ActiveModelReference.AddElement sh
+    VeShape = True
+    Exit Function
+Loi:
+    VeShape = False
+End Function
+
+Public Sub DC_DatBangMauKK(ByVal kieu As String)
+    DC_GhiCauHinh "KK_MAU", kieu
+End Sub
+
+'============================================================
+' TO MAU BAN DO HIEN TRANG - TT 08/2024/TT-BTNMT, Phu luc V muc 9.7
+'   (doi chieu file PDF Cong bao so 991+992 ngay 26/8/2024, trang 82-84)
+'   Moi loai dat co SO MAU (chi so bang mau) + thong so RGB chinh thuc.
+'   Bang: C:\DiaChinhVL\MauHienTrang_TT08.txt (Ma|SoMau|R|G|B), tu tao, sua duoc.
+'   KK_MAU = 0 : to theo SO MAU (giu nguyen bang mau ban ve)
+'   KK_MAU = 1 : pha dung RGB vao bang mau tai chinh SO MAU do roi to
+'   Level mac dinh theo bang phan lop TT 08: Mau loai dat = 30, Khoanh dat = 5.
+'   Khoanh lon to truoc, khoanh nho (lot trong) to sau -> nam tren.
+'============================================================
+Private Function MauMacDinh() As String
+    MauMacDinh = "NNP:1.255.255.100,CHN:3.255.252.120,LUA:4.255.252.130,LUC:5.255.252.140,LUK:6.255.252.150,HNK:11.255.240.180,CLN:14.255.210.160,LNP:18.170.255.50,RDD:29.110.255.100,RPH:24.190.255.30,RSX:19.180.255.180,RSN:19.180.255.180,NTS:34.170.255.255,CNT:8.230.230.130,LMU:37.255.255.254,NKH:38.245.255.180,PNN:39.255.255.100,OTC:40.255.180.255,ONT:41.255.208.255,ODT:42.255.160.255,TSC:45.255.170.160,CQA:51.255.120.120,CQP:52.255.100.80,CAN:53.255.80.70,DSN:44.255.160.170,DVH:69.255.170.160,DXH:80.255.170.160,DYT:72.255.170.160,DGD:75.255.170.160,DTT:78.255.170.160,DKH:79.255.170.160,DMT:76.255.170.160,DKT:77.255.170.160," & _
+                 "DNG:82.255.170.160,DSK:83.255.170.160,CSK:54.255.160.170,SCC:73.255.170.160,SKK:55.250.170.160,SKN:61.250.170.160,SCT:74.255.170.160,TMD:62.250.170.160,SKC:56.250.170.160,SKS:57.205.170.205,CCC:59.255.170.160,DGT:60.255.170.50,DTL:63.170.255.255,DCT:64.170.255.255,DPC:65.255.170.170,DDD:84.255.170.160,DRA:85.205.170.205,DNL:66.255.170.160,DBV:67.255.170.160,DCH:81.255.170.160,DKV:70.255.170.160,TON:87.255.170.160,TIN:88.255.170.160,NTD:89.210.210.210,TVC:90.180.255.255,MNC:92.180.255.255,SON:91.160.255.255,PNK:93.255.170.160,CSD:97.255.255.254,CGT:105.255.255.254,BCS:98.255.255.254,DCS:99.255.255.254,NCS:100.230.230.200,MCS:101.180.255.255"
+End Function
+
+' Ma -> Array(soMau, rgb)
+Private Function DocBangMau() As Object
+    Dim d As Object, f As String, a() As String, i As Long, p() As String, n As Integer, s As String, q() As String
+    Set d = CreateObject("Scripting.Dictionary")
+    d.CompareMode = 1
+    f = DC_THUMUC & "\MauHienTrang_TT08.txt"
+    On Error Resume Next
+    If Len(Dir$(f)) = 0 Then
+        n = FreeFile
+        Open f For Output As #n
+        Print #n, "' Mau loai dat ban do hien trang - TT 08/2024/TT-BTNMT Phu luc V (9.7). Dong: Ma|SoMau|R|G|B"
+        a = Split(MauMacDinh(), ",")
+        For i = 0 To UBound(a)
+            q = Split(a(i), ":"): p = Split(q(1), ".")
+            Print #n, q(0) & "|" & p(0) & "|" & p(1) & "|" & p(2) & "|" & p(3)
+        Next i
+        Close #n
+    End If
+    n = FreeFile
+    Open f For Input As #n
+    Do While Not EOF(n)
+        Line Input #n, s
+        s = Trim$(s)
+        If Len(s) > 0 And Left$(s, 1) <> "'" Then
+            p = Split(s, "|")
+            If UBound(p) >= 4 Then d(Trim$(p(0))) = Array(CLng(Val(p(1))), RGB(CLng(Val(p(2))), CLng(Val(p(3))), CLng(Val(p(4)))))
+        End If
+    Loop
+    Close #n
+    If d.Count = 0 Then
+        a = Split(MauMacDinh(), ",")
+        For i = 0 To UBound(a)
+            q = Split(a(i), ":"): p = Split(q(1), ".")
+            d(q(0)) = Array(CLng(p(0)), RGB(CLng(p(1)), CLng(p(2)), CLng(p(3))))
+        Next i
+    End If
+    Set DocBangMau = d
+End Function
+
+Public Sub DC_ToMauHienTrang()
+    Dim csdl As String, vungs As Collection, s As String, lv As Level, bang As Object
+    Dim TD As String
+    TD = "T" & ChrW(244) & " m" & ChrW(224) & "u b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " hi" & ChrW(7879) & "n tr" & ChrW(7841) & "ng"
+    csdl = CsdlMacDinh()
+    If Len(Dir$(csdl)) > 0 Then Set vungs = MoCSDL(csdl)
+    If vungs Is Nothing Then Set vungs = New Collection
+    If vungs.Count = 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a c" & ChrW(243) & " d" & ChrW(7919) & " li" & ChrW(7879) & "u khoanh " & ChrW(273) & ChrW(7845) & "t (CSDL) cho b" & ChrW(7843) & "n v" & ChrW(7869) & " n" & ChrW(224) & "y. Ch" & ChrW(7841) & "y T" & ChrW(7841) & "o Topology v" & ChrW(224) & " g" & ChrW(225) & "n lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t tr" & ChrW(432) & ChrW(7899) & "c.", TD, vbExclamation
+        Exit Sub
+    End If
+    s = InputBox("Co " & vungs.Count & " khoanh dat. Level to mau loai dat (TT 08: 30):", "To mau hien trang", DC_DocCauHinh("KK_LVTO", "30"))
+    If StrPtr(s) = 0 Or Len(Trim$(s)) = 0 Then Exit Sub
+    If IsNumeric(Trim$(s)) Then Set lv = DC_LevelTheoSo(CLng(Val(s))) Else Set lv = DC_TimLevel(s)
+    If lv Is Nothing Then DC_ThongBao "Kh" & ChrW(244) & "ng t" & ChrW(7841) & "o " & ChrW(273) & ChrW(432) & ChrW(7907) & "c level: " & s, TD, vbExclamation: Exit Sub
+    DC_GhiCauHinh "KK_LVTO", Trim$(s)
+    Set bang = DocBangMau()
+
+    Dim ct As Object, rgbMode As Boolean, i As Long, v As clsVung, ma As String, daPha As Object, e As Variant
+    rgbMode = (DC_DocCauHinh("KK_MAU", "0") = "1")
+    Set daPha = CreateObject("Scripting.Dictionary")
+    If rgbMode Then
+        On Error Resume Next
+        Set ct = ActiveDesignFile.ExtractColorTable
+        On Error GoTo 0
+    End If
+    Dim thieu As String, nThieu As Long, daBao As Object
+    Set daBao = CreateObject("Scripting.Dictionary"): daBao.CompareMode = 1
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        ma = MaChinh(v.loaiDat)
+        If bang.Exists(ma) Then
+            e = bang(ma)
+            If rgbMode And Not ct Is Nothing Then
+                If Not daPha.Exists(CStr(e(0))) Then
+                    On Error Resume Next
+                    ct.SetColorAtIndex e(0), e(1)
+                    On Error GoTo 0
+                    daPha(CStr(e(0))) = True
+                End If
+            End If
+        ElseIf Not daBao.Exists(ma) Then
+            daBao(ma) = True: nThieu = nThieu + 1
+            If nThieu <= 10 Then thieu = thieu & " " & IIf(Len(ma) = 0, "(trong)", ma)
+        End If
+    Next i
+    If rgbMode And Not ct Is Nothing Then
+        On Error Resume Next
+        ActiveDesignFile.AttachColorTable ct
+        On Error GoTo 0
+    End If
+
+    ' To: khoanh lon truoc
+    Dim thuTu() As Long, j As Long, t As Long, dem As Long
+    ReDim thuTu(1 To vungs.Count)
+    For i = 1 To vungs.Count: thuTu(i) = i: Next i
+    For i = 2 To vungs.Count
+        t = thuTu(i): j = i - 1
+        Do While j >= 1
+            If vungs.Item(thuTu(j)).Dt >= vungs.Item(t).Dt Then Exit Do
+            thuTu(j + 1) = thuTu(j): j = j - 1
+        Loop
+        thuTu(j + 1) = t
+    Next i
+    On Error Resume Next
+    CadInputQueue.SendKeyin "mark"
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(thuTu(i))
+        ma = MaChinh(v.loaiDat)
+        If bang.Exists(ma) And v.HasRing Then
+            e = bang(ma)
+            If ToShape(v.ring, lv, CLng(e(0))) Then dem = dem + 1
+        End If
+    Next i
+    On Error GoTo 0
+    RedrawAllViews
+    DC_ThongBao ChrW(272) & ChrW(227) & " t" & ChrW(244) & " m" & ChrW(224) & "u " & dem & "/" & vungs.Count & " khoanh " & ChrW(273) & ChrW(7845) & "t (level " & lv.Name & ") theo TT 08/2024." & vbCrLf & _
+                IIf(rgbMode, "Ki" & ChrW(7875) & "u: pha " & ChrW(273) & ChrW(250) & "ng RGB v" & ChrW(224) & "o b" & ChrW(7843) & "ng m" & ChrW(224) & "u t" & ChrW(7841) & "i s" & ChrW(7889) & " m" & ChrW(224) & "u quy " & ChrW(273) & ChrW(7883) & "nh.", "Ki" & ChrW(7875) & "u: t" & ChrW(244) & " theo s" & ChrW(7889) & " m" & ChrW(224) & "u quy " & ChrW(273) & ChrW(7883) & "nh (gi" & ChrW(7919) & " b" & ChrW(7843) & "ng m" & ChrW(224) & "u b" & ChrW(7843) & "n v" & ChrW(7869) & ").") & _
+                IIf(nThieu > 0, vbCrLf & "Kh" & ChrW(244) & "ng c" & ChrW(243) & " m" & ChrW(224) & "u cho lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t:" & thieu & IIf(nThieu > 10, " ...", "") & " (th" & ChrW(234) & "m v" & ChrW(224) & "o C:\DiaChinhVL\MauHienTrang_TT08.txt)", "") & vbCrLf & _
+                "(Sai: key-in  undo mark)", TD
+End Sub
+
+' "ONT+CLN" -> "ONT" ; bo khoang trang
+Private Function MaChinh(ByVal s As String) As String
+    Dim p As Long
+    s = UCase$(Trim$(s))
+    p = InStr(s, "+"): If p > 0 Then s = Left$(s, p - 1)
+    p = InStr(s, ","): If p > 0 Then s = Left$(s, p - 1)
+    MaChinh = Trim$(s)
+End Function
+
+Private Function ToShape(rg() As Double, ByVal lv As Level, ByVal mau As Long) As Boolean
+    Dim n As Long, i As Long, pts() As Point3d, sh As ShapeElement, o As Object
+    On Error GoTo Loi
+    n = UBound(rg, 1)
+    If n < 3 Or n > 4999 Then Exit Function
+    ReDim pts(0 To n)
+    For i = 0 To n
+        pts(i).X = rg(i, 0): pts(i).Y = rg(i, 1): pts(i).Z = 0#
+    Next i
+    Set sh = CreateShapeElement1(Nothing, pts, msdFillModeFilled)
+    If sh Is Nothing Then Exit Function
+    Set sh.Level = lv
+    On Error Resume Next
+    sh.Color = mau
+    sh.LineWeight = 0
+    Set o = sh
+    o.FillColor = mau
+    On Error GoTo Loi
+    ActiveModelReference.AddElement sh
+    ToShape = True
+    Exit Function
+Loi:
+    ToShape = False
+End Function
