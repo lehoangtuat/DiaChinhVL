@@ -38,7 +38,7 @@ Private Sub IPrimitiveCommandEvents_Datapoint(pt As Point3d, ByVal oView As View
     v.daChon = True
     If Len(v.loaiDat) = 0 Then v.loaiDat = loaiDat
     If Len(v.SoTo) = 0 Then v.SoTo = toBanDo
-    VeTam v.cx, v.cy, kt, mauTam
+    VeTamHong v.cx, v.cy, kt, mauTam
     demChon = demChon + 1
     ShowPrompt "Da tao " & demChon & " thua. Bam tiep hoac Reset de ket thuc."
     On Error GoTo 0
