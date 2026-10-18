@@ -59,3 +59,12 @@ modBienTap
 modGanTag
 modDiemMia
 frmDiemMia
+modSeedHS
+modViTriSo
+modKiemKe
+modChieuDai
+frmChieuDaiCanh
+modTroLy
+frmTroLy
+modKTT
+frmChonKTT
