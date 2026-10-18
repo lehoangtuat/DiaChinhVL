@@ -33,6 +33,7 @@ Private Sub UserForm_Initialize()
     cM.AddItem "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " " & ChrW(273) & ChrW(7883) & "a ch" & ChrW(237) & "nh (TT26)"
     cM.AddItem "T" & ChrW(225) & "ch th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t (TT26 - m" & ChrW(7851) & "u 22/" & ChrW(272) & "K)"
     cM.AddItem "H" & ChrW(7907) & "p th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t (TT26 - m" & ChrW(7851) & "u 22/" & ChrW(272) & "K)"
+    cM.AddItem "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c + Phi" & ChrW(7871) & "u " & ChrW(273) & "o " & ChrW(273) & ChrW(7841) & "c ch" & ChrW(7881) & "nh l" & ChrW(253) & " (m" & ChrW(7851) & "u VL)"
     cM.ListIndex = 0
     AddPairW "File m" & ChrW(7851) & "u:", "txtMau", DC_DocCauHinh("MAU_TL", "C:\DiaChinhVL\TrichLucBanDo_mau.txt"), x, 56, 164
     AddPairW "File c" & ChrW(7845) & "u h" & ChrW(236) & "nh:", "txtIni", DC_DocCauHinh("INI_TL", ""), x, 80, 164
@@ -77,26 +78,50 @@ Private Sub UserForm_Initialize()
                   DC_DocCauHinh("LV_SD_ON", "1") = "1", "XOASD", x, 250
     AddPair "C" & ChrW(7905) & " ch" & ChrW(7919) & " (t" & ChrW(7921) & " v" & ChrW(7869) & "):", "txtCao", "1", x, 276
     AddPair "Ki" & ChrW(7875) & "u c" & ChrW(259) & "n (T/G):", "txtKieu", "T", x, 300
+    ' SUA 16/10/2026: an Co chu / Kieu can (dung mac dinh 1 / T), nhuong cho ty le 2 dong
+    Me.Controls("txtCao").Visible = False: Me.Controls("lbl_txtCao").Visible = False
+    Me.Controls("txtKieu").Visible = False: Me.Controls("lbl_txtKieu").Visible = False
+    Me.Controls("txtCao").Text = "1": Me.Controls("txtKieu").Text = "T"
 
     ' Ty le ban do (combo) - thay cho InputBox moi lan chen khung
-    AddLbl "lbl_tyle", "T" & ChrW(7927) & " l" & ChrW(7879) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ":", x, 326, 100
+    AddLbl "lbl_tyle", "T" & ChrW(7927) & " l" & ChrW(7879) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & ":", x, 280, 100
     Dim cboTL As Object
     Set cboTL = Me.Controls.Add("Forms.ComboBox.1", "cboTyLe", True)
-    cboTL.Left = x + 104: cboTL.Top = 324: cboTL.Width = 90: cboTL.Height = 18
+    cboTL.Left = x + 104: cboTL.Top = 278: cboTL.Width = 90: cboTL.Height = 18
     cboTL.Font.Name = "Arial": cboTL.Font.size = 8
     cboTL.AddItem "T" & ChrW(7921) & " " & ChrW(273) & ChrW(7897) & "ng"
     cboTL.AddItem "200"
     cboTL.AddItem "500"
+    cboTL.AddItem "700"
     cboTL.AddItem "1000"
     cboTL.AddItem "2000"
     cboTL.AddItem "5000"
     cboTL.AddItem "10000"
     cboTL.ListIndex = 0          ' mac dinh: Tu dong (theo kich thuoc thua)
+    ' SUA 16/10/2026: nho ty le lan truoc; go tay ty le bat ky (vd 700, 2500)
+    Dim tlCu As String
+    tlCu = DC_DocCauHinh("TL_TYLE", "")
+    If Val(tlCu) > 0 Then cboTL.Value = tlCu
+    ' SUA 16/10/2026 (2): o "1:" go ty le tuy y (vd 700, 2500). Co so -> dung so nay
+    ' (ca trich luc lan tach/hop thua); de trong -> theo o chon ben trai.
+    AddLbl "lbl_tyletay", "T" & ChrW(7927) & " l" & ChrW(7879) & " t" & ChrW(249) & "y " & ChrW(253) & ":      1 :", x, 306, 100
+    Dim tT As Object
+    Set tT = Me.Controls.Add("Forms.TextBox.1", "txtTyLeTay", True)
+    tT.Left = x + 104: tT.Top = 304: tT.Width = 90: tT.Height = 18
+    tT.Font.Name = "Arial": tT.Font.size = 8
+    tT.ControlTipText = "Go ty le tuy y (vd 700, 2500). De trong = theo o chon"
+    tT.Text = DC_DocCauHinh("TL_TYLE_TAY", "")
+    ' ghi chu mo (xam, chu nho) duoi o ty le
+    Dim gc As Object
+    Set gc = Me.Controls.Add("Forms.Label.1", "lbl_tylegc", True)
+    gc.Caption = "G" & ChrW(245) & " s" & ChrW(7889) & " (vd 700, 2500) th" & ChrW(236) & " d" & ChrW(249) & "ng s" & ChrW(7889) & " n" & ChrW(224) & "y; " & ChrW(273) & ChrW(7875) & " tr" & ChrW(7889) & "ng = theo " & ChrW(244) & " T" & ChrW(7927) & " l" & ChrW(7879) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)
+    gc.Left = x + 104: gc.Top = 324: gc.Width = 200: gc.Height = 22: gc.WordWrap = True
+    gc.Font.Name = "Arial": gc.Font.size = 7: gc.ForeColor = &H808080
 
     Dim c As Object
     Set c = Me.Controls.Add("Forms.CheckBox.1", "chkMau", True)
     c.Caption = "Ch" & ChrW(232) & "n khung Ph" & ChrW(7909) & " l" & ChrW(7909) & "c 19 (b" & ChrW(7887) & " tick = s" & ChrW(417) & " " & ChrW(273) & ChrW(7891) & " t" & ChrW(7921) & " v" & ChrW(7869) & ")"
-    c.Left = x: c.Top = 352: c.Width = 290: c.Height = 16: c.Value = True
+    c.Left = x: c.Top = 355: c.Width = 290: c.Height = 16: c.Value = True
     c.Font.Name = "Arial": c.Font.size = 8
 
     Dim b1 As Object, b2 As Object
@@ -149,7 +174,7 @@ Private Sub UserForm_Initialize()
     mLoai = -1
     Dim lo As Long
     lo = CLng(Val(DC_DocCauHinh("LOAI_HS", "0")))
-    If lo < 0 Or lo > 2 Then lo = 0
+    If lo < 0 Or lo > 3 Then lo = 0
     Me.Controls("cboMauHS").ListIndex = lo
     MauHSDoi
     Set mCboHS = New clsComboEvent
@@ -176,14 +201,19 @@ Public Sub MauHSDoi()
             Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_HOP", "C:\DiaChinhVL\MAU\22hop.dgn")
             Me.Controls("txtIni").Text = DC_DocCauHinh("INI_HOP", "C:\DiaChinhVL\MAU\22hop.ini")
             Me.Controls("lbl_txtSoThua").Caption = "C" & ChrW(225) & "c th" & ChrW(7917) & "a h" & ChrW(7907) & "p (12,13):"
+        Case 3
+            ' SUA 16/10/2026: mau VL (Trich luc + Phieu do dac chinh ly), file rieng
+            Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_TL3", "C:\DiaChinhVL\MAU\trichluc.dgn")
+            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_TL3", "C:\DiaChinhVL\MAU\trichluc.ini")
+            Me.Controls("lbl_txtSoThua").Caption = "S" & ChrW(7889) & " th" & ChrW(7917) & "a tr" & ChrW(237) & "ch l" & ChrW(7909) & "c:"
         Case Else
             Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_TL", "C:\DiaChinhVL\TrichLucBanDo_mau.txt")
-            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_TL", "")
+            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_TL0", DC_DocCauHinh("INI_TL", ""))
             Me.Controls("lbl_txtSoThua").Caption = "S" & ChrW(7889) & " th" & ChrW(7917) & "a tr" & ChrW(237) & "ch l" & ChrW(7909) & "c:"
     End Select
     Me.Controls("txtLvCat").Enabled = (lo = 1)
     Me.Controls("lbl_lvcat").Enabled = (lo = 1)
-    Me.Controls("chkMau").Enabled = (lo = 0)
+    Me.Controls("chkMau").Enabled = (lo = 0 Or lo = 3)
 End Sub
 
 ' Goi tu clsComboEvent khi doi Tinh
@@ -220,6 +250,14 @@ Private Sub AddPairW(ByVal cap As String, ByVal nm As String, ByVal txt As Strin
     c.Text = txt: c.Left = x + 104: c.Top = y: c.Width = w: c.Height = 16
     c.Font.Name = "Arial": c.Font.size = 8
 End Sub
+
+' Ty le dung khi xuat: o go tay (neu co so) uu tien, sau do o chon (0 = Tu dong)
+Private Function TyLeChon() As Double
+    Dim v As Double
+    v = Val(Replace(Trim$(Me.Controls("txtTyLeTay").Text), ",", "."))
+    If v <= 0 Then v = Val(Me.Controls("cboTyLe").Value)
+    TyLeChon = v
+End Function
 
 Private Sub AddLbl(ByVal nm As String, ByVal cap As String, _
                    ByVal x As Single, ByVal y As Single, ByVal w As Single)
@@ -273,10 +311,17 @@ Private Sub LuuMau()
     Select Case mLoai
         Case 1: hau = "TACH"
         Case 2: hau = "HOP"
+        Case 3: hau = "TL3"
         Case Else: hau = "TL"
     End Select
     DC_GhiCauHinh "MAU_" & hau, Trim$(Me.Controls("txtMau").Text)
-    DC_GhiCauHinh "INI_" & hau, Trim$(Me.Controls("txtIni").Text)
+    If mLoai = 0 Then
+        ' INI_TL = ini DANG DUNG khi xuat trich luc (modMauDgn doc); moi mau luu rieng
+        DC_GhiCauHinh "INI_TL0", Trim$(Me.Controls("txtIni").Text)
+    Else
+        DC_GhiCauHinh "INI_" & hau, Trim$(Me.Controls("txtIni").Text)
+    End If
+    If mLoai = 0 Or mLoai = 3 Then DC_GhiCauHinh "INI_TL", Trim$(Me.Controls("txtIni").Text)
     If mLoai = 1 Then DC_GhiCauHinh "TACH_LV", Trim$(Me.Controls("txtLvCat").Text)
 End Sub
 
@@ -310,8 +355,11 @@ Public Sub XuLyNut(ByVal ma As String)
         Exit Sub
     End If
     LuuMau
+    DC_GhiCauHinh "TL_TYLE", IIf(Val(Me.Controls("cboTyLe").Value) > 0, CStr(Val(Me.Controls("cboTyLe").Value)), "")
+    DC_GhiCauHinh "TL_TYLE_TAY", IIf(Val(Me.Controls("txtTyLeTay").Text) > 0, CStr(Val(Me.Controls("txtTyLeTay").Text)), "")
     If mLoai = 1 Or mLoai = 2 Then XuLyTachHop ma: Exit Sub
     If ma = "CHON" Then
+        If DC_DaTatLop() Then DC_BatLopBanDo     ' hien lai ban do de bam chon thua
         LuuDonViHC
         LuuViTri
         Me.Hide
@@ -320,7 +368,7 @@ Public Sub XuLyNut(ByVal ma As String)
                  Me.Controls("txtTo").Text, CStr(Me.Controls("cboXa").Value), _
                  Me.Controls("txtHuyen").Text, CStr(Me.Controls("cboTinh").Value), _
                  "", val(Me.Controls("txtCao").Text), _
-                 Me.Controls("chkMau").Value, val(Me.Controls("cboTyLe").Value)
+                 Me.Controls("chkMau").Value, TyLeChon()
         Exit Sub
     End If
     If Len(Trim$(Me.Controls("txtSoThua").Text)) = 0 Then
@@ -334,7 +382,7 @@ Public Sub XuLyNut(ByVal ma As String)
                  Me.Controls("txtTo").Text, CStr(Me.Controls("cboXa").Value), _
                  Me.Controls("txtHuyen").Text, CStr(Me.Controls("cboTinh").Value), _
                  "", val(Me.Controls("txtCao").Text), _
-                 Me.Controls("chkMau").Value, val(Me.Controls("cboTyLe").Value)
+                 Me.Controls("chkMau").Value, TyLeChon()
     Me.Show vbModeless
 End Sub
 
@@ -344,12 +392,13 @@ Private Sub XuLyTachHop(ByVal ma As String)
     If mLoai = 2 Then tieuDe = "H" & ChrW(7907) & "p th" & ChrW(7917) & "a" Else tieuDe = "T" & ChrW(225) & "ch th" & ChrW(7917) & "a"
     LuuDonViHC
     If ma = "CHON" Then
+        If DC_DaTatLop() Then DC_BatLopBanDo     ' hien lai ban do de bam chon thua
         LuuViTri
         Me.Hide
         DC_ChonThuaTrichLuc Me.Controls("txtCSDL").Text, Me.Controls("txtMau").Text, "T", _
                  Me.Controls("txtTo").Text, CStr(Me.Controls("cboXa").Value), _
                  Me.Controls("txtHuyen").Text, CStr(Me.Controls("cboTinh").Value), _
-                 "", 1, True, val(Me.Controls("cboTyLe").Value), _
+                 "", 1, True, TyLeChon(), _
                  mLoai, Me.Controls("txtIni").Text, Me.Controls("txtLvCat").Text
         Exit Sub
     End If
@@ -366,7 +415,7 @@ Private Sub XuLyTachHop(ByVal ma As String)
     DC_ChayTachHop mLoai, goc, Me.Controls("txtMau").Text, Me.Controls("txtIni").Text, _
                    Me.Controls("txtTo").Text, CStr(Me.Controls("cboXa").Value), _
                    Me.Controls("txtHuyen").Text, CStr(Me.Controls("cboTinh").Value), _
-                   val(Me.Controls("cboTyLe").Value), Me.Controls("txtLvCat").Text
+                   TyLeChon(), Me.Controls("txtLvCat").Text
     Me.Show vbModeless
 End Sub
 
