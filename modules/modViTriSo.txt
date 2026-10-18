@@ -1,0 +1,98 @@
+'============================================================
+' modViTriSo - Vi tri dat SO HIEU DINH ra NGOAI thua (so do tach/hop thua)
+'   Xet ca nhom thua (cac thua sau tach / cac thua hop): thu 16 huong quanh
+'   dinh, chon huong KHONG nam trong thua nao va gan phan giac goc nhat.
+'   Dinh nam giua duong cat (khong ra ngoai duoc) -> theo phan giac.
+'   (tach rieng module vi modKhungMau gan cham gioi han 64KB)
+'============================================================
+Option Explicit
+
+Public Sub DC_HuongSoDinh(ByVal ds As Collection, rg() As Double, ByVal m As Long, ByVal i As Long, _
+                          ByVal dao As Boolean, ByVal kcM As Double, dx As Double, dy As Double)
+    ' SUA 16/10 (2): them KHOANG HO toi cac canh -> dinh nam tren duong cat
+    ' (phia trong) cung dat so vao cho trong, khong de len net.
+    Dim bx As Double, by As Double, k As Long, a As Double, cx As Double, cy As Double
+    Dim best As Double, sc As Double, x0 As Double, y0 As Double, px As Double, py As Double
+    Dim hoN As Double, ngoai As Boolean
+    On Error Resume Next
+    PhanGiac rg, m, i, dao, bx, by
+    dx = bx: dy = by
+    x0 = rg(i, 0): y0 = rg(i, 1)
+    best = -1E+30
+    For k = 0 To 23
+        a = k * 3.14159265358979 / 12#
+        cx = Cos(a): cy = Sin(a)
+        px = x0 + cx * kcM: py = y0 + cy * kcM
+        hoN = KhoangHo(ds, px, py) / kcM            ' khoang cach toi canh gan nhat (tinh theo kc)
+        If hoN > 0.6 Then hoN = 0.6
+        ngoai = Not TrongDS(ds, px, py)
+        sc = hoN * 4# + (cx * bx + cy * by) * 0.5
+        ' 1 thua: BAT BUOC ra ngoai ; nhieu thua (sau tach / truoc hop): duoc dat
+        ' ben trong, chi uu tien nhe phia ngoai, chon cho trong nhat
+        If ngoai Then
+            If ds.Count <= 1 Then sc = sc + 100# Else sc = sc + 1#
+        End If
+        If sc > best Then best = sc: dx = cx: dy = cy
+    Next k
+End Sub
+
+' Khoang cach nho nhat tu (x,y) toi moi canh cua nhom thua
+Private Function KhoangHo(ByVal ds As Collection, ByVal x As Double, ByVal y As Double) As Double
+    Dim j As Long, kv As Long, v As clsVung, r() As Double, n As Long, i As Long, d As Double, best As Double
+    best = 1E+30
+    For j = 1 To ds.Count
+        Set v = ds.Item(j)
+        For kv = 0 To v.Dao.Count
+            If kv = 0 Then r = v.ring Else r = v.Dao.Item(kv)
+            n = UBound(r, 1)
+            For i = 0 To n - 1
+                d = KcDoan(x, y, r(i, 0), r(i, 1), r(i + 1, 0), r(i + 1, 1))
+                If d < best Then best = d
+            Next i
+        Next kv
+    Next j
+    KhoangHo = best
+End Function
+
+Private Function KcDoan(ByVal x As Double, ByVal y As Double, ByVal ax As Double, ByVal ay As Double, _
+                        ByVal bx As Double, ByVal by As Double) As Double
+    Dim vx As Double, vy As Double, L2 As Double, t As Double
+    vx = bx - ax: vy = by - ay: L2 = vx * vx + vy * vy
+    If L2 <= 0 Then KcDoan = Sqr((x - ax) ^ 2 + (y - ay) ^ 2): Exit Function
+    t = ((x - ax) * vx + (y - ay) * vy) / L2
+    If t < 0 Then t = 0
+    If t > 1 Then t = 1
+    KcDoan = Sqr((x - ax - t * vx) ^ 2 + (y - ay - t * vy) ^ 2)
+End Function
+
+' Phan giac goc tai dinh i, huong ra ngoai vong (vong dao: vao trong lo)
+Private Sub PhanGiac(r() As Double, ByVal n As Long, ByVal i As Long, ByVal dao As Boolean, dx As Double, dy As Double)
+    Dim p As Long, q As Long, ux As Double, uy As Double, wx As Double, wy As Double, L As Double, e As Double
+    p = i - 1: If p < 0 Then p = n - 1
+    q = i + 1
+    ux = r(i, 0) - r(p, 0): uy = r(i, 1) - r(p, 1): L = Sqr(ux * ux + uy * uy): If L > 0 Then ux = ux / L: uy = uy / L
+    wx = r(i, 0) - r(q, 0): wy = r(i, 1) - r(q, 1): e = Sqr(wx * wx + wy * wy): If e > 0 Then wx = wx / e: wy = wy / e
+    If e > L Then e = L
+    dx = ux + wx: dy = uy + wy: L = Sqr(dx * dx + dy * dy)
+    If L < 0.2 Then dx = -uy: dy = ux: L = 1
+    dx = dx / L: dy = dy / L
+    e = e * 0.05
+    If DiemTrongPolygon(r, r(i, 0) + dx * e, r(i, 1) + dy * e) Xor dao Then dx = -dx: dy = -dy
+End Sub
+
+' Diem (x,y) nam trong thua nao cua nhom ds (trong vong ngoai, ngoai cac lo)
+Private Function TrongDS(ByVal ds As Collection, ByVal x As Double, ByVal y As Double) As Boolean
+    Dim j As Long, kv As Long, v As clsVung, r() As Double, d() As Double, trongLo As Boolean
+    For j = 1 To ds.Count
+        Set v = ds.Item(j)
+        r = v.ring
+        If DiemTrongPolygon(r, x, y) Then
+            trongLo = False
+            For kv = 1 To v.Dao.Count
+                d = v.Dao.Item(kv)
+                If DiemTrongPolygon(d, x, y) Then trongLo = True: Exit For
+            Next kv
+            If Not trongLo Then TrongDS = True: Exit Function
+        End If
+    Next j
+End Function
