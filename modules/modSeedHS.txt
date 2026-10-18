@@ -1,0 +1,28 @@
+'============================================================
+' modSeedHS - Chu ky he toa do cua ban ve dang mo (cho file seed luu ho so)
+'   Moi he toa do (don vi UOR + goc toa do Global Origin) -> 1 file seed:
+'   C:\DiaChinhVL\Mau\seed_hoso_<chu ky>.dgn. Cung he -> dung lai, nhanh.
+'   Tach module rieng: neu object model khac phien ban thi chi anh huong
+'   nut "Luu file ho so", khong anh huong trich luc.
+'============================================================
+Option Explicit
+
+Public Function DC_ChuKySeed() As String
+    Dim o As Object, u As Double, s As String, go As Point3d
+    On Error Resume Next
+    Set o = ActiveModelReference
+    u = o.UORsPerMasterUnit
+    s = "u" & SoTen(u)
+    Err.Clear
+    go = ActiveModelReference.GlobalOrigin
+    If Err.Number = 0 Then s = s & "_x" & SoTen(go.X) & "_y" & SoTen(go.Y)
+    DC_ChuKySeed = s
+End Function
+
+Private Function SoTen(ByVal v As Double) As String
+    Dim t As String
+    t = Format$(Round(v, 3), "0.###")
+    If Right$(t, 1) = "." Or Right$(t, 1) = "," Then t = Left$(t, Len(t) - 1)
+    t = Replace(Replace(Replace(t, ".", "p"), ",", "p"), "-", "m")
+    SoTen = t
+End Function
