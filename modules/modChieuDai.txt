@@ -1,0 +1,212 @@
+'============================================================
+' modChieuDai - "Chieu dai canh" (kieu "Ban do canh" LandMap)
+'   Ghi chieu dai canh thua: nguon = doi tuong dang chon, hoac Fence,
+'   hoac tat ca line/linestring/shape tren "Lop can hien". Canh chung
+'   2 thua chi ghi 1 lan. Chu dat song song canh, ra phia ngoai thua.
+'   Form: frmChieuDaiCanh (tao dong). Thong so luu ini (CDC_*).
+'============================================================
+Option Explicit
+
+Private mDa As Object          ' khoa canh / dinh da ghi
+Private mH As Double, mKc As Double, mSoLe As Long, mPhay As Boolean
+Private mMau As Long, mMin As Double, mMoc As Boolean
+Private mLvOut As Level, mFont As Object, mNChu As Long, mNMoc As Long
+
+Public Sub DC_MoChieuDaiCanh()
+    DC_MoFormTuTao "frmChieuDaiCanh"
+End Sub
+
+' Tra ve so canh da ghi (nMoc = so moc dinh)
+Public Function CDC_ThucHien(ByVal tenFont As String, ByVal h As Double, ByVal mau As Long, _
+                             ByVal kc As Double, ByVal soLe As Long, ByVal lvVao As String, _
+                             ByVal lvRa As String, ByVal minDai As Double, ByVal dungFence As Boolean, _
+                             ByVal dauPhay As Boolean, ByVal taoMoc As Boolean, ByRef nMoc As Long, _
+                             ByRef loi As String) As Long
+    Dim ds As New Collection, ee As ElementEnumerator, lvV As Level, esc As ElementScanCriteria
+    mH = h: mKc = kc: mSoLe = soLe: mPhay = dauPhay: mMau = mau: mMin = minDai: mMoc = taoMoc
+    mNChu = 0: mNMoc = 0
+    Set mDa = CreateObject("Scripting.Dictionary")
+    If h <= 0 Then loi = "K" & ChrW(237) & "ch th" & ChrW(432) & ChrW(7899) & "c ch" & ChrW(7919) & " ph" & ChrW(7843) & "i > 0.": Exit Function
+
+    Set mLvOut = Nothing
+    If Len(Trim$(lvRa)) > 0 Then
+        If IsNumeric(Trim$(lvRa)) Then Set mLvOut = DC_LevelTheoSo(CLng(Val(lvRa))) Else Set mLvOut = DC_TimLevel(lvRa)
+        If mLvOut Is Nothing Then
+            On Error Resume Next
+            Set mLvOut = ActiveDesignFile.AddNewLevel(Trim$(lvRa))
+            ActiveDesignFile.Levels.Rewrite
+            On Error GoTo 0
+        End If
+    End If
+    Set mFont = TimFontCD(tenFont)
+
+    ' 1) Doi tuong dang chon
+    On Error Resume Next
+    Set ee = ActiveModelReference.GetSelectedElements
+    On Error GoTo 0
+    If Not ee Is Nothing Then
+        Do While ee.MoveNext
+            ds.Add ee.Current
+        Loop
+    End If
+    ' 2) Fence / 3) ca level
+    If ds.Count = 0 Then
+        If Len(Trim$(lvVao)) > 0 Then Set lvV = DC_TimLevel(lvVao)
+        If dungFence Then
+            Dim oF As Object
+            Set ee = Nothing
+            On Error Resume Next
+            Set oF = ActiveDesignFile
+            If oF.Fence.IsDefined Then Set ee = oF.Fence.GetContents
+            On Error GoTo 0
+            If ee Is Nothing Then loi = "Ch" & ChrW(432) & "a " & ChrW(273) & ChrW(7863) & "t Fence.": Exit Function
+            Do While ee.MoveNext
+                If lvV Is Nothing Then
+                    ds.Add ee.Current
+                ElseIf DC_LevelSo(ee.Current) = lvV.Number Then
+                    ds.Add ee.Current
+                End If
+            Loop
+        Else
+            If lvV Is Nothing Then loi = "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y l" & ChrW(7899) & "p c" & ChrW(7847) & "n hi" & ChrW(7879) & "n: " & lvVao: Exit Function
+            Set esc = New ElementScanCriteria
+            esc.ExcludeAllTypes
+            esc.IncludeType msdElementTypeLine
+            esc.IncludeType msdElementTypeLineString
+            esc.IncludeType msdElementTypeShape
+            esc.IncludeType msdElementTypeComplexString
+            esc.IncludeType msdElementTypeComplexShape
+            esc.ExcludeAllLevels
+            esc.IncludeLevel lvV
+            Set ee = ActiveModelReference.Scan(esc)
+            Do While ee.MoveNext
+                ds.Add ee.Current
+            Loop
+        End If
+    End If
+    If ds.Count = 0 Then loi = "Kh" & ChrW(244) & "ng c" & ChrW(243) & " c" & ChrW(7841) & "nh n" & ChrW(224) & "o (ch" & ChrW(7885) & "n " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng, d" & ChrW(249) & "ng Fence, ho" & ChrW(7863) & "c ki" & ChrW(7875) & "m tra L" & ChrW(7899) & "p c" & ChrW(7847) & "n hi" & ChrW(7879) & "n).": Exit Function
+
+    On Error Resume Next
+    CadInputQueue.SendKeyin "mark"
+    On Error GoTo 0
+    Dim i As Long
+    For i = 1 To ds.Count
+        MotPhanTu ds.Item(i)
+    Next i
+    RedrawAllViews
+    nMoc = mNMoc
+    CDC_ThucHien = mNChu
+End Function
+
+Private Sub MotPhanTu(ByVal el As Element)
+    Dim subs As ElementEnumerator, pts() As Point3d, i As Long, a As Double, chieu As Double
+    On Error Resume Next
+    If el.IsComplexElement And Not el.IsVertexList Then
+        Set subs = el.AsComplexElement.GetSubElements
+        Do While subs.MoveNext
+            MotPhanTu subs.Current
+        Loop
+        Exit Sub
+    End If
+    If Not el.IsVertexList Then Exit Sub
+    Err.Clear
+    pts = el.AsVertexList.GetVertices
+    If Err.Number <> 0 Then Exit Sub
+    For i = LBound(pts) To UBound(pts) - 1
+        a = a + pts(i).X * pts(i + 1).Y - pts(i + 1).X * pts(i).Y
+    Next i
+    If a >= 0 Then chieu = 1# Else chieu = -1#
+    For i = LBound(pts) To UBound(pts) - 1
+        GhiCanhCD pts(i).X, pts(i).Y, pts(i + 1).X, pts(i + 1).Y, chieu
+    Next i
+    If mMoc Then
+        For i = LBound(pts) To UBound(pts)
+            VeMoc pts(i).X, pts(i).Y
+        Next i
+    End If
+End Sub
+
+Private Function Khoa(ByVal x As Double, ByVal y As Double) As String
+    Khoa = Format$(Round(x, 3), "0.000") & "|" & Format$(Round(y, 3), "0.000")
+End Function
+
+Private Sub GhiCanhCD(ByVal ax As Double, ByVal ay As Double, ByVal bx As Double, ByVal by As Double, ByVal chieu As Double)
+    Dim dx As Double, dy As Double, L As Double, ang As Double, mx As Double, my As Double
+    Dim f As String, s As String, k1 As String, k2 As String, d As Double
+    dx = bx - ax: dy = by - ay
+    L = Sqr(dx * dx + dy * dy)
+    If L <= 0.0001 Then Exit Sub
+    If L <= mMin Then Exit Sub
+    k1 = Khoa(ax, ay): k2 = Khoa(bx, by)
+    If k1 > k2 Then s = k2 & "#" & k1 Else s = k1 & "#" & k2
+    If mDa.Exists("C" & s) Then Exit Sub
+    mDa("C" & s) = True
+    ang = Atan2(dy, dx)
+    If ang > 1.5708 Then ang = ang - 3.14159265358979
+    If ang <= -1.5708 Then ang = ang + 3.14159265358979
+    d = mKc + mH * 0.5                         ' tam chu cach canh
+    mx = (ax + bx) / 2# + dy / L * d * chieu
+    my = (ay + by) / 2# - dx / L * d * chieu
+    If mSoLe <= 0 Then f = "0" Else f = "0." & String$(mSoLe, "0")
+    s = Format$(L, f)
+    If mPhay Then s = Replace(s, ".", ",") Else s = Replace(s, ",", ".")
+    Dim oT As TextElement, ts As TextStyle
+    On Error Resume Next
+    Set oT = CreateTextElement1(Nothing, s, Point3dFromXYZ(mx, my, 0#), Matrix3dFromAxisAndRotationAngle(2, ang))
+    If oT Is Nothing Then Exit Sub
+    Set ts = oT.TextStyle
+    ts.Height = mH: ts.Width = mH * 0.774
+    ts.Justification = msdTextJustificationCenterCenter
+    If Not mFont Is Nothing Then Set ts.Font = mFont
+    Set oT.TextStyle = ts
+    oT.Color = mMau
+    oT.LineWeight = 0
+    If Not mLvOut Is Nothing Then Set oT.Level = mLvOut
+    ActiveModelReference.AddElement oT
+    mNChu = mNChu + 1
+End Sub
+
+Private Sub VeMoc(ByVal x As Double, ByVal y As Double)
+    Dim k As String, e As Element, r As Double
+    k = "M" & Khoa(x, y)
+    If mDa.Exists(k) Then Exit Sub
+    mDa(k) = True
+    r = mH * 0.15
+    On Error Resume Next
+    Set e = CreateEllipseElement2(Nothing, Point3dFromXYZ(x, y, 0#), r, r, Matrix3dIdentity)
+    If e Is Nothing Then Exit Sub
+    e.Color = mMau
+    e.LineWeight = 0
+    If Not mLvOut Is Nothing Then Set e.Level = mLvOut
+    ActiveModelReference.AddElement e
+    mNMoc = mNMoc + 1
+End Sub
+
+Private Function TimFontCD(ByVal ten As String) As Object
+    Dim f As Object
+    On Error Resume Next
+    If Len(Trim$(ten)) = 0 Then ten = DC_FONT_VIET
+    For Each f In ActiveDesignFile.Fonts
+        If StrComp(f.Name, Trim$(ten), vbTextCompare) = 0 Then Set TimFontCD = f: Exit Function
+    Next f
+End Function
+
+' Danh sach ten font / ten level cho combo
+Public Function CDC_DsFont() As Collection
+    Dim c As New Collection, f As Object, d As Object
+    Set d = CreateObject("Scripting.Dictionary"): d.CompareMode = 1
+    On Error Resume Next
+    For Each f In ActiveDesignFile.Fonts
+        If Not d.Exists(f.Name) Then d(f.Name) = True: c.Add f.Name
+    Next f
+    Set CDC_DsFont = c
+End Function
+
+Public Function CDC_DsLevel() As Collection
+    Dim c As New Collection, lv As Level
+    On Error Resume Next
+    For Each lv In ActiveDesignFile.Levels
+        c.Add lv.Name
+    Next lv
+    Set CDC_DsLevel = c
+End Function
