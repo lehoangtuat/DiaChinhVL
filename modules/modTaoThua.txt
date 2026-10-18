@@ -55,7 +55,7 @@ Public Sub ChayTaoThua(ByVal levelsCSV As String, _
         If boNho <= 0 Or v.Dt >= boNho Then
             If Len(v.loaiDat) = 0 Then v.loaiDat = loaiDat
             If Len(v.SoTo) = 0 Then v.SoTo = toBanDo
-            VeTam v.cx, v.cy, kt, mauTam
+            VeTamHong v.cx, v.cy, kt, mauTam
             dem = dem + 1
             tong = tong + v.Dt
         End If
