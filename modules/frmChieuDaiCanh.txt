@@ -1,0 +1,134 @@
+'============================================================
+' frmChieuDaiCanh - "Chieu dai canh" (giong "Ban do canh" LandMap)
+'   Can: modChieuDai, clsNutTL, modCauHinh. Tao bang DC_MoFormTuTao.
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+
+Private Sub UserForm_Initialize()
+    Dim x1 As Single, x2 As Single, c As Object, ds As Collection, i As Long
+    Me.Caption = "Chieu dai canh"
+    Me.Width = 330: Me.Height = 262
+    Me.Font.Name = "Arial": Me.Font.size = 8
+    x1 = 8: x2 = 170
+
+    Khung "Th" & ChrW(7875) & " hi" & ChrW(7879) & "n", 4, 4, 316, 132
+    Nhan "Font ch" & ChrW(7919), x1 + 4, 20, 80
+    Set c = Me.Controls.Add("Forms.ComboBox.1", "cboFont", True)
+    c.Left = 92: c.Top = 18: c.Width = 222: c.Height = 18
+    Set ds = CDC_DsFont()
+    For i = 1 To ds.Count: c.AddItem ds(i): Next i
+    c.Text = DC_DocCauHinh("CDC_FONT", "Times New Roman")
+
+    O "K" & ChrW(237) & "ch th" & ChrW(432) & ChrW(7899) & "c ch" & ChrW(7919), "txtCao", DC_DocCauHinh("CDC_CAO", "1.00"), x1, 42
+    O "Kho" & ChrW(7843) & "ng c" & ChrW(225) & "ch v" & ChrW(7899) & "i c" & ChrW(7841) & "nh", "txtKc", DC_DocCauHinh("CDC_KC", "0.30"), x1, 64
+    O "S" & ChrW(7889) & " ch" & ChrW(7919) & " s" & ChrW(7889) & " th" & ChrW(7853) & "p ph" & ChrW(226) & "n", "txtLe", DC_DocCauHinh("CDC_LE", "2"), x1, 86
+    O "Ch" & ChrW(7881) & " ghi c" & ChrW(7841) & "nh l" & ChrW(7899) & "n h" & ChrW(417) & "n(m)", "txtMin", DC_DocCauHinh("CDC_MIN", "0.00"), x1, 108
+    O2 "M" & ChrW(224) & "u ch" & ChrW(7919), "txtMau", DC_DocCauHinh("CDC_MAU", "4"), x2, 42, False
+    O2 "L" & ChrW(7899) & "p c" & ChrW(7847) & "n hi" & ChrW(7879) & "n", "cboLvVao", DC_DocCauHinh("CDC_LVVAO", "Level 10"), x2, 64, True
+    O2 "L" & ChrW(7899) & "p v" & ChrW(7869) & " c" & ChrW(7841) & "nh", "cboLvRa", DC_DocCauHinh("CDC_LVRA", "Level 63"), x2, 86, True
+
+    Khung "T" & ChrW(249) & "y ch" & ChrW(7885) & "n", 4, 142, 316, 44
+    Chon "chkFence", "S" & ChrW(7917) & " d" & ChrW(7909) & "ng Fence", 12, 160, 90, DC_DocCauHinh("CDC_FENCE", "0") = "1"
+    Chon "chkPhay", "D" & ChrW(7845) & "u ph" & ChrW(7849) & "y th" & ChrW(7853) & "p ph" & ChrW(226) & "n", 108, 160, 104, DC_DocCauHinh("CDC_PHAY", "1") = "1"
+    Chon "chkMoc", "T" & ChrW(7841) & "o m" & ChrW(7889) & "c " & ChrW(273) & ChrW(7881) & "nh th" & ChrW(7917) & "a", 214, 160, 102, DC_DocCauHinh("CDC_MOC", "0") = "1"
+
+    Nhan "C" & ChrW(243) & " ch" & ChrW(7885) & "n " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng th" & ChrW(236) & " ghi cho " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng ch" & ChrW(7885) & "n; kh" & ChrW(244) & "ng ch" & ChrW(7885) & "n: theo Fence / L" & ChrW(7899) & "p c" & ChrW(7847) & "n hi" & ChrW(7879) & "n.", 8, 192, 312
+    ThemNut "THUCHIEN", "Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n", 150, 210, 80
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 236, 210, 80
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    If ma = "DONG" Then Unload Me: Exit Sub
+    Dim n As Long, nMoc As Long, loi As String
+    Luu
+    n = CDC_ThucHien(Me.Controls("cboFont").Text, SoCD("txtCao"), CLng(SoCD("txtMau")), SoCD("txtKc"), _
+                     CLng(SoCD("txtLe")), Me.Controls("cboLvVao").Text, Me.Controls("cboLvRa").Text, _
+                     SoCD("txtMin"), Me.Controls("chkFence").Value, Me.Controls("chkPhay").Value, _
+                     Me.Controls("chkMoc").Value, nMoc, loi)
+    If Len(loi) > 0 Then
+        DC_ThongBao loi, "Chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh", vbExclamation
+    Else
+        DC_ThongBao ChrW(272) & ChrW(227) & " ghi " & n & " chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh" & IIf(nMoc > 0, ", " & nMoc & " m" & ChrW(7889) & "c " & ChrW(273) & ChrW(7881) & "nh", "") & "." & vbCrLf & "(Sai: key-in  undo mark)", "Chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh"
+    End If
+End Sub
+
+Private Function SoCD(ByVal nm As String) As Double
+    SoCD = Val(Replace(Trim$(Me.Controls(nm).Text), ",", "."))
+End Function
+
+Private Sub Luu()
+    DC_GhiCauHinh "CDC_FONT", Me.Controls("cboFont").Text
+    DC_GhiCauHinh "CDC_CAO", Me.Controls("txtCao").Text
+    DC_GhiCauHinh "CDC_KC", Me.Controls("txtKc").Text
+    DC_GhiCauHinh "CDC_LE", Me.Controls("txtLe").Text
+    DC_GhiCauHinh "CDC_MIN", Me.Controls("txtMin").Text
+    DC_GhiCauHinh "CDC_MAU", Me.Controls("txtMau").Text
+    DC_GhiCauHinh "CDC_LVVAO", Me.Controls("cboLvVao").Text
+    DC_GhiCauHinh "CDC_LVRA", Me.Controls("cboLvRa").Text
+    DC_GhiCauHinh "CDC_FENCE", IIf(Me.Controls("chkFence").Value, "1", "0")
+    DC_GhiCauHinh "CDC_PHAY", IIf(Me.Controls("chkPhay").Value, "1", "0")
+    DC_GhiCauHinh "CDC_MOC", IIf(Me.Controls("chkMoc").Value, "1", "0")
+End Sub
+
+'------------------------------------------------------------ tao control
+' Tieu de nhom (chu dam + gach ngang mo) - khong dung Frame de tranh che control
+Private Sub Khung(ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1")
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 13
+    c.Font.Name = "Arial": c.Font.size = 8: c.Font.Bold = True
+    c.BackColor = &HF0E0D0: c.BackStyle = 1
+End Sub
+
+Private Sub Nhan(ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1")
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 12
+    c.Font.Name = "Arial": c.Font.size = 8
+    c.ZOrder 0
+End Sub
+
+Private Sub O(ByVal cap As String, ByVal nm As String, ByVal gt As String, ByVal x As Single, ByVal y As Single)
+    Dim c As Object
+    Nhan cap, x + 4, y + 2, 92
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Left = x + 98: c.Top = y: c.Width = 56: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8: c.TextAlign = 3
+    c.Text = gt
+End Sub
+
+Private Sub O2(ByVal cap As String, ByVal nm As String, ByVal gt As String, ByVal x As Single, ByVal y As Single, ByVal laLevel As Boolean)
+    Dim c As Object, ds As Collection, i As Long
+    Nhan cap, x, y + 2, 64
+    If laLevel Then
+        Set c = Me.Controls.Add("Forms.ComboBox.1", nm, True)
+        Set ds = CDC_DsLevel()
+        For i = 1 To ds.Count: c.AddItem ds(i): Next i
+    Else
+        Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+        c.TextAlign = 3
+    End If
+    c.Left = x + 66: c.Top = y: c.Width = 78: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+    c.Text = gt
+End Sub
+
+Private Sub Chon(ByVal nm As String, ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal v As Boolean)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.CheckBox.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+    c.Value = v
+End Sub
+
+Private Sub ThemNut(ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim b As Object, hd As clsNutTL
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = w: b.Height = 22
+    b.Font.Name = "Arial": b.Font.size = 8
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
+    mNut.Add hd
+End Sub
