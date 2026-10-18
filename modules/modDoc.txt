@@ -249,6 +249,60 @@ Public Sub VeTam(ByVal x As Double, ByVal y As Double, _
     VeLine x, y - size, x, y + size, color
 End Sub
 
+' SUA 16/10/2026: TAM THUA kieu pho bien (gCadas/famis...): hinh thoi + 4 tia
+' net dut, cham tron dac o giua; mau mac dinh 5 (hong). kt = nua duong cheo hinh thoi.
+Public Sub VeTamHong(ByVal x As Double, ByVal y As Double, ByVal kt As Double, _
+                     Optional ByVal color As Long = 5)
+    ' SUA 16/10/2026 (2): gom thanh 1 KHOI (cell "TAMTHUA") nhu phan mem khac
+    Dim d As Double, ls As Object, e As Element, o As Object, arr() As Element, n As Long, i As Long
+    Dim c As Element
+    If kt <= 0 Then kt = 0.3
+    If color < 0 Then color = 5
+    d = kt
+    ReDim arr(0 To 8)
+    On Error Resume Next
+    Set ls = ActiveDesignFile.LineStyles.Find("2")
+    ThemLT arr, n, x, y + d, x + d, y, color, ls
+    ThemLT arr, n, x + d, y, x, y - d, color, ls
+    ThemLT arr, n, x, y - d, x - d, y, color, ls
+    ThemLT arr, n, x - d, y, x, y + d, color, ls
+    ThemLT arr, n, x + d, y, x + 2 * d, y, color, ls
+    ThemLT arr, n, x - d, y, x - 2 * d, y, color, ls
+    ThemLT arr, n, x, y + d, x, y + 2 * d, color, ls
+    ThemLT arr, n, x, y - d, x, y - 2 * d, color, ls
+    Set e = CreateEllipseElement2(Nothing, Point3dFromXYZ(x, y, 0#), d * 0.3, d * 0.3, Matrix3dIdentity, msdFillModeFilled)
+    If Not e Is Nothing Then
+        e.Color = color
+        e.LineWeight = 0
+        Set o = e
+        o.FillColor = color
+        Set arr(n) = e: n = n + 1
+    End If
+    If n = 0 Then Exit Sub
+    ReDim Preserve arr(0 To n - 1)
+    Err.Clear
+    Set c = CreateCellElement1("TAMTHUA", arr, Point3dFromXYZ(x, y, 0#), False)
+    If Err.Number = 0 And Not c Is Nothing Then
+        ActiveModelReference.AddElement c
+    Else
+        For i = 0 To n - 1                       ' du phong: ve roi tung net
+            ActiveModelReference.AddElement arr(i)
+        Next i
+    End If
+End Sub
+
+Private Sub ThemLT(arr() As Element, n As Long, ByVal ax As Double, ByVal ay As Double, _
+                   ByVal bx As Double, ByVal by As Double, ByVal color As Long, ByVal ls As Object)
+    Dim oLine As LineElement
+    On Error Resume Next
+    Set oLine = CreateLineElement2(Nothing, Point3dFromXYZ(ax, ay, 0#), Point3dFromXYZ(bx, by, 0#))
+    If oLine Is Nothing Then Exit Sub
+    oLine.Color = color
+    oLine.LineWeight = 0
+    If Not ls Is Nothing Then Set oLine.LineStyle = ls
+    Set arr(n) = oLine: n = n + 1
+End Sub
+
 ' Ve dau X do + o vuong quanh diem ho (giong ve_danh_dau_loi Python, mau 3 = do)
 Public Sub VeDanhDauLoi(ByVal x As Double, ByVal y As Double, ByVal size As Double)
     VeLine x - size, y - size, x + size, y + size, 3
