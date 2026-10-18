@@ -1,0 +1,90 @@
+'============================================================
+' modKTT - Chon tinh -> kinh tuyen truc VN-2000 (mui 3 do) truoc khi xem ve tinh
+'   Bang KTT theo Thong tu 973/2001/TT-TCDC (63 tinh cu). Sau sap nhap 2025,
+'   1 tinh moi co the gom nhieu vung cu KHAC KTT (vd Vinh Long: Vinh Long,
+'   Tra Vinh 105 30 ; Ben Tre 105 45) -> chon dung VUNG CU cua ban do.
+'   Ghi ini KTT (modVeTinh doc) + KTT_TINH (nho lua chon).
+'============================================================
+Option Explicit
+
+Public gKTTViec As String       ' "VETINH" / "GEARTH"
+
+Public Sub DC_MoChonKTT(ByVal viec As String)
+    gKTTViec = viec
+    DC_MoFormTuTao "frmChonKTT"
+End Sub
+
+' Moi phan tu: Array(nhan, ktt)
+Public Function KTT_DanhSach() As Collection
+    Dim c As New Collection
+    c.Add Array("An Giang (104" & ChrW(176) & "45')", 104.75)
+    c.Add Array("An Giang - v" & ChrW(249) & "ng Ki" & ChrW(234) & "n Giang c" & ChrW(361) & " (104" & ChrW(176) & "30')", 104.50)
+    c.Add Array("B" & ChrW(7855) & "c Ninh (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("B" & ChrW(7855) & "c Ninh - v" & ChrW(249) & "ng B" & ChrW(7855) & "c Giang c" & ChrW(361) & " (107" & ChrW(176) & "00')", 107.00)
+    c.Add Array("Cao B" & ChrW(7857) & "ng (105" & ChrW(176) & "45')", 105.75)
+    c.Add Array("C" & ChrW(224) & " Mau (104" & ChrW(176) & "30')", 104.50)
+    c.Add Array("C" & ChrW(224) & " Mau - v" & ChrW(249) & "ng B" & ChrW(7841) & "c Li" & ChrW(234) & "u c" & ChrW(361) & " (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array("C" & ChrW(7847) & "n Th" & ChrW(417) & " (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array("C" & ChrW(7847) & "n Th" & ChrW(417) & " - v" & ChrW(249) & "ng H" & ChrW(7853) & "u Giang c" & ChrW(361) & " (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array("C" & ChrW(7847) & "n Th" & ChrW(417) & " - v" & ChrW(249) & "ng S" & ChrW(243) & "c Tr" & ChrW(259) & "ng c" & ChrW(361) & " (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("Gia Lai (108" & ChrW(176) & "30')", 108.50)
+    c.Add Array("Gia Lai - v" & ChrW(249) & "ng B" & ChrW(236) & "nh " & ChrW(272) & ChrW(7883) & "nh c" & ChrW(361) & " (108" & ChrW(176) & "15')", 108.25)
+    c.Add Array("H" & ChrW(224) & " N" & ChrW(7897) & "i (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array("H" & ChrW(224) & " T" & ChrW(297) & "nh (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("H" & ChrW(432) & "ng Y" & ChrW(234) & "n (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("H" & ChrW(432) & "ng Y" & ChrW(234) & "n - v" & ChrW(249) & "ng Th" & ChrW(225) & "i B" & ChrW(236) & "nh c" & ChrW(361) & " (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("H" & ChrW(7843) & "i Ph" & ChrW(242) & "ng (105" & ChrW(176) & "45')", 105.75)
+    c.Add Array("H" & ChrW(7843) & "i Ph" & ChrW(242) & "ng - v" & ChrW(249) & "ng H" & ChrW(7843) & "i D" & ChrW(432) & ChrW(417) & "ng c" & ChrW(361) & " (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("Kh" & ChrW(225) & "nh H" & ChrW(242) & "a (108" & ChrW(176) & "15')", 108.25)
+    c.Add Array("Kh" & ChrW(225) & "nh H" & ChrW(242) & "a - v" & ChrW(249) & "ng Ninh Thu" & ChrW(7853) & "n c" & ChrW(361) & " (108" & ChrW(176) & "15')", 108.25)
+    c.Add Array("Lai Ch" & ChrW(226) & "u (103" & ChrW(176) & "00')", 103.00)
+    c.Add Array("L" & ChrW(224) & "o Cai (104" & ChrW(176) & "45')", 104.75)
+    c.Add Array("L" & ChrW(224) & "o Cai - v" & ChrW(249) & "ng Y" & ChrW(234) & "n B" & ChrW(225) & "i c" & ChrW(361) & " (104" & ChrW(176) & "45')", 104.75)
+    c.Add Array("L" & ChrW(226) & "m " & ChrW(272) & ChrW(7891) & "ng (107" & ChrW(176) & "45')", 107.75)
+    c.Add Array("L" & ChrW(226) & "m " & ChrW(272) & ChrW(7891) & "ng - v" & ChrW(249) & "ng B" & ChrW(236) & "nh Thu" & ChrW(7853) & "n c" & ChrW(361) & " (108" & ChrW(176) & "30')", 108.50)
+    c.Add Array("L" & ChrW(226) & "m " & ChrW(272) & ChrW(7891) & "ng - v" & ChrW(249) & "ng " & ChrW(272) & ChrW(7855) & "k N" & ChrW(244) & "ng c" & ChrW(361) & " (108" & ChrW(176) & "30')", 108.50)
+    c.Add Array("L" & ChrW(7841) & "ng S" & ChrW(417) & "n (107" & ChrW(176) & "15')", 107.25)
+    c.Add Array("Ngh" & ChrW(7879) & " An (104" & ChrW(176) & "45')", 104.75)
+    c.Add Array("Ninh B" & ChrW(236) & "nh (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array("Ninh B" & ChrW(236) & "nh - v" & ChrW(249) & "ng H" & ChrW(224) & " Nam c" & ChrW(361) & " (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array("Ninh B" & ChrW(236) & "nh - v" & ChrW(249) & "ng Nam " & ChrW(272) & ChrW(7883) & "nh c" & ChrW(361) & " (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("Ph" & ChrW(250) & " Th" & ChrW(7885) & " (104" & ChrW(176) & "45')", 104.75)
+    c.Add Array("Ph" & ChrW(250) & " Th" & ChrW(7885) & " - v" & ChrW(249) & "ng H" & ChrW(242) & "a B" & ChrW(236) & "nh c" & ChrW(361) & " (106" & ChrW(176) & "00')", 106.00)
+    c.Add Array("Ph" & ChrW(250) & " Th" & ChrW(7885) & " - v" & ChrW(249) & "ng V" & ChrW(297) & "nh Ph" & ChrW(250) & "c c" & ChrW(361) & " (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array("Qu" & ChrW(7843) & "ng Ng" & ChrW(227) & "i (108" & ChrW(176) & "00')", 108.00)
+    c.Add Array("Qu" & ChrW(7843) & "ng Ng" & ChrW(227) & "i - v" & ChrW(249) & "ng Kon Tum c" & ChrW(361) & " (107" & ChrW(176) & "30')", 107.50)
+    c.Add Array("Qu" & ChrW(7843) & "ng Ninh (107" & ChrW(176) & "45')", 107.75)
+    c.Add Array("Qu" & ChrW(7843) & "ng Tr" & ChrW(7883) & " (106" & ChrW(176) & "15')", 106.25)
+    c.Add Array("Qu" & ChrW(7843) & "ng Tr" & ChrW(7883) & " - v" & ChrW(249) & "ng Qu" & ChrW(7843) & "ng B" & ChrW(236) & "nh c" & ChrW(361) & " (106" & ChrW(176) & "00')", 106.00)
+    c.Add Array("S" & ChrW(417) & "n La (104" & ChrW(176) & "00')", 104.00)
+    c.Add Array("TP H" & ChrW(7891) & " Ch" & ChrW(237) & " Minh (105" & ChrW(176) & "45')", 105.75)
+    c.Add Array("TP H" & ChrW(7891) & " Ch" & ChrW(237) & " Minh - v" & ChrW(249) & "ng B" & ChrW(224) & " R" & ChrW(7883) & "a - V" & ChrW(361) & "ng T" & ChrW(224) & "u c" & ChrW(361) & " (107" & ChrW(176) & "45')", 107.75)
+    c.Add Array("TP H" & ChrW(7891) & " Ch" & ChrW(237) & " Minh - v" & ChrW(249) & "ng B" & ChrW(236) & "nh D" & ChrW(432) & ChrW(417) & "ng c" & ChrW(361) & " (105" & ChrW(176) & "45')", 105.75)
+    c.Add Array("Thanh H" & ChrW(243) & "a (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array("Th" & ChrW(225) & "i Nguy" & ChrW(234) & "n (106" & ChrW(176) & "30')", 106.50)
+    c.Add Array("Th" & ChrW(225) & "i Nguy" & ChrW(234) & "n - v" & ChrW(249) & "ng B" & ChrW(7855) & "c K" & ChrW(7841) & "n c" & ChrW(361) & " (106" & ChrW(176) & "30')", 106.50)
+    c.Add Array("Th" & ChrW(7915) & "a Thi" & ChrW(234) & "n Hu" & ChrW(7871) & " (107" & ChrW(176) & "00')", 107.00)
+    c.Add Array("Tuy" & ChrW(234) & "n Quang (106" & ChrW(176) & "00')", 106.00)
+    c.Add Array("Tuy" & ChrW(234) & "n Quang - v" & ChrW(249) & "ng H" & ChrW(224) & " Giang c" & ChrW(361) & " (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("T" & ChrW(226) & "y Ninh (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("T" & ChrW(226) & "y Ninh - v" & ChrW(249) & "ng Long An c" & ChrW(361) & " (105" & ChrW(176) & "45')", 105.75)
+    c.Add Array("V" & ChrW(297) & "nh Long (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array("V" & ChrW(297) & "nh Long - v" & ChrW(249) & "ng B" & ChrW(7871) & "n Tre c" & ChrW(361) & " (105" & ChrW(176) & "45')", 105.75)
+    c.Add Array("V" & ChrW(297) & "nh Long - v" & ChrW(249) & "ng Tr" & ChrW(224) & " Vinh c" & ChrW(361) & " (105" & ChrW(176) & "30')", 105.50)
+    c.Add Array(ChrW(272) & "i" & ChrW(7879) & "n Bi" & ChrW(234) & "n (103" & ChrW(176) & "00')", 103.00)
+    c.Add Array(ChrW(272) & ChrW(224) & " N" & ChrW(7861) & "ng (107" & ChrW(176) & "45')", 107.75)
+    c.Add Array(ChrW(272) & ChrW(224) & " N" & ChrW(7861) & "ng - v" & ChrW(249) & "ng Qu" & ChrW(7843) & "ng Nam c" & ChrW(361) & " (107" & ChrW(176) & "45')", 107.75)
+    c.Add Array(ChrW(272) & ChrW(7855) & "k L" & ChrW(7855) & "k (108" & ChrW(176) & "30')", 108.50)
+    c.Add Array(ChrW(272) & ChrW(7855) & "k L" & ChrW(7855) & "k - v" & ChrW(249) & "ng Ph" & ChrW(250) & " Y" & ChrW(234) & "n c" & ChrW(361) & " (108" & ChrW(176) & "30')", 108.50)
+    c.Add Array(ChrW(272) & ChrW(7891) & "ng Nai (107" & ChrW(176) & "45')", 107.75)
+    c.Add Array(ChrW(272) & ChrW(7891) & "ng Nai - v" & ChrW(249) & "ng B" & ChrW(236) & "nh Ph" & ChrW(432) & ChrW(7899) & "c c" & ChrW(361) & " (106" & ChrW(176) & "15')", 106.25)
+    c.Add Array(ChrW(272) & ChrW(7891) & "ng Th" & ChrW(225) & "p (105" & ChrW(176) & "00')", 105.00)
+    c.Add Array(ChrW(272) & ChrW(7891) & "ng Th" & ChrW(225) & "p - v" & ChrW(249) & "ng Ti" & ChrW(7873) & "n Giang c" & ChrW(361) & " (105" & ChrW(176) & "45')", 105.75)
+    Set KTT_DanhSach = c
+End Function
+
+Public Sub KTT_ChayViec(ByVal ktt As Double, ByVal datum7 As Boolean, ByVal viec As String)
+    DC_GhiCauHinh "KTT", Replace(CStr(ktt), ",", ".")
+    DC_GhiCauHinh "DATUM7", IIf(datum7, "1", "0")
+    If viec = "GEARTH" Then DC_MoGoogleEarth Else DC_XemVeTinh
+End Sub
