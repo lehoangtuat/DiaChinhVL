@@ -38,6 +38,8 @@ Public Sub DC_ChayTachHop(ByVal cheDo As Long, ByVal goc As Collection, _
     Dim tieuDe As String, loi As String, i As Long, v As clsVung
     If cheDo = 2 Then tieuDe = "H" & ChrW(7907) & "p th" & ChrW(7917) & "a" Else tieuDe = "T" & ChrW(225) & "ch th" & ChrW(7917) & "a"
     If goc Is Nothing Then Exit Sub
+    ' SUA 16/10/2026: lan truoc da tu tat lop -> bat lai truoc khi xuat
+    If DC_DaTatLop() Then DC_BatLopBanDo
     If cheDo = 2 And goc.Count < 2 Then DC_ThongBao "Ch" & ChrW(7885) & "n " & ChrW(237) & "t nh" & ChrW(7845) & "t 2 th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7875) & " h" & ChrW(7907) & "p.", tieuDe, vbExclamation: Exit Sub
 
     For i = 1 To goc.Count
@@ -122,6 +124,14 @@ Public Sub DC_ChayTachHop(ByVal cheDo As Long, ByVal goc As Collection, _
     If DC_PhamViKhung(mauPath, tyLe, gTLCx, gTLCy, x1, y1, x2, y2) Then
         gTLx1 = x1: gTLy1 = y1: gTLx2 = x2: gTLy2 = y2
         DC_ZoomVung x1, y1, x2, y2
+    End If
+    ' SUA 16/10/2026: xuat xong TU TAT lop ban do, chi de Level ho so + Level so do
+    '   (giong trich luc; DiaChinhVL.ini -> TL_TUTATLOP=0 de tat)
+    If DC_DocCauHinh("TL_TUTATLOP", "1") = "1" And DC_DocCauHinh("LV_HS_ON", "1") = "1" _
+       And DC_DocCauHinh("LV_SD_ON", "1") = "1" Then
+        If Len(Trim$(DC_DocCauHinh("LV_HS", ""))) > 0 And Len(Trim$(DC_DocCauHinh("LV_SD", ""))) > 0 Then
+            DC_TatLopBanDo DC_DocCauHinh("LV_HS", ""), DC_DocCauHinh("LV_SD", "")
+        End If
     End If
     If cheDo = 1 Then
         gTLTen = "TachThua_To" & mTo & "_Thua" & vChinh.soThua
