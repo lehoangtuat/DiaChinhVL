@@ -331,6 +331,7 @@ Private Sub ThemText(ByVal el As Element, ByVal lv As Long)
     If Len(s) = 0 Then Exit Sub
     fn = LCase$(oT.TextStyle.Font.Name)
     If Left$(fn, 2) = "vn" Or Left$(fn, 3) = ".vn" Then s = Tcvn3SangUnicode(s)
+    s = ChuanTag(s)
     h = oT.TextStyle.Height
     og = oT.Origin: rg = el.Range
     ox = og.X: oy = og.Y
@@ -361,6 +362,22 @@ Private Sub ThemText(ByVal el As Element, ByVal lv As Long)
 End Sub
 
 ' Placeholder dien gia tri (giu dung ten modKhungMau/GiaTriTag dang dung)
+' SUA 15/10/2026: tag go sai hoa/thuong (tamxtl, tamytl...) hoac go thua
+' chu (toBanDoo, tenXan) -> doi ve dung ten tag. Chu khac giu nguyen.
+Private Function ChuanTag(ByVal s As String) As String
+    Dim t As Variant, u As String
+    ChuanTag = s
+    u = LCase$(Trim$(s))
+    If Len(u) = 0 Or Len(u) > 24 Then Exit Function
+    If u = "tobandoo" Then ChuanTag = "toBanDo": Exit Function
+    If u = "tenxan" Then ChuanTag = "tenXa": Exit Function
+    For Each t In Array("soHieuThua", "toBanDo", "dienTich", "mdsd", "chuSuDung", "tenXa", "tenHuyen", "tenTinh", _
+                        "gcn", "hinhThucSuDung", "diaChiChu", "diaChiThua", "tttl", "tamXtl", "tamYtl", "cdtl", _
+                        "ttkq", "tamxkq", "tamykq", "cdkq", "tths", "tamxhs", "tamyhs", "cdhs")
+        If u = LCase$(t) Then ChuanTag = t: Exit Function
+    Next t
+End Function
+
 Private Function LaTag(ByVal s As String) As Boolean
     Select Case Trim$(s)
         Case "soHieuThua", "toBanDo", "dienTich", "mdsd", "chuSuDung", _
@@ -450,6 +467,7 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
             s = ""
             On Error Resume Next
             s = Trim$(el.AsTextElement.Text)
+            s = ChuanTag(s)
             On Error GoTo 0
             ' Tach/hop thua: thay chu mau theo thua (modTachHop)
             If gTHCheDo > 0 And Len(s) > 0 And Not LaTag(s) Then
