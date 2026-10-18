@@ -1,2 +1,2 @@
-2.8
-Convert Font: nhan TCVN3 theo noi dung (font so V7), tu chuyen V7->V8, khong treo; Diem mia toa do (kieu LandMap); So hieu dinh trich luc dat ra ngoai thua
+2.9
+Tro ly lenh tieng Viet (4 mau: trich luc TT26, tach, hop, mau VL); Chon tinh / kinh tuyen truc khi xem ve tinh; Chieu dai canh (kieu Ban do canh); menu Kiem ke (xuat polygon, to mau hien trang TT08); cai VBA tu dong kiem tra
