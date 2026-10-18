@@ -167,6 +167,8 @@ Public Sub DC_XoaNhanTheoLevel()
     If maxDai > 0 Then
         esc.IncludeType msdElementTypeLine
         esc.IncludeType msdElementTypeLineString
+        esc.IncludeType msdElementTypeEllipse          ' cham tron cua tam thua kieu moi
+        esc.IncludeType msdElementTypeCellHeader       ' khoi tam thua "TAMTHUA"
     End If
     Dim arr() As Element, n As Long, pts() As Point3d, dai As Double, k As Long
     ReDim arr(1 To 256)
@@ -181,6 +183,10 @@ Public Sub DC_XoaNhanTheoLevel()
                     dai = dai + Sqr((pts(k + 1).X - pts(k).X) ^ 2 + (pts(k + 1).Y - pts(k).Y) ^ 2)
                 Next k
                 If dai > maxDai Then GoTo Tiep
+            ElseIf el.Type = msdElementTypeEllipse Then
+                If el.Range.High.X - el.Range.Low.X > maxDai Then GoTo Tiep
+            ElseIf el.Type = msdElementTypeCellHeader Then
+                If UCase$(el.AsCellElement.Name) <> "TAMTHUA" Then GoTo Tiep
             End If
             n = n + 1
             If n > UBound(arr) Then ReDim Preserve arr(1 To n * 2)
