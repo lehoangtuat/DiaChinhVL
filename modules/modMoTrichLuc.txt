@@ -103,6 +103,7 @@ Public Sub ChayTrichLucThua(ByVal found As clsVung, _
     If cheDoMau Then
         gTyLeTuDong = tuDong
         ChenKhungTuThua found, mauPath, kieu, toBanDo, tenXa, tenHuyen, tenTinh, tyLe
+        DC_TraMauDien     ' SUA 22/10: tra mau dang dung
         ' pham vi khung vua ve (khung dat tam o so do tai tam thua)
         If DocKhungMau(mauPath) Then
             zx1 = gTLCx + (mHx1 - mBoxCX) * tyLe / 20000#
