@@ -33,7 +33,7 @@ Private Sub UserForm_Initialize()
     cM.AddItem "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " " & ChrW(273) & ChrW(7883) & "a ch" & ChrW(237) & "nh (TT26)"
     cM.AddItem "T" & ChrW(225) & "ch th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t (TT26 - m" & ChrW(7851) & "u 22/" & ChrW(272) & "K)"
     cM.AddItem "H" & ChrW(7907) & "p th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t (TT26 - m" & ChrW(7851) & "u 22/" & ChrW(272) & "K)"
-    cM.AddItem "Tr" & ChrW(237) & "ch l" & ChrW(7909) & "c + Phi" & ChrW(7871) & "u " & ChrW(273) & "o " & ChrW(273) & ChrW(7841) & "c ch" & ChrW(7881) & "nh l" & ChrW(253) & " (m" & ChrW(7851) & "u VL)"
+    cM.AddItem "Phi" & ChrW(7871) & "u " & ChrW(273) & "o " & ChrW(273) & ChrW(7841) & "c ch" & ChrW(7881) & "nh l" & ChrW(253) & " (TT26)"
     cM.ListIndex = 0
     AddPairW "File m" & ChrW(7851) & "u:", "txtMau", DC_DocCauHinh("MAU_TL", "C:\DiaChinhVL\TrichLucBanDo_mau.txt"), x, 56, 164
     AddPairW "File c" & ChrW(7845) & "u h" & ChrW(236) & "nh:", "txtIni", DC_DocCauHinh("INI_TL", ""), x, 80, 164
@@ -183,6 +183,13 @@ Private Sub UserForm_Initialize()
     Set mCboHS.Form = Me
 End Sub
 
+' SUA 22/10: mau mac dinh - uu tien mau TT26 moi (cap nhat tu GitHub ve C:\DiaChinhVL\Mau)
+Private Function MauMD(ByVal moi As String, ByVal cu As String, ByVal duoi As String) As String
+    MauMD = "C:\DiaChinhVL\MAU\" & cu & "." & duoi
+    On Error Resume Next
+    If Len(Dir$("C:\DiaChinhVL\MAU\" & moi & "." & duoi)) > 0 Then MauMD = "C:\DiaChinhVL\MAU\" & moi & "." & duoi
+End Function
+
 ' Goi tu clsComboEvent khi doi "Mau ho so"
 Public Sub MauHSDoi()
     Dim lo As Long
@@ -194,17 +201,17 @@ Public Sub MauHSDoi()
     DC_GhiCauHinh "LOAI_HS", CStr(lo)
     Select Case lo
         Case 1
-            Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_TACH", "C:\DiaChinhVL\MAU\22tach.dgn")
-            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_TACH", "C:\DiaChinhVL\MAU\22tach.ini")
+            Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_TACH", MauMD("PL22-tachthua", "22tach", "dgn"))
+            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_TACH", MauMD("PL22-tachthua", "22tach", "ini"))
             Me.Controls("lbl_txtSoThua").Caption = "S" & ChrW(7889) & " th" & ChrW(7917) & "a c" & ChrW(7847) & "n t" & ChrW(225) & "ch:"
         Case 2
-            Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_HOP", "C:\DiaChinhVL\MAU\22hop.dgn")
-            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_HOP", "C:\DiaChinhVL\MAU\22hop.ini")
+            Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_HOP", MauMD("PL22-hopthua", "22hop", "dgn"))
+            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_HOP", MauMD("PL22-hopthua", "22hop", "ini"))
             Me.Controls("lbl_txtSoThua").Caption = "C" & ChrW(225) & "c th" & ChrW(7917) & "a h" & ChrW(7907) & "p (12,13):"
         Case 3
             ' SUA 16/10/2026: mau VL (Trich luc + Phieu do dac chinh ly), file rieng
-            Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_TL3", "C:\DiaChinhVL\MAU\trichluc.dgn")
-            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_TL3", "C:\DiaChinhVL\MAU\trichluc.ini")
+            Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_TL3", MauMD("phieuchinhlydodac", "trichluc", "dgn"))
+            Me.Controls("txtIni").Text = DC_DocCauHinh("INI_TL3", MauMD("phieuchinhlydodac", "trichluc", "ini"))
             Me.Controls("lbl_txtSoThua").Caption = "S" & ChrW(7889) & " th" & ChrW(7917) & "a tr" & ChrW(237) & "ch l" & ChrW(7909) & "c:"
         Case Else
             Me.Controls("txtMau").Text = DC_DocCauHinh("MAU_TL", "C:\DiaChinhVL\TrichLucBanDo_mau.txt")
