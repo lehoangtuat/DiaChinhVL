@@ -23,7 +23,14 @@ Private mTo As String, mDiaChi As String
 ' vi tri (y) cac dong "3.4.k Thua ..." va "- Tu diem ..." trong file mau
 Private mHdK() As Long, mHdY() As Double, mNHd As Long
 Private mTuY() As Double, mNTu As Long
+' SUA 21/10: mau TT26 moi - dong "a) Thua so:" va muc d) "- Thua x:" / "+ Tu diem"
+Private mAY() As Double, mNA As Long
+Private mH2Y() As Double, mNH2 As Long
+Private mY2 As Double, mCoY2 As Boolean     ' y dong "2. Thua dat thu hai"
 
+' SUA 22/10: HOP thua - giu nguyen dinh (khong bo dinh thang hang) + canh chung ve net dut
+Private mGiuDinh As Boolean
+Private mChung As Collection
 Private Const TOL_NUT As Double = 0.005      ' gop dinh gan nhau (m)
 
 '============================================================
@@ -69,11 +76,17 @@ Public Sub DC_ChayTachHop(ByVal cheDo As Long, ByVal goc As Collection, _
         If Len(Trim$(soGoc)) = 0 Then Exit Sub
         vChinh.soThua = Trim$(soGoc)
         vChinh.Dt = TH_DienTich(vChinh)
+        ' SUA 22/10: thua con dat ten <goc>-1, -2 ... theo THU TU CHON
+        For i = 1 To goc.Count
+            goc.Item(i).soThua = vChinh.soThua & "-" & i
+        Next i
         Set sau = goc
         Set truoc = New Collection
         truoc.Add vChinh
     Else
+        mGiuDinh = True     ' SUA 22/10: hop -> giu nguyen cac dinh, so dinh nhu so do truoc
         Set vChinh = TH_HopThua(goc, loi)
+        mGiuDinh = False
         If vChinh Is Nothing Then DC_ThongBao loi, tieuDe, vbExclamation: Exit Sub
         Set sau = New Collection
         sau.Add vChinh
@@ -116,6 +129,7 @@ Public Sub DC_ChayTachHop(ByVal cheDo As Long, ByVal goc As Collection, _
     On Error GoTo LoiVe
     gTyLeTuDong = tuDong
     ChenKhungTachHop cheDo, truoc, sau, vChinh, mauPath, mTo, tenXa, tenHuyen, tenTinh, tyLe
+    DC_TraMauDien     ' SUA 22/10: tra mau dang dung
     On Error GoTo 0
     gTHCheDo = 0
 
@@ -157,6 +171,7 @@ Public Sub DC_ChayTachHop(ByVal cheDo As Long, ByVal goc As Collection, _
     Exit Sub
 LoiVe:
     gTHCheDo = 0
+    DC_TraMauDien
     DC_ThongBao "L" & ChrW(7895) & "i khi v" & ChrW(7869) & " b" & ChrW(7843) & "n v" & ChrW(7869) & ": " & Err.Description, tieuDe, vbExclamation
 End Sub
 
@@ -469,8 +484,10 @@ Public Function TH_HopThua(ByVal ds As Collection, ByRef loi As String) As clsVu
     Next i
 
     Dim segs As New Collection, kk As Variant
+    Set mChung = New Collection
     For Each kk In dem.Keys
         If dem(kk) = 1 Then segs.Add doan(kk)
+        If dem(kk) >= 2 Then mChung.Add doan(kk)     ' SUA 22/10: canh chung giua cac thua
     Next kk
     If segs.Count < 3 Then loi = "Kh" & ChrW(244) & "ng gh" & ChrW(233) & "p " & ChrW(273) & ChrW(432) & ChrW(7907) & "c c" & ChrW(225) & "c th" & ChrW(7917) & "a " & ChrW(273) & ChrW(227) & " ch" & ChrW(7885) & "n.": Exit Function
 
@@ -514,6 +531,7 @@ End Function
 
 Private Sub BoDinhThangHang(ByVal w As clsVung, ByVal dem As Object)
     Dim chung As Object, kk As Variant, p As Long
+    If mGiuDinh Then Exit Sub        ' SUA 22/10: hop thua giu nguyen dinh
     Set chung = CreateObject("Scripting.Dictionary")
     For Each kk In dem.Keys                      ' dau mut cac canh chung (dem = 2)
         If dem(kk) >= 2 Then
@@ -766,6 +784,9 @@ End Function
 Public Sub TH_BatDauViTri()
     mNHd = 0: mNTu = 0
     ReDim mHdK(1 To 32): ReDim mHdY(1 To 32): ReDim mTuY(1 To 64)
+    ' SUA 21/10: mau TT26 moi
+    ReDim mAY(1 To 16): ReDim mH2Y(1 To 32): mNA = 0: mNH2 = 0
+    mCoY2 = False
 End Sub
 
 ' Luot 1: ghi vi tri cac dong "3.4.k Thua" va "- Tu diem"
@@ -778,6 +799,15 @@ Public Sub TH_GhiViTri(ByVal s As String, ByVal y As Double)
     ElseIf Left$(s, 9) = "- T" & ChrW(7915) & " " & ChrW(273) & "i" & ChrW(7875) & "m" Then
         If mNTu < UBound(mTuY) Then mNTu = mNTu + 1: mTuY(mNTu) = y
     End If
+    ' SUA 21/10: mau TT26 moi
+    If BatDau(s, "2. Th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t th" & ChrW(7913) & " hai") Then mY2 = y: mCoY2 = True
+    If LaDongThuaSo(s) Then
+        If mNA < UBound(mAY) Then mNA = mNA + 1: mAY(mNA) = y
+    ElseIf LaTieuDeMoi(s) Then
+        If mNH2 < UBound(mH2Y) Then mNH2 = mNH2 + 1: mH2Y(mNH2) = y
+    ElseIf BatDau(s, "+ T" & ChrW(7915) & " " & ChrW(273) & "i" & ChrW(7875) & "m") Then
+        If mNTu < UBound(mTuY) Then mNTu = mNTu + 1: mTuY(mNTu) = y
+    End If
 End Sub
 
 Public Function TH_ThayChu(ByVal s As String, ByVal y As Double, ByRef bo As Boolean) As String
@@ -786,6 +816,20 @@ Public Function TH_ThayChu(ByVal s As String, ByVal y As Double, ByRef bo As Boo
     TH_ThayChu = s
     If mSau Is Nothing Then Exit Function
     t = Trim$(s)
+    ' SUA 22/10: tag rieng cho THUA GOC THU 2 (mau tach tung doan):
+    '   soHieuThua2, toBanDo2, dienTich2, mdsd2 -> thua goc 2 (hop) ; tach -> bo
+    Select Case LCase$(t)
+        Case "sohieuthua2", "tobando2", "dientich2", "mdsd2"
+            If mGoc.Count < 2 Then bo = True: Exit Function
+            Set v = mGoc.Item(2)
+            Select Case LCase$(t)
+                Case "sohieuthua2": TH_ThayChu = v.soThua
+                Case "tobando2": TH_ThayChu = mTo
+                Case "dientich2": TH_ThayChu = SoDt(v.Dt)
+                Case "mdsd2": TH_ThayChu = v.loaiDat
+            End Select
+            Exit Function
+    End Select
 
     ' I. Hinh thuc
     If t = "T" & ChrW(225) & "ch th" & ChrW(7917) & "a" Or t = "H" & ChrW(7907) & "p th" & ChrW(7917) & "a" Then
@@ -822,6 +866,37 @@ Public Function TH_ThayChu(ByVal s As String, ByVal y As Double, ByRef bo As Boo
     End If
     If BatDau(t, "Gi" & ChrW(7845) & "y t" & ChrW(7901) & " nh" & ChrW(226) & "n th" & ChrW(226) & "n/ph" & ChrW(225) & "p nh" & ChrW(226) & "n s" & ChrW(7889) & ":") Then
         If gTHCheDo = 2 And mGoc.Count >= 2 Then TH_ThayChu = "Gi" & ChrW(7845) & "y t" & ChrW(7901) & " nh" & ChrW(226) & "n th" & ChrW(226) & "n/ph" & ChrW(225) & "p nh" & ChrW(226) & "n s" & ChrW(7889) & ": ..............., " & ChrW(273) & ChrW(7883) & "a ch" & ChrW(7881) & ": " & mGoc.Item(2).DiaChi
+        Exit Function
+    End If
+
+    ' SUA 21/10: mau TT26 moi - "a) Thua so: , to ban do so: toBanDo, dien tich: tongDienTich m2, loai dat:"
+    If LaDongThuaSo(t) Then
+        ' SUA 22/10: thua thu may theo tieu de "2. Thua dat thu hai" (neu co)
+        If mCoY2 Then
+            If y < mY2 Then k = 2 Else k = 1
+        Else
+            k = HangTren(mAY, mNA, y)
+        End If
+        If k >= 1 And k <= mGoc.Count And (k = 1 Or gTHCheDo = 2) Then
+            Set v = mGoc.Item(k)
+            TH_ThayChu = Left$(t, InStr(t, "Th" & ChrW(7917) & "a s" & ChrW(7889)) - 1) & "Th" & ChrW(7917) & "a s" & ChrW(7889) & ": " & v.soThua & ", t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " s" & ChrW(7889) & ": " & mTo & ", di" & ChrW(7879) & "n t" & ChrW(237) & "ch: " & SoDt(v.Dt) & " m" & ChrW(178) & ", lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t: " & v.loaiDat
+        Else
+            TH_ThayChu = Replace(Replace(s, "toBanDo", "......"), "tongDienTich", "......")
+        End If
+        Exit Function
+    End If
+    If LaTieuDeMoi(t) Then
+        k = HangTren(mH2Y, mNH2, y)
+        If k < 1 Or k > mSau.Count Then bo = True: Exit Function
+        TH_ThayChu = "- Th" & ChrW(7917) & "a " & mSau.Item(k).soThua & ":"
+        Exit Function
+    End If
+    If BatDau(t, "+ T" & ChrW(7915) & " " & ChrW(273) & "i" & ChrW(7875) & "m") Then
+        k = HangGanTren(mH2Y, mNH2, y)
+        If k < 1 Or k > mSau.Count Or Not LaDongDauMoi(y) Then bo = True: Exit Function
+        cd = "......................"
+        If InStr(t, " l" & ChrW(224) & ":") > 0 Then cd = Trim$(Mid$(t, InStr(t, " l" & ChrW(224) & ":") + 4))
+        TH_ThayChu = "+ T" & ChrW(7915) & " " & ChrW(273) & "i" & ChrW(7875) & "m " & DsDinhVong(mSau.Item(k)) & " l" & ChrW(224) & ": " & cd
         Exit Function
     End If
 
@@ -877,6 +952,52 @@ Public Function TH_ThayChu(ByVal s As String, ByVal y As Double, ByRef bo As Boo
         End If
         Exit Function
     End If
+End Function
+
+' SUA 21/10: dong "... Thua so: ..., to ban do so: ..." (mau TT26 moi)
+Private Function LaDongThuaSo(ByVal t As String) As Boolean
+    LaDongThuaSo = (InStr(t, "Th" & ChrW(7917) & "a s" & ChrW(7889)) > 0 And InStr(t, "t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)) > 0)
+End Function
+
+' SUA 21/10: "- Thua 161-1:" (khong phai "- Thua dat ...")
+Private Function LaTieuDeMoi(ByVal t As String) As Boolean
+    t = Trim$(t)
+    If Left$(t, 7) <> "- Th" & ChrW(7917) & "a " Then Exit Function
+    If Left$(t, 10) = "- Th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7845) & "t" Then Exit Function
+    LaTieuDeMoi = (Right$(t, 1) = ":")
+End Function
+
+' thu tu (tu tren xuong) cua dong o do cao y trong danh sach ys
+Private Function HangTren(ys() As Double, ByVal n As Long, ByVal y As Double) As Long
+    Dim i As Long
+    HangTren = 1
+    For i = 1 To n
+        If ys(i) > y + 0.001 Then HangTren = HangTren + 1
+    Next i
+End Function
+
+' thu tu cua tieu de gan nhat phia tren y (0 neu khong co)
+Private Function HangGanTren(ys() As Double, ByVal n As Long, ByVal y As Double) As Long
+    Dim i As Long, yB As Double
+    yB = 1E+30
+    For i = 1 To n
+        If ys(i) > y And ys(i) < yB Then yB = ys(i)
+    Next i
+    If yB < 1E+29 Then HangGanTren = HangTren(ys, n, yB)
+End Function
+
+' dong "+ Tu diem" dau tien ngay duoi tieu de "- Thua x:"
+Private Function LaDongDauMoi(ByVal y As Double) As Boolean
+    Dim i As Long, yHd As Double
+    yHd = 1E+30
+    For i = 1 To mNH2
+        If mH2Y(i) > y And mH2Y(i) < yHd Then yHd = mH2Y(i)
+    Next i
+    If yHd > 1E+29 Then Exit Function
+    For i = 1 To mNTu
+        If mTuY(i) > y + 0.001 And mTuY(i) < yHd Then Exit Function
+    Next i
+    LaDongDauMoi = True
 End Function
 
 Private Function BatDau(ByVal t As String, ByVal dau As String) As Boolean
@@ -1019,3 +1140,25 @@ Private Function SapDocDoc(ByVal ds As Collection, ByVal tolY As Double) As Coll
     Next i
     Set SapDocDoc = kq
 End Function
+
+' SUA 22/10: HOP thua - ve canh chung giua cac thua da chon (net dut) tren so do SAU
+'   (goi tu modKhungMau.ChenKhungTachHop). Toa do: P' = (P - g) * kp + o
+Public Sub TH_VeRanhChung(ByVal ox As Double, ByVal oy As Double, ByVal gx As Double, _
+                          ByVal gy As Double, ByVal kp As Double)
+    Dim i As Long, s() As Double, le As LineElement, ls As LineStyle
+    If mChung Is Nothing Then Exit Sub
+    On Error Resume Next
+    Set ls = ActiveDesignFile.LineStyles.Find("2")
+    For i = 1 To mChung.Count
+        s = mChung.Item(i)
+        Set le = Nothing
+        Set le = CreateLineElement2(Nothing, Point3dFromXYZ(ox + (s(0) - gx) * kp, oy + (s(1) - gy) * kp, 0#), _
+                                    Point3dFromXYZ(ox + (s(2) - gx) * kp, oy + (s(3) - gy) * kp, 0#))
+        If Not le Is Nothing Then
+            If Not ls Is Nothing Then Set le.LineStyle = ls
+            le.LineWeight = 0
+            ActiveModelReference.AddElement le
+        End If
+    Next i
+    Err.Clear
+End Sub
