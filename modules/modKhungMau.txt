@@ -789,25 +789,33 @@ Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ByVal nR A
     If cc > 0 Then SapCotHang cx, cy, cc, hC * 2#
     DatLvTag lvT
 
-    ' canh thu j (khong tinh hang khep vong) vao tag cd thu j
-    Dim w As Double, xc As Double
-    For i = 1 To nR
-        If i <= ct Then
-            xc = TamCot(tx(i), ty(i), w)
-            DienCell xc, ty(i), rSo(i), hT * k, cxb, cyb, k, Cpx, Cpy, w * k
+    ' SUA 21/10: bang phu nhieu cot (vd 2 cot x 20 hang): sang cot moi LAP LAI dinh
+    ' cuoi; canh r->r+1 dat o tag cd GIUA 2 o cung cot. rw(i) = hang du lieu cua o i.
+    Dim w As Double, xc As Double, xT As Double, r As Long, rw() As Long, yc As Double
+    ReDim rw(1 To ct + 1): r = 1
+    If hC <= 0 Then hC = hT
+    For i = 1 To ct
+        If r > nR Then Exit For
+        rw(i) = r
+        xc = TamCot(tx(i), ty(i), w)
+        DienCell xc, ty(i), rSo(r), hT * k, cxb, cyb, k, Cpx, Cpy, w * k
+        If rCanh(r) >= 0# And r < nR And i < ct Then
+            If Abs(tx(i + 1) - tx(i)) < hT * 2# Then
+                yc = (ty(i) + ty(i + 1)) / 2#
+                xT = TagCanhPhai(tagCD, tx(i), yc, hT * 2#)
+                If xT > -1E+29 Then xc = TamCot(xT, yc, w): DienCell xc, yc, FNum(rCanh(r), 2), hC * k, cxb, cyb, k, Cpx, Cpy, w * k
+            Else
+                r = r - 1
+            End If
         End If
-        ' o chieu dai thu i nam giua hang i va i+1 -> hang khep vong de trong
-        If rCanh(i) >= 0# And i <= cc Then
-            xc = TamCot(cx(i), cy(i), w)
-            DienCell xc, cy(i), FNum(rCanh(i), 2), hC * k, cxb, cyb, k, Cpx, Cpy, w * k
-        End If
+        r = r + 1
     Next i
     ' SUA 14/10/2026: bang phu co cot toa do (tag tamxhs = X Bac, tamyhs = Y Dong)
     ' -> dien theo hang cua tag tths (chi lay tag cung hang, bo tag rac o cho khac)
-    Dim m As Long, yRow As Double, best As Long, dBest As Double, dd As Double, tg As Variant, gTri As Double
+    Dim m As Long, best As Long, dBest As Double, dd As Double, tg As Variant, gTri As Double
     For Each tg In Array("tamxhs", "tamyhs")
-        For i = 1 To nR
-            If i > ct Then Exit For
+        For i = 1 To ct
+            If rw(i) = 0 Then Exit For
             best = 0: dBest = hT * 0.8
             For m = 1 To gNT
                 If gTS(m) = tg Then
@@ -816,7 +824,7 @@ Private Sub DienBangPhu(ByVal tagTT As String, ByVal tagCD As String, ByVal nR A
                 End If
             Next m
             If best > 0 Then
-                If tg = "tamxhs" Then gTri = rX(i) Else gTri = rY(i)
+                If tg = "tamxhs" Then gTri = rX(rw(i)) Else gTri = rY(rw(i))
                 xc = TamCot(gTX(best), gTY(best), w)
                 DienCell xc, ty(i), FNum(gTri, 2), gTCao(best) * k, cxb, cyb, k, Cpx, Cpy, w * k
             End If
@@ -1256,6 +1264,7 @@ Public Sub ChenKhungTachHop(ByVal cheDo As Long, ByVal goc As Collection, ByVal 
     tx = Cpx + (cxt - cxb) * k: ty = Cpy + (cyt - cyb) * k
     VeSoDoTH goc, tx, ty, gx, gy, kp, cao, False
     VeSoDoTH sau, Cpx, Cpy, gx, gy, kp, cao, True
+    If cheDo = 2 Then TH_VeRanhChung Cpx, Cpy, gx, gy, kp   ' SUA 22/10
 
     ' 3) Bang Doan / Chieu dai
     DienBangDoan sau, cxb, cyb, k, Cpx, Cpy
