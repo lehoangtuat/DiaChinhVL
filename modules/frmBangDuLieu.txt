@@ -11,57 +11,59 @@ Private mNut As New Collection
 Private mVungs As Collection
 Private mLst As clsListEvent
 Private mWb As Object            ' workbook Excel vua xuat (de Nap Excel lai)
+Private mTec As Object           ' SUA 22/10: vong do danh dau thua dang chon (phan tu tam)
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Bang du lieu thua dat"      ' thanh tieu de de ASCII
-    Me.Width = 580
-    Me.Height = 386
+    ' SUA 22/10: thu nho bang (~1/2 dien tich cu)
+    Me.Width = 438
+    Me.Height = 270
 
     ' Hang tren: file CSDL + nut
-    AddLabel "lblFile", "File CSDL:", 8, 10, 60
-    AddText "txtPath", "", 70, 8, 296
+    AddLabel "lblFile", "File CSDL:", 8, 9, 50
+    AddText "txtPath", "", 56, 6, 188
 
-    ThemNut "NAP", "N" & ChrW(7841) & "p l" & ChrW(7841) & "i", 372, 6, 60, 22
-    ThemNut "EXCEL", "Xu" & ChrW(7845) & "t Excel", 436, 6, 62, 22
-    ThemNut "NAPEXCEL", "N" & ChrW(7841) & "p Excel", 502, 6, 62, 22
+    ThemNut "NAP", "N" & ChrW(7841) & "p l" & ChrW(7841) & "i", 248, 5, 54, 20
+    ThemNut "EXCEL", "Xu" & ChrW(7845) & "t Excel", 306, 5, 58, 20
+    ThemNut "NAPEXCEL", "N" & ChrW(7841) & "p Excel", 368, 5, 58, 20
 
     ' Hang tieu de cot (label rieng, canh voi ColumnWidths cua ListBox)
-    Dim y As Single: y = 40
-    AddHead "hStt", "STT", 8, y, 30
-    AddHead "hTo", "T" & ChrW(7901), 40, y, 42
-    AddHead "hThua", "Th" & ChrW(7917) & "a", 84, y, 46
-    AddHead "hLoai", "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", 132, y, 58
-    AddHead "hDt", "Di" & ChrW(7879) & "n t" & ChrW(237) & "ch (m" & ChrW(178) & ")", 192, y, 72
-    AddHead "hChu", "T" & ChrW(234) & "n ch" & ChrW(7911) & " s" & ChrW(7917) & " d" & ChrW(7909) & "ng", 266, y, 150
-    AddHead "hDc", ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881), 418, y, 146
+    Dim y As Single: y = 32
+    AddHead "hStt", "STT", 8, y, 24
+    AddHead "hTo", "T" & ChrW(7901), 32, y, 30
+    AddHead "hThua", "Th" & ChrW(7917) & "a", 62, y, 36
+    AddHead "hLoai", "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", 98, y, 44
+    AddHead "hDt", "D.t" & ChrW(237) & "ch (m" & ChrW(178) & ")", 142, y, 56
+    AddHead "hChu", "Ch" & ChrW(7911) & " s" & ChrW(7917) & " d" & ChrW(7909) & "ng", 198, y, 120
+    AddHead "hDc", ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881), 318, y, 106
 
     ' Bang du lieu
     Dim lst As Object
     Set lst = Me.Controls.Add("Forms.ListBox.1", "lstData", True)
-    lst.Left = 8: lst.Top = 56: lst.Width = 556: lst.Height = 220
+    lst.Left = 8: lst.Top = 46: lst.Width = 418: lst.Height = 122
     lst.ColumnCount = 7
-    lst.ColumnWidths = "30;42;46;58;72;150;146"
+    lst.ColumnWidths = "24;30;36;44;56;120;106"
     lst.ListStyle = 0
     lst.Font.Name = "Arial"
     lst.Font.size = 8
 
-    ' SUA 12/10/2026: o sua truc tiep dong dang chon -> Ghi vao CSDL
-    AddLabel "eTo", "T" & ChrW(7901) & ":", 8, 286, 20
-    AddText "txtTo", "", 30, 282, 40
-    AddLabel "eThua", "Th" & ChrW(7917) & "a:", 76, 286, 30
-    AddText "txtThua", "", 106, 282, 50
-    AddLabel "eLoai", "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t:", 162, 286, 46
-    AddText "txtLoai", "", 208, 282, 64
-    AddLabel "eChu", "Ch" & ChrW(7911) & ":", 278, 286, 26
-    AddText "txtChu", "", 304, 282, 260
-    AddLabel "eDc", ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881) & ":", 8, 310, 44
-    AddText "txtDc", "", 54, 306, 380
-    ThemNut "GHI", "Ghi v" & ChrW(224) & "o CSDL", 440, 305, 124, 21
+    ' o sua truc tiep dong dang chon -> Ghi vao CSDL
+    AddLabel "eTo", "T" & ChrW(7901) & ":", 8, 177, 18
+    AddText "txtTo", "", 26, 174, 32
+    AddLabel "eThua", "Th" & ChrW(7917) & "a:", 62, 177, 26
+    AddText "txtThua", "", 88, 174, 42
+    AddLabel "eLoai", "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t:", 134, 177, 40
+    AddText "txtLoai", "", 174, 174, 44
+    AddLabel "eChu", "Ch" & ChrW(7911) & ":", 222, 177, 22
+    AddText "txtChu", "", 244, 174, 182
+    AddLabel "eDc", ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881) & ":", 8, 199, 40
+    AddText "txtDc", "", 48, 196, 264
+    ThemNut "GHI", "Ghi v" & ChrW(224) & "o CSDL", 316, 195, 110, 20
 
     ' Dong tong
-    AddLabel "lblTong", "", 8, 338, 420
+    AddLabel "lblTong", "", 8, 224, 300
 
-    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 494, 332, 70, 24
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 356, 220, 70, 22
 
     Set mLst = New clsListEvent
     Set mLst.lst = lst
@@ -150,7 +152,7 @@ Public Sub XuLyNut(ByVal ma As String)
         Case "EXCEL":    XuatExcel
         Case "NAPEXCEL": NapExcel
         Case "GHI":      GhiDong
-        Case "DONG":     Unload Me
+        Case "DONG":     TatDanhDau: Unload Me
     End Select
 End Sub
 
@@ -168,6 +170,48 @@ Public Sub DongChon()
     Me.Controls("txtChu").Text = v.TenChu
     Me.Controls("txtDc").Text = v.DiaChi
     ZoomThua v
+    DanhDauThua v       ' SUA 22/10
+End Sub
+
+' SUA 22/10: danh dau thua dang chon: vien do dam
+'   (phan tu TAM - khong ghi vao ban ve; chon dong khac / dong bang thi mat)
+Private Sub DanhDauThua(ByVal v As clsVung)
+    Dim rg() As Double, pts() As Point3d, i As Long, n As Long, el As Element
+    Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double, r As Double
+    TatDanhDau
+    On Error Resume Next
+    x1 = v.cx: x2 = v.cx: y1 = v.cy: y2 = v.cy
+    If v.HasRing Then
+        rg = v.ring: n = UBound(rg, 1)
+        ReDim pts(0 To n)
+        For i = 0 To n
+            pts(i).X = rg(i, 0): pts(i).Y = rg(i, 1): pts(i).Z = 0#
+            If rg(i, 0) < x1 Then x1 = rg(i, 0)
+            If rg(i, 0) > x2 Then x2 = rg(i, 0)
+            If rg(i, 1) < y1 Then y1 = rg(i, 1)
+            If rg(i, 1) > y2 Then y2 = rg(i, 1)
+        Next i
+        Set el = CreateShapeElement1(Nothing, pts)
+        If Not el Is Nothing Then
+            el.Color = 3: el.LineWeight = 5
+            mTec.Add CreateTransientElementContainer1(el, 0, 255, msdDrawingModeNormal)
+        End If
+    End If
+    Err.Clear
+End Sub
+
+Private Sub TatDanhDau()
+    Dim i As Long
+    On Error Resume Next
+    If mTec Is Nothing Then Set mTec = New Collection: Exit Sub
+    For i = mTec.Count To 1 Step -1
+        mTec.Item(i).Reset
+        mTec.Remove i
+    Next i
+End Sub
+
+Private Sub UserForm_Terminate()
+    TatDanhDau
 End Sub
 
 ' SUA 13/10/2026: bam dong -> zoom view toi thua (thua o giua, rong gap ~3 lan)
