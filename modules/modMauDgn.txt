@@ -54,6 +54,11 @@ Private mBx1 As Double, mBy1 As Double, mBx2 As Double, mBy2 As Double
 Private mMinX As Double, mMinY As Double, mMaxX As Double, mMaxY As Double
 Private mNL As Long, mNT As Long, mCoBB As Boolean
 Private mTcvn(0 To 255) As Long, mTcvnNap As Boolean
+' SUA 22/10: gop dong chu tach/hop (ID phan tu mau -> chu gop ; Chr(1) = bo)
+Private mGop As Object
+' SUA 22/10: chu/so lieu DIEN THEM vao mau ve 1 mau rieng (khac mau khung)
+'   DiaChinhVL.ini: TL_MAUDIEN = so mau (mac dinh 1) ; -1 = tat
+Public gMauDienCu As Long, gDoiMauDien As Boolean
 
 '============================================================
 ' Hop thoai chon file (Windows)
@@ -459,10 +464,29 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
         Loop
     End If
 
+    ' SUA 22/10: tach/hop - dong "a) Thua so: | soHieuThua | , to ban do so: | toBanDo ..."
+    '   (moi doan 1 chu rieng) -> gop thanh 1 chu lien, khong con ho giua cac doan
+    Set mGop = Nothing
+    If gTHCheDo > 0 Then GopDongMau md, esc, v, toBanDo, tenXa, tenHuyen, tenTinh
+    Dim kGop As String
     Set ee = md.Scan(esc)
     Do While ee.MoveNext
         Set el = ee.Current
         gt = "": laTagBang = False
+        If Not mGop Is Nothing Then
+            kGop = ""
+            On Error Resume Next
+            kGop = DLongToString(el.ID)
+            On Error GoTo 0
+            If mGop.Exists(kGop) Then
+                If mGop(kGop) = Chr$(1) Then GoTo Tiep
+                If VeChuGop(el, CStr(mGop(kGop)), tr) Then GoTo Tiep
+            End If
+        End If
+        ' SUA 22/10: text node (chu 1 dong dang node) chua tag -> tach thanh chu don roi thay
+        If el.Type = msdElementTypeTextNode Then
+            If ChepNodeMau(el, tr, v, toBanDo, tenXa, tenHuyen, tenTinh) Then GoTo Tiep
+        End If
         If el.Type = msdElementTypeText Then
             s = ""
             On Error Resume Next
@@ -510,9 +534,19 @@ ChepPT:
         On Error GoTo 0
         If Not e2 Is Nothing Then
             On Error Resume Next
+            ' SUA 22/10: phan tu mau bi KHOA (locked) -> Rewrite that bai, chu giu nguyen tag
+            e2.IsLocked = False
+            Err.Clear
             If Len(gt) > 0 Then
                 If LaFontVn(e2) Then gt = UnicodeSangTcvn3(gt)
                 e2.AsTextElement.Text = gt
+                If DC_MauDien() >= 0 Then e2.Color = DC_MauDien()
+                ' SUA 22/10: chu co enter-data-field/linkage (mau TT26) -> doi Text khong an
+                '   -> tao phan tu chu moi thay the
+                If Err.Number <> 0 Or e2.AsTextElement.Text <> gt Then
+                    Err.Clear
+                    Set e2 = ChuMoiThay(el, e2, gt)
+                End If
             End If
             e2.Transform tr
             If Not gLvHSMap Is Nothing Then
@@ -535,7 +569,302 @@ ChepPT:
 Tiep:
     Loop
     f.Close
+    ' SUA 22/10: tu day (so do, bang toa do, so lieu) ve bang mau dien them
+    DC_DatMauDien
 End Sub
+
+' Mau chu dien them (-1 = tat)
+Public Function DC_MauDien() As Long
+    Dim s As String
+    s = Trim$(DC_DocCauHinh("TL_MAUDIEN", "1"))
+    If Len(s) = 0 Then s = "1"
+    DC_MauDien = CLng(Val(s))
+    If DC_MauDien > 255 Then DC_MauDien = -1
+End Function
+
+Public Sub DC_DatMauDien()
+    Dim m As Long
+    m = DC_MauDien()
+    If m < 0 Then Exit Sub
+    On Error Resume Next
+    If Not gDoiMauDien Then gMauDienCu = ActiveSettings.Color
+    ActiveSettings.Color = m
+    If Err.Number = 0 Then gDoiMauDien = True
+    Err.Clear
+End Sub
+
+' Tra lai mau dang dung cua nguoi dung (goi sau khi ve xong trich luc / tach hop)
+Public Sub DC_TraMauDien()
+    If Not gDoiMauDien Then Exit Sub
+    On Error Resume Next
+    ActiveSettings.Color = gMauDienCu
+    gDoiMauDien = False
+    Err.Clear
+End Sub
+
+' SUA 22/10: tao chu moi (cung symbology/kieu chu voi el), xoa ban sao cu
+Private Function ChuMoiThay(ByVal el As Element, ByVal e2 As Element, ByVal gt As String) As Element
+    Dim te As TextElement
+    Set ChuMoiThay = e2
+    On Error Resume Next
+    Set te = CreateTextElement1(el, gt, el.AsTextElement.Origin, el.AsTextElement.Rotation)
+    If te Is Nothing Then Err.Clear: Exit Function
+    te.Level = el.Level: te.Color = el.Color
+    te.IsLocked = False
+    If DC_MauDien() >= 0 Then te.Color = DC_MauDien()
+    ActiveModelReference.RemoveElement e2
+    Err.Clear
+    Set ChuMoiThay = te
+End Function
+
+' SUA 22/10: text node trong mau (vd tag "soHieuThua" dat bang Place Text thanh node)
+'   -> code cu chep nguyen node, khong thay tag. Neu co chu con can thay: ve tung
+'   chu con thanh chu don (cung font/co/vi tri) roi bo node. Tra ve True = da xu ly.
+Private Function ChepNodeMau(ByVal el As Element, tr As Transform3d, ByVal v As clsVung, _
+                             ByVal toBanDo As String, ByVal tenXa As String, _
+                             ByVal tenHuyen As String, ByVal tenTinh As String) As Boolean
+    Dim ee As ElementEnumerator, c As Element, n As Long, i As Long, doi As Boolean
+    Dim ds() As Element, kq() As String, bo() As Boolean
+    Dim s As String, sU As String, g As String, b As Boolean, khop As Boolean, y As Double
+    On Error GoTo Thoi
+    Set ee = el.AsTextNodeElement.GetSubElements
+    ReDim ds(1 To 64): ReDim kq(1 To 64): ReDim bo(1 To 64)
+    Do While ee.MoveNext
+        Set c = ee.Current
+        If c.IsTextElement And n < 64 Then
+            n = n + 1: Set ds(n) = c
+            s = ChuanTag(Trim$(c.AsTextElement.Text))
+            sU = s
+            If LaFontVn(c) Then sU = Tcvn3SangUnicode(s)
+            kq(n) = sU: g = sU: b = False
+            If Len(s) > 0 Then
+                If LaTag(s) Then
+                    Select Case s
+                        Case "tttl", "tamXtl", "tamYtl", "cdtl", "ttkq", "tamxkq", "tamykq", "cdkq", _
+                             "tths", "tamxhs", "tamyhs", "cdhs", "tt", "cd"
+                            b = True
+                        Case Else
+                            g = GiaTri(s, v, toBanDo, tenXa, tenHuyen, tenTinh)
+                            If Len(g) = 0 Then b = True
+                    End Select
+                ElseIf gTHCheDo > 0 Then
+                    y = c.AsTextElement.Origin.Y
+                    g = TH_ThayChu(sU, y, b)
+                    If g = sU And Not b Then
+                        g = ThayTheChuMau(sU, v, toBanDo, tenXa, tenHuyen, tenTinh, khop)
+                        If khop And Len(g) = 0 Then b = True
+                        If Len(g) = 0 Then g = sU
+                    End If
+                Else
+                    g = ThayTheChuMau(sU, v, toBanDo, tenXa, tenHuyen, tenTinh, khop)
+                    If khop And Len(g) = 0 Then b = True
+                    If Len(g) = 0 Then g = sU
+                End If
+            End If
+            If b Then bo(n) = True: doi = True
+            If g <> sU And Not b Then kq(n) = g: doi = True
+        End If
+    Loop
+    If Not doi Or n = 0 Then Exit Function
+
+    Dim te As TextElement, gtx As String
+    On Error Resume Next
+    For i = 1 To n
+        If Not bo(i) Then
+            gtx = kq(i)
+            If LaFontVn(ds(i)) Then gtx = UnicodeSangTcvn3(gtx)
+            Set te = Nothing
+            Set te = CreateTextElement1(ds(i), gtx, ds(i).AsTextElement.Origin, ds(i).AsTextElement.Rotation)
+            If Not te Is Nothing Then
+                te.Level = ds(i).Level: te.Color = ds(i).Color
+                If kq(i) <> Trim$(ds(i).AsTextElement.Text) And DC_MauDien() >= 0 Then te.Color = DC_MauDien()
+                te.IsLocked = False
+                te.Transform tr
+                If Not gLvHSMap Is Nothing Then
+                    If gLvHSMap.Exists(CStr(DC_LevelSo(el))) Then
+                        DC_GanLevel te, gLvHSMap(CStr(DC_LevelSo(el)))
+                    ElseIf Not gLvHSMot Is Nothing Then
+                        DC_GanLevel te, gLvHSMot
+                    End If
+                ElseIf Not gLvHSMot Is Nothing Then
+                    DC_GanLevel te, gLvHSMot
+                End If
+                Err.Clear
+                ActiveModelReference.AddElement te
+            End If
+        End If
+    Next i
+    Err.Clear
+    ChepNodeMau = True
+    Exit Function
+Thoi:
+    ChepNodeMau = False
+End Function
+
+' SUA 22/10: chu con (text / node 1 dong) cua phan tu mau; Nothing neu khong phai
+Private Function ChuCuaMau(ByVal el As Element) As Element
+    Dim sb As ElementEnumerator, dem As Long, c As Element
+    On Error GoTo Thoi
+    If el.Type = msdElementTypeText Then Set ChuCuaMau = el: Exit Function
+    If el.Type <> msdElementTypeTextNode Then Exit Function
+    Set sb = el.AsTextNodeElement.GetSubElements
+    Do While sb.MoveNext
+        If sb.Current.IsTextElement Then dem = dem + 1: Set c = sb.Current
+    Loop
+    If dem = 1 Then Set ChuCuaMau = c
+Thoi:
+End Function
+
+' Gia tri thay cho 1 chu mau (giong vong chinh). laDoi = co thay ; bo = bo chu
+Private Function GiaTriChu(ByVal c As Element, ByVal v As clsVung, ByVal toBanDo As String, _
+                           ByVal tenXa As String, ByVal tenHuyen As String, ByVal tenTinh As String, _
+                           ByRef bo As Boolean, ByRef laDoi As Boolean) As String
+    Dim raw As String, s As String, sU As String, g As String, khop As Boolean
+    bo = False: laDoi = False
+    On Error Resume Next
+    raw = c.AsTextElement.Text
+    On Error GoTo 0
+    If LaFontVn(c) Then raw = Tcvn3SangUnicode(raw)
+    GiaTriChu = raw
+    s = ChuanTag(Trim$(raw)): sU = Trim$(raw)
+    If Len(s) = 0 Then Exit Function
+    If LaTag(s) Then
+        Select Case s
+            Case "tttl", "tamXtl", "tamYtl", "cdtl", "ttkq", "tamxkq", "tamykq", "cdkq", _
+                 "tths", "tamxhs", "tamyhs", "cdhs", "tt", "cd"
+                bo = True: Exit Function
+        End Select
+        g = GiaTri(s, v, toBanDo, tenXa, tenHuyen, tenTinh)
+        laDoi = True
+        If Len(g) = 0 Then bo = True
+        GiaTriChu = g: Exit Function
+    End If
+    g = TH_ThayChu(sU, c.AsTextElement.Origin.Y, bo)
+    If bo Then laDoi = True: Exit Function
+    If g <> sU Then laDoi = True: GiaTriChu = g: Exit Function
+    g = ThayTheChuMau(sU, v, toBanDo, tenXa, tenHuyen, tenTinh, khop)
+    If khop Then
+        laDoi = True
+        If Len(g) = 0 Then bo = True Else GiaTriChu = g
+    End If
+End Function
+
+' Tim cac dong chu lien nhau (cung level, cung hang, sat nhau) co it nhat 1 doan
+' duoc thay -> ghi mGop: doan dau = chu gop, cac doan sau = Chr(1) (bo)
+Private Sub GopDongMau(ByVal md As ModelReference, ByVal esc As ElementScanCriteria, ByVal v As clsVung, _
+                       ByVal toBanDo As String, ByVal tenXa As String, _
+                       ByVal tenHuyen As String, ByVal tenTinh As String)
+    Const NMAX As Long = 3000
+    Dim ee As ElementEnumerator, el As Element, c As Element, n As Long, i As Long, j As Long
+    Dim ids() As String, x1() As Double, x2() As Double, yc() As Double, h() As Double
+    Dim lv() As Long, gt() As String, doi() As Boolean, bo() As Boolean, xong() As Boolean
+    ReDim ids(1 To NMAX): ReDim x1(1 To NMAX): ReDim x2(1 To NMAX): ReDim yc(1 To NMAX)
+    ReDim h(1 To NMAX): ReDim lv(1 To NMAX): ReDim gt(1 To NMAX)
+    ReDim doi(1 To NMAX): ReDim bo(1 To NMAX): ReDim xong(1 To NMAX)
+    On Error GoTo Thoi
+    Set ee = md.Scan(esc)
+    Do While ee.MoveNext
+        Set el = ee.Current
+        Set c = ChuCuaMau(el)
+        If Not c Is Nothing And n < NMAX Then
+            n = n + 1
+            ids(n) = DLongToString(el.ID)
+            x1(n) = el.Range.Low.X: x2(n) = el.Range.High.X
+            yc(n) = (el.Range.Low.Y + el.Range.High.Y) / 2#
+            h(n) = el.Range.High.Y - el.Range.Low.Y
+            lv(n) = DC_LevelSo(el)
+            gt(n) = GiaTriChu(c, v, toBanDo, tenXa, tenHuyen, tenTinh, bo(n), doi(n))
+        End If
+    Loop
+    If n = 0 Then Exit Sub
+
+    Dim hang() As Long, m As Long, a As Long, b As Long, tmp As Long, k As Long
+    Dim dau As Long, cuoi As Long, s As String, p As String, coDoi As Boolean
+    ReDim hang(1 To n)
+    For i = 1 To n
+        If doi(i) And Not xong(i) And h(i) > 0# Then
+            ' cac chu cung hang voi i
+            m = 0
+            For j = 1 To n
+                If lv(j) = lv(i) And Abs(yc(j) - yc(i)) < h(i) * 0.4 Then m = m + 1: hang(m) = j
+            Next j
+            ' sap theo x
+            For a = 1 To m - 1
+                For b = a + 1 To m
+                    If x1(hang(b)) < x1(hang(a)) Then tmp = hang(a): hang(a) = hang(b): hang(b) = tmp
+                Next b
+            Next a
+            ' doan lien chua i (khe < 1.5 chieu cao chu)
+            For k = 1 To m
+                If hang(k) = i Then Exit For
+            Next k
+            dau = k: cuoi = k
+            Do While dau > 1
+                If x1(hang(dau)) - x2(hang(dau - 1)) > h(i) * 1.5 Then Exit Do
+                dau = dau - 1
+            Loop
+            Do While cuoi < m
+                If x1(hang(cuoi + 1)) - x2(hang(cuoi)) > h(i) * 1.5 Then Exit Do
+                cuoi = cuoi + 1
+            Loop
+            If cuoi > dau Then
+                s = ""
+                For k = dau To cuoi
+                    xong(hang(k)) = True
+                    If Not bo(hang(k)) Then
+                        p = gt(hang(k))
+                        If Len(s) > 0 And Len(p) > 0 Then
+                            If Right$(s, 1) <> " " And Left$(p, 1) <> " " And Left$(p, 1) <> "," Then
+                                If Right$(s, 1) = ":" Or Right$(s, 1) = "," Then s = s & " "
+                            End If
+                        End If
+                        s = s & p
+                    End If
+                Next k
+                If mGop Is Nothing Then Set mGop = CreateObject("Scripting.Dictionary")
+                For k = dau To cuoi
+                    mGop(ids(hang(k))) = Chr$(1)
+                Next k
+                If Len(Trim$(s)) > 0 Then mGop(ids(hang(dau))) = s
+            End If
+        End If
+    Next i
+    Exit Sub
+Thoi:
+    Set mGop = Nothing
+End Sub
+
+' Ve chu gop tai vi tri doan dau (cung font/co/mau cua doan dau)
+Private Function VeChuGop(ByVal el As Element, ByVal s As String, tr As Transform3d) As Boolean
+    Dim c As Element, te As TextElement
+    On Error GoTo Thoi
+    Set c = ChuCuaMau(el)
+    If c Is Nothing Then Exit Function
+    If LaFontVn(c) Then s = UnicodeSangTcvn3(s)
+    On Error Resume Next
+    Set te = CreateTextElement1(c, s, c.AsTextElement.Origin, c.AsTextElement.Rotation)
+    If te Is Nothing Then Exit Function
+    te.Level = c.Level: te.Color = c.Color
+    te.IsLocked = False
+    If DC_MauDien() >= 0 Then te.Color = DC_MauDien()
+    te.Transform tr
+    If Not gLvHSMap Is Nothing Then
+        If gLvHSMap.Exists(CStr(DC_LevelSo(el))) Then
+            DC_GanLevel te, gLvHSMap(CStr(DC_LevelSo(el)))
+        ElseIf Not gLvHSMot Is Nothing Then
+            DC_GanLevel te, gLvHSMot
+        End If
+    ElseIf Not gLvHSMot Is Nothing Then
+        DC_GanLevel te, gLvHSMot
+    End If
+    Err.Clear
+    ActiveModelReference.AddElement te
+    VeChuGop = (Err.Number = 0)
+    Err.Clear
+    Exit Function
+Thoi:
+    VeChuGop = False
+End Function
 
 Private Sub BoNetTuyBien(ByVal e As Element)
     Dim ten As String, ls As LineStyle
