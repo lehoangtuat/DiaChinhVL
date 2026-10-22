@@ -13,7 +13,18 @@ Public Function CsdlMacDinh() As String
     If Len(nm) = 0 Then nm = "csdl"
     p = InStrRev(nm, ".")
     If p > 0 Then nm = Left$(nm, p - 1) ' bo duoi .dgn
-    CsdlMacDinh = "C:\DiaChinhVL\" & nm & ".txt"
+    ' SUA 22/10: CSDL de rieng thu muc C:\DiaChinhVL\CSDL\<ten>.txt
+    '   (file cu C:\DiaChinhVL\<ten>.txt neu co -> chep sang, file cu giu nguyen)
+    Dim cu As String, moi As String
+    cu = "C:\DiaChinhVL\" & nm & ".txt"
+    moi = "C:\DiaChinhVL\CSDL\" & nm & ".txt"
+    CsdlMacDinh = moi
+    On Error Resume Next
+    If Len(Dir$("C:\DiaChinhVL", vbDirectory)) = 0 Then MkDir "C:\DiaChinhVL"
+    If Len(Dir$("C:\DiaChinhVL\CSDL", vbDirectory)) = 0 Then MkDir "C:\DiaChinhVL\CSDL"
+    If Len(Dir$("C:\DiaChinhVL\CSDL", vbDirectory)) = 0 Then CsdlMacDinh = cu: Exit Function
+    If Len(Dir$(moi)) = 0 And Len(Dir$(cu)) > 0 Then FileCopy cu, moi
+    Err.Clear
 End Function
 
 Public Sub ChayTaoThua(ByVal levelsCSV As String, _
