@@ -1,2 +1,2 @@
-2.9
-Tro ly lenh tieng Viet (4 mau: trich luc TT26, tach, hop, mau VL); Chon tinh / kinh tuyen truc khi xem ve tinh; Chieu dai canh (kieu Ban do canh); menu Kiem ke (xuat polygon, to mau hien trang TT08); cai VBA tu dong kiem tra
+3.0
+Mau TT26 moi (trich luc 19, phieu do dac chinh ly, tach/hop PL22) - tu cap nhat file mau; Chu dien them to mau rieng (TL_MAUDIEN); Hop thua giu so dinh + ranh chung net dut; Tach thua dat ten -1,-2 theo thu tu chon; CSDL mac dinh C:\DiaChinhVL\CSDL; Bang du lieu gon hon, to do thua dang chon
