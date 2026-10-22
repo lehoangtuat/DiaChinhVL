@@ -105,6 +105,39 @@ foreach ($d in $dich) {
 Remove-Item $tmp -ErrorAction SilentlyContinue
 if ($loi -gt 0) { Write-Host '  Chay lai bang quyen Administrator (chuot phai -> Run as administrator).' -ForegroundColor Yellow; Thoat 1 }
 
+# ---------- SUA 22/10: tao thu muc CSDL (C:\DiaChinhVL\CSDL) ----------
+try {
+    $CsdlDir = Join-Path $Dest 'CSDL'
+    if (-not (Test-Path $CsdlDir)) { New-Item -ItemType Directory -Path $CsdlDir | Out-Null; Write-Host "  [OK] Tao thu muc $CsdlDir" -ForegroundColor Green }
+} catch { Write-Host "  [CHU Y] Khong tao duoc thu muc CSDL: $($_.Exception.Message)" -ForegroundColor Yellow }
+
+# ---------- SUA 22/10: Cap nhat FILE MAU (trung ten -> ghi de, file cu -> .bak) ----------
+$dsMau = Tai "$Raw/mau.txt" $null
+if ($dsMau) {
+    $MauDir = Join-Path $Dest 'Mau'
+    if (-not (Test-Path $MauDir)) { New-Item -ItemType Directory -Path $MauDir | Out-Null }
+    Write-Host ''
+    Write-Host '  Dang cap nhat file mau ...'
+    foreach ($n in (($dsMau -replace "`r", '') -split "`n")) {
+        $n = $n.Trim()
+        if (-not $n -or $n -match '[\\/:*?"<>|]') { continue }
+        $out = Join-Path $MauDir $n
+        $tm = "$out.tai"
+        if (Tai "$Raw/mau/$([Uri]::EscapeDataString($n))" $tm) {
+            try {
+                if (Test-Path $out) { Copy-Item $out "$out.bak" -Force }
+                Copy-Item $tm $out -Force
+                Write-Host "  [OK] Mau\$n" -ForegroundColor Green
+            } catch {
+                Write-Host "  [LOI] Mau\$n : $($_.Exception.Message)" -ForegroundColor Red
+            }
+            Remove-Item $tm -ErrorAction SilentlyContinue
+        } else {
+            Write-Host "  [CHU Y] Khong tai duoc mau $n" -ForegroundColor Yellow
+        }
+    }
+}
+
 # ---------- Ghi phien ban ----------
 $lines = @()
 if (Test-Path $Ini) { $lines = @(Get-Content $Ini -Encoding UTF8 | Where-Object { $_ -notmatch '^\s*PHIENBAN\s*=' }) }
