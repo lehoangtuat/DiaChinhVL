@@ -105,6 +105,7 @@ Private Function TaoMenu(ByVal ten As String) As Long
         Gach h
         Muc h, "G" & ChrW(225) & "n th" & ChrW(244) & "ng tin", "GANTT"
         Muc h, "B" & ChrW(7843) & "ng d" & ChrW(7919) & " li" & ChrW(7879) & "u", "BANGDL"
+        Muc h, "V" & ChrW(7869) & " nh" & ChrW(227) & "n th" & ChrW(7917) & "a...", "VENHAN"     ' SUA 25/10
 
     Case "BIENTAP"
         Dim hS As Long, tl As Variant, tlCu As Long, hQ As Long
@@ -253,6 +254,7 @@ Public Sub DC_ChayLenh(ByVal ma As String)
     Case "TIMLOI":    DC_MoTimLoi
     Case "GANTT":     DC_MoGanTT
     Case "BANGDL":    DC_MoBangDuLieu
+    Case "VENHAN":    DC_MoVeNhan            ' SUA 25/10: form Ve nhan thua (modVeNhan)
     Case "TRICHLUC":  DC_MoTrichLuc
     Case "GANNHAN":   DC_MoGanNhan
     Case "CHIADOAN":  DC_MoChiaDoan
