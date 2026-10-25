@@ -1,0 +1,153 @@
+'============================================================
+' modVeNhan - VE NHAN THUA tu CSDL (kieu "Ve nhan thua" gCadas/LandMap)
+'   Nhan TT26: loai dat ben trai, so thua (tren) / dien tich (duoi), gach ngang.
+'   Moi nhan = 1 khoi (cell "NHANTHUA"); tung phan co level + mau rieng.
+'   Form: frmVeNhan (menu Ban do -> Ve nhan thua...).
+'============================================================
+Option Explicit
+
+Public Sub DC_MoVeNhan()
+    DC_MoFormTuTao "frmVeNhan"
+End Sub
+
+' Tra ve so nhan da ve ; loi <> "" neu khong ve duoc
+Public Function VN_VeNhan(ByVal csdl As String, ByVal tyLe As Double, ByVal coMm As Double, _
+                          ByVal rongMm As Double, ByVal soLe As Long, ByVal dauPhay As Boolean, _
+                          ByVal nghieng As Boolean, ByVal doiHa As Boolean, _
+                          ByVal lvSo As String, ByVal mauSo As Long, ByVal lvDt As String, ByVal mauDt As Long, _
+                          ByVal lvLoai As String, ByVal mauLoai As Long, _
+                          ByVal tuSo As String, ByVal denSo As String, ByRef loi As String) As Long
+    Dim vungs As Collection, v As clsVung, i As Long, n As Long
+    Dim cao As Double, rong As Double
+    loi = ""
+    On Error Resume Next
+    Set vungs = MoCSDL(csdl)
+    On Error GoTo 0
+    If vungs Is Nothing Then loi = "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c CSDL: " & csdl: Exit Function
+    If vungs.Count = 0 Then loi = "CSDL ch" & ChrW(432) & "a c" & ChrW(243) & " th" & ChrW(7917) & "a n" & ChrW(224) & "o (ch" & ChrW(7841) & "y T" & ChrW(7841) & "o Topology / CSDL tr" & ChrW(432) & ChrW(7899) & "c): " & csdl: Exit Function
+    If tyLe <= 0 Then tyLe = 2000
+    If coMm <= 0 Then coMm = 1.2
+    If rongMm <= 0 Then rongMm = coMm
+    cao = coMm * tyLe / 1000#: rong = rongMm * tyLe / 1000#
+
+    Dim oLvSo As Level, oLvDt As Level, oLvLoai As Level
+    Set oLvSo = DC_TimLevel(lvSo): Set oLvDt = DC_TimLevel(lvDt): Set oLvLoai = DC_TimLevel(lvLoai)
+
+    Dim coTu As Boolean, coDen As Boolean, gTu As Double, gDen As Double, so As Double
+    coTu = IsNumeric(Trim$(tuSo)): coDen = IsNumeric(Trim$(denSo))
+    If coTu Then gTu = Val(tuSo)
+    If coDen Then gDen = Val(denSo)
+
+    DatKieuChu cao, rong, nghieng
+    For i = 1 To vungs.Count
+        Set v = vungs.Item(i)
+        If coTu Or coDen Then
+            so = Val(v.soThua)
+            If coTu And so < gTu Then GoTo Tiep
+            If coDen And so > gDen Then GoTo Tiep
+        End If
+        If VeMotNhan(v, cao, rong, ChuDienTich(v.Dt, soLe, dauPhay, doiHa), _
+                     oLvSo, mauSo, oLvDt, mauDt, oLvLoai, mauLoai) Then n = n + 1
+Tiep:
+    Next i
+    VN_VeNhan = n
+End Function
+
+' Xoa cac khoi nhan "NHANTHUA" (do DiaChinhVL ve) ; tra ve so khoi da xoa
+Public Function VN_XoaNhan() As Long
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator, ds As New Collection, el As Element, i As Long
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeCellHeader
+    Set ee = ActiveModelReference.Scan(esc)
+    On Error Resume Next
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If UCase$(el.AsCellElement.Name) = "NHANTHUA" Then ds.Add el
+        Err.Clear
+    Loop
+    For i = 1 To ds.Count
+        ActiveModelReference.RemoveElement ds.Item(i)
+        If Err.Number = 0 Then VN_XoaNhan = VN_XoaNhan + 1
+        Err.Clear
+    Next i
+End Function
+
+Private Function ChuDienTich(ByVal dt As Double, ByVal soLe As Long, ByVal dauPhay As Boolean, ByVal doiHa As Boolean) As String
+    Dim x As Double, f As String, nl As Long
+    x = dt: nl = soLe
+    If doiHa Then x = dt / 10000#: nl = 4
+    If nl < 0 Then nl = 0
+    If nl > 4 Then nl = 4
+    If nl = 0 Then f = "0" Else f = "0." & String$(nl, "0")
+    ChuDienTich = Format$(Round(x, nl), f)
+    ChuDienTich = Replace(ChuDienTich, ",", ".")
+    If dauPhay Then ChuDienTich = Replace(ChuDienTich, ".", ",")
+End Function
+
+Private Sub DatKieuChu(ByVal cao As Double, ByVal rong As Double, ByVal nghieng As Boolean)
+    Dim ts As Object
+    On Error Resume Next
+    Set ts = ActiveSettings.TextStyle
+    ts.Height = cao
+    ts.Width = rong
+    ts.Justification = msdTextJustificationCenterCenter
+    ts.IsItalic = nghieng
+    ts.Italic = nghieng
+    Err.Clear
+End Sub
+
+Private Function VeMotNhan(ByVal v As clsVung, ByVal cao As Double, ByVal rong As Double, ByVal sDt As String, _
+                           ByVal lvSo As Level, ByVal mauSo As Long, ByVal lvDt As Level, ByVal mauDt As Long, _
+                           ByVal lvLoai As Level, ByVal mauLoai As Long) As Boolean
+    Dim tu As String, loai As String, w As Double, nua As Double, wl As Double
+    Dim els() As Element, n As Long, cel As CellElement, e As Element
+    tu = Trim$(v.soThua): loai = Trim$(v.loaiDat)
+    If Len(tu) = 0 And Len(sDt) = 0 Then Exit Function
+    w = Len(tu) * rong * 0.6
+    If Len(sDt) * rong * 0.6 > w Then w = Len(sDt) * rong * 0.6
+    nua = w / 2# + cao * 0.2
+    ReDim els(0 To 3)
+    On Error Resume Next
+    Set e = CreateLineElement2(Nothing, Point3dFromXYZ(v.cx - nua, v.cy, 0#), Point3dFromXYZ(v.cx + nua, v.cy, 0#))
+    If Not e Is Nothing Then GanLvMau e, lvSo, mauSo: Set els(n) = e: n = n + 1
+    If Len(tu) > 0 Then
+        Set e = Nothing
+        Set e = CreateTextElement1(Nothing, tu, Point3dFromXYZ(v.cx, v.cy + cao * 0.9, 0#), Matrix3dIdentity)
+        If Not e Is Nothing Then GanLvMau e, lvSo, mauSo: Set els(n) = e: n = n + 1
+    End If
+    If Len(sDt) > 0 Then
+        Set e = Nothing
+        Set e = CreateTextElement1(Nothing, sDt, Point3dFromXYZ(v.cx, v.cy - cao * 0.9, 0#), Matrix3dIdentity)
+        If Not e Is Nothing Then GanLvMau e, lvDt, mauDt: Set els(n) = e: n = n + 1
+    End If
+    If Len(loai) > 0 Then
+        wl = Len(loai) * rong * 0.6
+        Set e = Nothing
+        Set e = CreateTextElement1(Nothing, loai, Point3dFromXYZ(v.cx - nua - wl / 2# - cao * 0.3, v.cy, 0#), Matrix3dIdentity)
+        If Not e Is Nothing Then GanLvMau e, lvLoai, mauLoai: Set els(n) = e: n = n + 1
+    End If
+    If n = 0 Then Exit Function
+    ReDim Preserve els(0 To n - 1)
+    Err.Clear
+    Set cel = CreateCellElement1("NHANTHUA", els, Point3dFromXYZ(v.cx, v.cy, 0#), False)
+    If Not cel Is Nothing And Err.Number = 0 Then
+        ActiveModelReference.AddElement cel
+    Else
+        Err.Clear
+        Dim i As Long
+        For i = 0 To n - 1
+            ActiveModelReference.AddElement els(i)
+        Next i
+    End If
+    VeMotNhan = (Err.Number = 0)
+    Err.Clear
+End Function
+
+Private Sub GanLvMau(ByVal e As Element, ByVal lv As Level, ByVal mau As Long)
+    On Error Resume Next
+    If Not lv Is Nothing Then Set e.Level = lv
+    If mau >= 0 Then e.Color = mau
+    e.LineWeight = 0
+    Err.Clear
+End Sub
