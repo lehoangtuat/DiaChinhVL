@@ -40,6 +40,8 @@ Private Sub UserForm_Initialize()
 
     ' Mac dinh CSDL theo ten file .dgn dang mo
     Me.Controls("txtCSDL").Text = CsdlMacDinh()
+    ' SUA 23/10: to ban do tu ten file dgn (DC9 -> 9)
+    Me.Controls("txtToBanDo").Text = DC_ToTheoTenFile()
 
     Dim b1 As Object, b2 As Object, b3 As Object
     Set b1 = Me.Controls.Add("Forms.CommandButton.1", "cmdOK", True)
