@@ -1,0 +1,162 @@
+'============================================================
+' frmVeNhan - "Ve nhan thua" (giong gCadas/LandMap) - nhan TT26 thanh khoi
+'   Can: modVeNhan, modChieuDai (CDC_DsLevel), clsNutTL, modCauHinh.
+'   Mo bang DC_MoFormTuTao "frmVeNhan".
+'============================================================
+Option Explicit
+
+Private mNut As New Collection
+
+Private Sub UserForm_Initialize()
+    Dim c As Object, tl As Variant
+    Me.Caption = "Ve nhan thua"
+    Me.Width = 330: Me.Height = 330
+    Me.Font.Name = "Arial": Me.Font.size = 8
+
+    Nhan "File CSDL:", 8, 8, 60
+    Set c = Me.Controls.Add("Forms.TextBox.1", "txtCSDL", True)
+    c.Left = 70: c.Top = 6: c.Width = 248: c.Height = 16: c.Font.Name = "Arial": c.Font.size = 8
+    c.Text = CsdlMacDinh()
+
+    Khung "Thu" & ChrW(7897) & "c t" & ChrW(237) & "nh nh" & ChrW(227) & "n", 4, 28, 316
+    Nhan "T" & ChrW(7927) & " l" & ChrW(7879) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & "   1:", 12, 48, 80
+    Set c = Me.Controls.Add("Forms.ComboBox.1", "cboTyLe", True)
+    c.Left = 96: c.Top = 46: c.Width = 70: c.Height = 16: c.Font.Name = "Arial": c.Font.size = 8
+    For Each tl In Array("200", "500", "1000", "2000", "5000", "10000")
+        c.AddItem tl
+    Next tl
+    c.Text = DC_DocCauHinh("VN_TYLE", "2000")
+    Nhan "S" & ChrW(7889) & " l" & ChrW(7867), 180, 48, 40
+    Set c = Me.Controls.Add("Forms.ComboBox.1", "cboLe", True)
+    c.Left = 220: c.Top = 46: c.Width = 50: c.Height = 16: c.Font.Name = "Arial": c.Font.size = 8
+    c.AddItem "0": c.AddItem "0.0": c.AddItem "0.00"
+    c.Text = DC_DocCauHinh("VN_LE", "0.0")
+    Nhan "C" & ChrW(7905) & " ch" & ChrW(7919) & " (mm)", 12, 70, 80
+    O "txtCao", DC_DocCauHinh("VN_CAO", "1.2"), 96, 68, 34
+    O "txtRong", DC_DocCauHinh("VN_RONG", "1.2"), 134, 68, 34
+    Nhan "(cao, r" & ChrW(7897) & "ng)", 172, 70, 60
+    Chon "chkPhay", "Di" & ChrW(7879) & "n t" & ChrW(237) & "ch d" & ChrW(7845) & "u ph" & ChrW(7849) & "y", 12, 90, 110, DC_DocCauHinh("VN_PHAY", "1") = "1"
+    Chon "chkNghieng", "Ch" & ChrW(7919) & " nghi" & ChrW(234) & "ng", 126, 90, 80, DC_DocCauHinh("VN_NGHIENG", "0") = "1"
+    Chon "chkHa", ChrW(272) & ChrW(7893) & "i (ha)", 210, 90, 70, DC_DocCauHinh("VN_HA", "0") = "1"
+
+    Khung "Tu" & ChrW(7923) & " ch" & ChrW(7885) & "n nh" & ChrW(227) & "n  (l" & ChrW(7899) & "p - m" & ChrW(224) & "u)", 4, 114, 316
+    Dong "S" & ChrW(7889) & " hi" & ChrW(7879) & "u th" & ChrW(7917) & "a", "cboLvSo", "txtMauSo", DC_DocCauHinh("VN_LVSO", "Level 13"), DC_DocCauHinh("VN_MAUSO", "1"), 134
+    Dong "Di" & ChrW(7879) & "n t" & ChrW(237) & "ch th" & ChrW(7917) & "a", "cboLvDt", "txtMauDt", DC_DocCauHinh("VN_LVDT", "Level 4"), DC_DocCauHinh("VN_MAUDT", "2"), 156
+    Dong "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t", "cboLvLoai", "txtMauLoai", DC_DocCauHinh("VN_LVLOAI", "Level 2"), DC_DocCauHinh("VN_MAULOAI", "5"), 178
+
+    Khung "Ph" & ChrW(7841) & "m vi s" & ChrW(7889) & " th" & ChrW(7917) & "a  (" & ChrW(273) & ChrW(7875) & " tr" & ChrW(7889) & "ng = t" & ChrW(7845) & "t c" & ChrW(7843) & ")", 4, 202, 316
+    Nhan "T" & ChrW(7915) & " th" & ChrW(7917) & "a", 12, 222, 50
+    O "txtTu", "", 64, 220, 50
+    Nhan ChrW(272) & ChrW(7871) & "n th" & ChrW(7917) & "a", 130, 222, 50
+    O "txtDen", "", 184, 220, 50
+
+    Nhan "M" & ChrW(7895) & "i nh" & ChrW(227) & "n = 1 kh" & ChrW(7889) & "i (lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t, s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch) theo Th" & ChrW(244) & "ng t" & ChrW(432) & " 26.", 8, 246, 312
+    ThemNut "VE", "V" & ChrW(7869) & " nh" & ChrW(227) & "n", 8, 266, 96
+    ThemNut "XOA", "X" & ChrW(243) & "a nh" & ChrW(227) & "n", 112, 266, 96
+    ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", 222, 266, 96
+End Sub
+
+Public Sub XuLyNut(ByVal ma As String)
+    Dim n As Long, loi As String, tieuDe As String
+    tieuDe = "V" & ChrW(7869) & " nh" & ChrW(227) & "n th" & ChrW(7917) & "a"
+    Select Case ma
+        Case "DONG": Unload Me
+        Case "XOA"
+            n = VN_XoaNhan()
+            DC_ThongBao ChrW(272) & ChrW(227) & " x" & ChrW(243) & "a " & n & " nh" & ChrW(227) & "n th" & ChrW(7917) & "a (kh" & ChrW(7889) & "i NHANTHUA).", tieuDe
+        Case "VE"
+            Luu
+            n = VN_VeNhan(Me.Controls("txtCSDL").Text, So("cboTyLe"), So("txtCao"), So("txtRong"), _
+                          SoLe(), Me.Controls("chkPhay").Value, Me.Controls("chkNghieng").Value, _
+                          Me.Controls("chkHa").Value, Me.Controls("cboLvSo").Text, CLng(So("txtMauSo")), _
+                          Me.Controls("cboLvDt").Text, CLng(So("txtMauDt")), Me.Controls("cboLvLoai").Text, _
+                          CLng(So("txtMauLoai")), Me.Controls("txtTu").Text, Me.Controls("txtDen").Text, loi)
+            If Len(loi) > 0 Then
+                DC_ThongBao loi, tieuDe, vbExclamation
+            Else
+                DC_ThongBao ChrW(272) & ChrW(227) & " v" & ChrW(7869) & " " & n & " nh" & ChrW(227) & "n th" & ChrW(7917) & "a." & vbCrLf & "(V" & ChrW(7869) & " l" & ChrW(7841) & "i: b" & ChrW(7845) & "m X" & ChrW(243) & "a nh" & ChrW(227) & "n tr" & ChrW(432) & ChrW(7899) & "c)", tieuDe
+            End If
+    End Select
+End Sub
+
+Private Function So(ByVal nm As String) As Double
+    So = Val(Replace(Trim$(Me.Controls(nm).Text), ",", "."))
+End Function
+
+Private Function SoLe() As Long
+    Dim s As String
+    s = Trim$(Me.Controls("cboLe").Text)
+    If InStr(s, ".") > 0 Then SoLe = Len(s) - InStr(s, ".") Else SoLe = 0
+End Function
+
+Private Sub Luu()
+    DC_GhiCauHinh "VN_TYLE", Me.Controls("cboTyLe").Text
+    DC_GhiCauHinh "VN_LE", Me.Controls("cboLe").Text
+    DC_GhiCauHinh "VN_CAO", Me.Controls("txtCao").Text
+    DC_GhiCauHinh "VN_RONG", Me.Controls("txtRong").Text
+    DC_GhiCauHinh "VN_PHAY", IIf(Me.Controls("chkPhay").Value, "1", "0")
+    DC_GhiCauHinh "VN_NGHIENG", IIf(Me.Controls("chkNghieng").Value, "1", "0")
+    DC_GhiCauHinh "VN_HA", IIf(Me.Controls("chkHa").Value, "1", "0")
+    DC_GhiCauHinh "VN_LVSO", Me.Controls("cboLvSo").Text
+    DC_GhiCauHinh "VN_MAUSO", Me.Controls("txtMauSo").Text
+    DC_GhiCauHinh "VN_LVDT", Me.Controls("cboLvDt").Text
+    DC_GhiCauHinh "VN_MAUDT", Me.Controls("txtMauDt").Text
+    DC_GhiCauHinh "VN_LVLOAI", Me.Controls("cboLvLoai").Text
+    DC_GhiCauHinh "VN_MAULOAI", Me.Controls("txtMauLoai").Text
+End Sub
+
+'------------------------------------------------------------ tao control
+Private Sub Khung(ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1")
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 13
+    c.Font.Name = "Arial": c.Font.size = 8: c.Font.Bold = True
+    c.BackColor = &HF0E0D0: c.BackStyle = 1
+End Sub
+
+Private Sub Nhan(ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.Label.1")
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 12
+    c.Font.Name = "Arial": c.Font.size = 8
+End Sub
+
+Private Sub O(ByVal nm As String, ByVal gt As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.TextBox.1", nm, True)
+    c.Left = x: c.Top = y: c.Width = w: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8: c.TextAlign = 3
+    c.Text = gt
+End Sub
+
+' 1 dong: nhan | combo level | "Mau" | o mau
+Private Sub Dong(ByVal cap As String, ByVal nmLv As String, ByVal nmMau As String, _
+                 ByVal lv As String, ByVal mau As String, ByVal y As Single)
+    Dim c As Object, ds As Collection, i As Long
+    Nhan cap, 12, y + 2, 84
+    Set c = Me.Controls.Add("Forms.ComboBox.1", nmLv, True)
+    c.Left = 96: c.Top = y: c.Width = 130: c.Height = 16: c.Font.Name = "Arial": c.Font.size = 8
+    Set ds = CDC_DsLevel()
+    For i = 1 To ds.Count: c.AddItem ds(i): Next i
+    c.Text = lv
+    Nhan "M" & ChrW(224) & "u", 236, y + 2, 26
+    O nmMau, mau, 264, y, 40
+End Sub
+
+Private Sub Chon(ByVal nm As String, ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal v As Boolean)
+    Dim c As Object
+    Set c = Me.Controls.Add("Forms.CheckBox.1", nm, True)
+    c.Caption = cap: c.Left = x: c.Top = y: c.Width = w: c.Height = 16
+    c.Font.Name = "Arial": c.Font.size = 8
+    c.Value = v
+End Sub
+
+Private Sub ThemNut(ByVal ma As String, ByVal cap As String, ByVal x As Single, ByVal y As Single, ByVal w As Single)
+    Dim b As Object, hd As clsNutTL
+    Set b = Me.Controls.Add("Forms.CommandButton.1", "cmd" & ma, True)
+    b.Caption = cap: b.Left = x: b.Top = y: b.Width = w: b.Height = 24
+    b.Font.Name = "Arial": b.Font.size = 8
+    Set hd = New clsNutTL
+    Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
+    mNut.Add hd
+End Sub
