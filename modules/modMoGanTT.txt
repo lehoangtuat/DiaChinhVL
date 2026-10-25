@@ -58,7 +58,7 @@ Public Sub ChayGanTT(ByVal path As String, ByVal lvSo As String, ByVal lvTo As S
         Dim i As Long, v As clsVung
         For i = 1 To vungs.Count
             Set v = vungs.Item(i)
-            VeNhanThuaDayDu v, cao, "mau"
+            VeNhanTT26 v, cao        ' SUA 25/10: nhan TT26 thanh 1 khoi (cell)
         Next i
     End If
 
@@ -144,3 +144,62 @@ Private Sub DatTruong2(ByVal v As clsVung, ByVal t As String, ByVal g As String)
         Case "dia_chi": v.DiaChi = g
     End Select
 End Sub
+
+'============================================================
+' SUA 25/10: NHAN THUA THEO TT26 - 1 KHOI (cell "NHANTHUA"):
+'   loai dat ben trai, so thua (tren) / dien tich (duoi) co gach ngang.
+'   Ve bang mau / level / font dang dung (level lay tu o "Lop nhan").
+'============================================================
+Public Sub VeNhanTT26(ByVal v As clsVung, ByVal cao As Double)
+    Dim tu As String, duoiS As String, loai As String
+    Dim wTu As Double, wDt As Double, rong As Double, nua As Double, wl As Double
+    Dim els() As Element, n As Long, cel As CellElement
+    If v Is Nothing Then Exit Sub
+    If cao <= 0 Then cao = 1
+    tu = Trim$(v.soThua)
+    duoiS = Replace(Format$(Round(v.Dt, 1), "0.0"), ".", ",")
+    loai = Trim$(v.loaiDat)
+    If Len(tu) = 0 And v.Dt <= 0 Then Exit Sub
+    wTu = Len(tu) * cao * 0.6
+    wDt = Len(duoiS) * cao * 0.6
+    rong = wTu: If wDt > rong Then rong = wDt
+    nua = rong / 2# + cao * 0.2
+
+    On Error Resume Next
+    ReDim els(0 To 3)
+    Set els(n) = CreateLineElement2(Nothing, Point3dFromXYZ(v.cx - nua, v.cy, 0#), Point3dFromXYZ(v.cx + nua, v.cy, 0#))
+    If Not els(n) Is Nothing Then n = n + 1
+    If Len(tu) > 0 Then Set els(n) = ChuNhan(v.cx, v.cy + cao * 0.9, tu, cao): If Not els(n) Is Nothing Then n = n + 1
+    If Len(duoiS) > 0 Then Set els(n) = ChuNhan(v.cx, v.cy - cao * 0.9, duoiS, cao): If Not els(n) Is Nothing Then n = n + 1
+    If Len(loai) > 0 Then
+        wl = Len(loai) * cao * 0.6
+        Set els(n) = ChuNhan(v.cx - nua - wl / 2# - cao * 0.3, v.cy, loai, cao)
+        If Not els(n) Is Nothing Then n = n + 1
+    End If
+    If n = 0 Then Exit Sub
+    ReDim Preserve els(0 To n - 1)
+    Err.Clear
+    Set cel = CreateCellElement1("NHANTHUA", els, Point3dFromXYZ(v.cx, v.cy, 0#), False)
+    If Not cel Is Nothing And Err.Number = 0 Then
+        ActiveModelReference.AddElement cel
+    Else
+        ' khong tao duoc cell -> ve rieng tung phan tu
+        Err.Clear
+        Dim i As Long
+        For i = 0 To n - 1
+            ActiveModelReference.AddElement els(i)
+        Next i
+    End If
+    Err.Clear
+End Sub
+
+Private Function ChuNhan(ByVal x As Double, ByVal y As Double, ByVal s As String, ByVal cao As Double) As Element
+    Dim t As TextElement
+    On Error Resume Next
+    ActiveSettings.TextStyle.Height = cao
+    ActiveSettings.TextStyle.Width = cao
+    ActiveSettings.TextStyle.Justification = msdTextJustificationCenterCenter
+    Set t = CreateTextElement1(Nothing, s, Point3dFromXYZ(x, y, 0#), Matrix3dIdentity)
+    If Not t Is Nothing Then t.LineWeight = 0
+    Set ChuNhan = t
+End Function
