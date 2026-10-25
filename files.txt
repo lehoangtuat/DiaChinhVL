@@ -68,3 +68,5 @@ modTroLy
 frmTroLy
 modKTT
 frmChonKTT
+modVeNhan
+frmVeNhan
