@@ -32,7 +32,7 @@ Private Sub UserForm_Initialize()
     Dim ck As Object
     Set ck = Me.Controls.Add("Forms.CheckBox.1", "chkChon", True)
     ck.Caption = "Ch" & ChrW(7881) & " x" & ChrW(7917) & " l" & ChrW(253) & " ch" & ChrW(7919) & " " & ChrW(273) & "ang ch" & ChrW(7885) & "n (1 file hi" & ChrW(7879) & "n t" & ChrW(7841) & "i)"
-    ck.Left = 6: ck.Top = 64: ck.Width = 256: ck.Height = 16
+    ck.Left = 6: ck.Top = 64: ck.Width = 158: ck.Height = 16
     ck.Font.Name = "Arial": ck.Font.size = 8
 
     Dim cb As Object
@@ -43,6 +43,8 @@ Private Sub UserForm_Initialize()
     cb.Value = (DC_DocCauHinh("TLOP_BAK", "1") = "1")
     cb.ControlTipText = "Ch" & ChrW(233) & "p file g" & ChrW(7889) & "c th" & ChrW(224) & "nh <t" & ChrW(234) & "n>.dgn.bak tr" & ChrW(432) & ChrW(7899) & "c khi s" & ChrW(7917) & "a"
 
+    ' SUA 25/10: pha chu gop "LUC 766/3860,9" -> 3 chu rieng
+    ThemNut "TACHCHU", "Ph" & ChrW(225) & " ch" & ChrW(7919) & " g" & ChrW(7897) & "p", "Ch" & ChrW(7919) & " ghi chung 1 d" & ChrW(242) & "ng (vd LUC 766/3860,9): t" & ChrW(225) & "ch th" & ChrW(224) & "nh lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t / s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch ri" & ChrW(234) & "ng (gi" & ChrW(7919) & " v" & ChrW(7883) & " tr" & ChrW(237) & ", c" & ChrW(7905) & ", g" & ChrW(243) & "c xoay) - l" & ChrW(224) & "m tr" & ChrW(432) & ChrW(7899) & "c khi T" & ChrW(225) & "ch l" & ChrW(7899) & "p", 166, 61, 96
     ThemNut "PHAKHOI", "Ph" & ChrW(225) & " kh" & ChrW(7889) & "i ch" & ChrW(7919), "Ph" & ChrW(225) & " c" & ChrW(225) & "c kh" & ChrW(7889) & "i (cell) c" & ChrW(243) & " ch" & ChrW(7919) & " tr" & ChrW(234) & "n l" & ChrW(7899) & "p c" & ChrW(7847) & "n t" & ChrW(225) & "ch th" & ChrW(224) & "nh ch" & ChrW(7919) & " r" & ChrW(7901) & "i (nh" & ChrW(432) & " Drop Element) - l" & ChrW(224) & "m tr" & ChrW(432) & ChrW(7899) & "c khi T" & ChrW(225) & "ch l" & ChrW(7899) & "p", 266, 61, 112
 
     ' --- nut them / bot to ban do
@@ -208,6 +210,8 @@ Public Sub XuLyNut(ByVal ma As String)
         ChayTach
     Case "PHAKHOI"
         ChayPhaKhoi
+    Case "TACHCHU"
+        ChayTachChu
     End Select
 End Sub
 
@@ -310,6 +314,54 @@ Private Sub ChayTach()
         If nLoi > 8 Then s = s & vbCrLf & "..."
     End If
     DC_ThongBao s, tieuDe, IIf(nLoi > 0, vbExclamation, vbInformation)
+End Sub
+
+' SUA 25/10: pha chu gop (LUC 766/3860,9 -> LUC | 766 | 3860,9)
+Private Sub ChayTachChu()
+    Dim lvN As Long, nF As Long, i As Long, kq As String, bak As Boolean, chiChon As Boolean
+    Dim nT As Long, tT As Long, nLoi As Long, loi As String, s As String, laHT As Boolean, td As String
+    td = "Ph" & ChrW(225) & " ch" & ChrW(7919) & " g" & ChrW(7897) & "p"
+    nF = Lst.ListCount
+    If nF = 0 Then
+        DC_ThongBao "Danh s" & ChrW(225) & "ch ch" & ChrW(432) & "a c" & ChrW(243) & " t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " n" & ChrW(224) & "o.", td, vbExclamation
+        Exit Sub
+    End If
+    lvN = SoLv("cboNguon")
+    If lvN <= 0 Then
+        DC_ThongBao "Ch" & ChrW(432) & "a nh" & ChrW(7853) & "p l" & ChrW(7899) & "p c" & ChrW(7847) & "n t" & ChrW(225) & "ch (l" & ChrW(7899) & "p c" & ChrW(243) & " ch" & ChrW(7919) & " ghi chung).", td, vbExclamation
+        Exit Sub
+    End If
+    bak = CBool(Me.Controls("chkBak").Value)
+    chiChon = CBool(Me.Controls("chkChon").Value)
+    On Error Resume Next
+    laHT = (StrComp(CStr(Lst.List(0, 0)), ActiveDesignFile.FullName, vbTextCompare) = 0)
+    On Error GoTo 0
+    If Not (nF = 1 And laHT) Then chiChon = False
+    s = "T" & ChrW(225) & "ch ch" & ChrW(7919) & " ghi chung (vd: LUC 766/3860,9) tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & lvN & IIf(chiChon, " trong c" & ChrW(225) & "c " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng " & ChrW(273) & "ang ch" & ChrW(7885) & "n", " trong " & nF & " t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)) & _
+        " th" & ChrW(224) & "nh 3 ch" & ChrW(7919) & " ri" & ChrW(234) & "ng: lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t / s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch." & vbCrLf & "Sau " & ChrW(273) & ChrW(243) & " b" & ChrW(7845) & "m T" & ChrW(225) & "ch l" & ChrW(7899) & "p." & vbCrLf & vbCrLf & "Ti" & ChrW(7871) & "p t" & ChrW(7909) & "c?"
+    If DC_ThongBao(s, td, vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
+    mDangChay = True
+    For i = 0 To nF - 1
+        Me.Controls("lblDem").Caption = " " & (i + 1) & "/" & nF
+        Me.Controls("lblPath").Caption = " " & Lst.List(i, 0)
+        Lst.List(i, 1) = ChrW(273) & "ang ph" & ChrW(225) & " ch" & ChrW(7919) & " g" & ChrW(7897) & "p..."
+        DoEvents
+        kq = TL_TachChuGopFile(CStr(Lst.List(i, 0)), lvN, bak, chiChon, nT)
+        If Len(kq) = 0 Then
+            Lst.List(i, 1) = "Ph" & ChrW(225) & " " & nT & " ch" & ChrW(7919) & " g" & ChrW(7897) & "p"
+            tT = tT + nT
+        Else
+            Lst.List(i, 1) = "L" & ChrW(7895) & "i"
+            nLoi = nLoi + 1
+            If nLoi <= 8 Then loi = loi & vbCrLf & "- " & Lst.List(i, 0) & ": " & kq
+        End If
+        DoEvents
+    Next i
+    mDangChay = False
+    Me.Controls("lblPath").Caption = " Xong ph" & ChrW(225) & " ch" & ChrW(7919) & " g" & ChrW(7897) & "p: " & tT
+    s = ChrW(272) & ChrW(227) & " t" & ChrW(225) & "ch " & tT & " ch" & ChrW(7919) & " ghi chung th" & ChrW(224) & "nh ch" & ChrW(7919) & " ri" & ChrW(234) & "ng. Gi" & ChrW(7901) & " b" & ChrW(7845) & "m T" & ChrW(225) & "ch l" & ChrW(7899) & "p."
+    If nLoi > 0 Then s = s & vbCrLf & vbCrLf & "L" & ChrW(7895) & "i " & nLoi & " t" & ChrW(7901) & ":" & loi
+    DC_ThongBao s, td, IIf(nLoi > 0, vbExclamation, vbInformation)
 End Sub
 
 Private Sub ChayPhaKhoi()
