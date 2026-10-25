@@ -106,6 +106,7 @@ Public Sub DC_ChayTachHop(ByVal cheDo As Long, ByVal goc As Collection, _
     ' 3) Thong tin chung
     mTo = Trim$(toBanDo)
     If Len(mTo) = 0 Then mTo = Trim$(truoc.Item(1).SoTo)
+    If Len(mTo) = 0 Then mTo = DC_ToTheoTenFile()    ' SUA 22/10: so trong ten file (DC9 -> 9)
     If Len(mTo) = 0 Then mTo = "0"
     mDiaChi = DiaChiThua(tenXa, tenHuyen, tenTinh)
 
