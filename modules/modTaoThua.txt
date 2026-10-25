@@ -27,6 +27,26 @@ Public Function CsdlMacDinh() As String
     Err.Clear
 End Function
 
+' SUA 22/10: so to ban do lay tu ten file .dgn dang mo (DC9.dgn -> 9, dc55 -> 55)
+'   lay nhom chu so DAU TIEN trong ten; khong co -> ""
+Public Function DC_ToTheoTenFile() As String
+    Dim nm As String, i As Long, c As String, s As String
+    On Error Resume Next
+    nm = ActiveDesignFile.Name
+    On Error GoTo 0
+    i = InStrRev(nm, "."): If i > 0 Then nm = Left$(nm, i - 1)
+    For i = 1 To Len(nm)
+        c = Mid$(nm, i, 1)
+        If c >= "0" And c <= "9" Then
+            s = s & c
+        ElseIf Len(s) > 0 Then
+            Exit For
+        End If
+    Next i
+    If Len(s) > 0 And Len(s) < 9 Then s = CStr(CLng(s))
+    DC_ToTheoTenFile = s
+End Function
+
 Public Sub ChayTaoThua(ByVal levelsCSV As String, _
                        ByVal loaiDat As String, ByVal toBanDo As String, _
                        ByVal soLe As Long, ByVal boNho As Double, _
