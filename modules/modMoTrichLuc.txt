@@ -89,6 +89,7 @@ Public Sub ChayTrichLucThua(ByVal found As clsVung, _
     End If
 
     If Len(Trim$(toBanDo)) = 0 Then toBanDo = found.SoTo
+    If Len(Trim$(toBanDo)) = 0 Then toBanDo = DC_ToTheoTenFile()    ' SUA 22/10: so trong ten file (DC9 -> 9)
     If Len(Trim$(toBanDo)) = 0 Then toBanDo = "0"
     If cao <= 0 Then cao = 1
 
