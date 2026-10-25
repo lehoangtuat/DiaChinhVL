@@ -13,6 +13,7 @@ Private mCboHS As clsComboEvent
 Private mLoai As Long          ' 0 = trich luc, 1 = tach thua, 2 = hop thua
 
 Private Sub UserForm_Initialize()
+    ChuyenMauTT26          ' SUA 22/10: 1 lan / may - dat 4 mau TT26 mac dinh
     Me.Caption = "Trich luc thua dat"   ' title bar de ASCII (font he thong)
     Me.Font.Name = "Arial"
     Me.Font.size = 8
@@ -164,6 +165,8 @@ Private Sub UserForm_Initialize()
 
     ' Tu dien CSDL theo ten file .dgn dang mo (dc01.dgn -> dc01.txt)
     Me.Controls("txtCSDL").Text = CsdlMacDinh()
+    ' SUA 23/10: to ban do tu ten file dgn (DC9 -> 9)
+    If Len(Trim$(Me.Controls("txtTo").Text)) = 0 Then Me.Controls("txtTo").Text = DC_ToTheoTenFile()
 
     ' Bat su kien doi Tinh -> loc Xa
     Set mCbo = New clsComboEvent
@@ -189,6 +192,31 @@ Private Function MauMD(ByVal moi As String, ByVal cu As String, ByVal duoi As St
     On Error Resume Next
     If Len(Dir$("C:\DiaChinhVL\MAU\" & moi & "." & duoi)) > 0 Then MauMD = "C:\DiaChinhVL\MAU\" & moi & "." & duoi
 End Function
+
+' SUA 22/10 (ban 3.0): GHI CO DINH 4 mau TT26 theo thu tu danh sach (1 lan / may,
+'   co MAU_TT26=1 trong DiaChinhVL.ini). Chi ghi khi file mau co trong C:\DiaChinhVL\MAU.
+'   0 Trich luc ban do dia chinh -> trichluc ; 1 Tach -> PL22-tachthua ;
+'   2 Hop -> PL22-hopthua ; 3 Phieu do dac chinh ly -> phieuchinhlydodac
+'   Doi bo mau sau nay: tang so MAU_TT26 (vd "2") de cac may ghi lai.
+Private Sub ChuyenMauTT26()
+    Const PB As String = "1"
+    If DC_DocCauHinh("MAU_TT26", "") = PB Then Exit Sub
+    GhiMauTT26 "trichluc", "MAU_TL", "INI_TL0"
+    If Len(Dir$("C:\DiaChinhVL\MAU\trichluc.ini")) > 0 Then DC_GhiCauHinh "INI_TL", "C:\DiaChinhVL\MAU\trichluc.ini"
+    GhiMauTT26 "PL22-tachthua", "MAU_TACH", "INI_TACH"
+    GhiMauTT26 "PL22-hopthua", "MAU_HOP", "INI_HOP"
+    GhiMauTT26 "phieuchinhlydodac", "MAU_TL3", "INI_TL3"
+    DC_GhiCauHinh "MAU_TT26", PB
+End Sub
+
+Private Sub GhiMauTT26(ByVal ten As String, ByVal kMau As String, ByVal kIni As String)
+    Dim f As String
+    On Error Resume Next
+    f = "C:\DiaChinhVL\MAU\" & ten
+    If Len(Dir$(f & ".dgn")) = 0 Then Exit Sub
+    DC_GhiCauHinh kMau, f & ".dgn"
+    If Len(Dir$(f & ".ini")) > 0 Then DC_GhiCauHinh kIni, f & ".ini"
+End Sub
 
 ' Goi tu clsComboEvent khi doi "Mau ho so"
 Public Sub MauHSDoi()
