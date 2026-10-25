@@ -325,3 +325,197 @@ Private Sub ChepConKhoi(ByVal m As ModelReference, ByVal el As Element, ByRef lo
         End If
     Loop
 End Sub
+
+'============================================================
+' SUA 25/10: PHA CHU GOP - 1 chu ghi chung "LUC 766/3860,9" -> 3 chu rieng
+'   chu cai (LUC, ONT+CLN) = loai dat ; so dau tien = so thua ;
+'   so tiep theo (sau khoang trang hoac "/") = dien tich.
+'   Chu moi giu font/co/goc xoay/lop cua chu goc, dat dung vi tri tung phan
+'   -> sau do bam "Tach lop" de dua ve 3 lop.
+'============================================================
+Public Function TL_TachChuGopFile(ByVal path As String, ByVal lvNguon As Long, ByVal saoLuu As Boolean, _
+                                  ByVal chiChon As Boolean, ByRef nTach As Long) As String
+    Dim df As DesignFile, laHienTai As Boolean, m As ModelReference
+    nTach = 0
+    On Error Resume Next
+    laHienTai = (StrComp(ActiveDesignFile.FullName, path, vbTextCompare) = 0)
+    Err.Clear
+    If saoLuu And Not laHienTai Then
+        Dim fso As Object
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        fso.CopyFile path, path & ".bak", True
+        If Err.Number <> 0 Then
+            TL_TachChuGopFile = "Kh" & ChrW(244) & "ng sao l" & ChrW(432) & "u " & ChrW(273) & ChrW(432) & ChrW(7907) & "c (.bak): " & Err.Description
+            Exit Function
+        End If
+    End If
+    On Error GoTo Loi
+    If laHienTai Then
+        If chiChon Then
+            TachChuDs ActiveModelReference, ActiveModelReference.GetSelectedElements, lvNguon, nTach
+            RedrawAllViews
+            Exit Function
+        End If
+        Set df = ActiveDesignFile
+    Else
+        Set df = Application.OpenDesignFileForProgram(path, False)
+    End If
+    If df Is Nothing Then TL_TachChuGopFile = "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c file": Exit Function
+    For Each m In df.Models
+        TachChuDs m, QuetChu(m), lvNguon, nTach
+    Next m
+    If nTach > 0 Then df.Save
+    If Not laHienTai Then df.Close Else RedrawAllViews
+    Exit Function
+Loi:
+    TL_TachChuGopFile = Err.Description
+    On Error Resume Next
+    If Not laHienTai Then
+        If Not df Is Nothing Then df.Close
+    End If
+End Function
+
+' Tach chuoi -> phan (noi dung, vi tri ky tu bat dau). Tra ve so phan (0 = khong phai chu gop)
+Public Function TL_TachChuoi(ByVal s As String, ByRef ten() As String, ByRef viTri() As Long) As Long
+    Dim i As Long, c As String, tok As String, bd As Long, n As Long
+    Dim loai As String, pLoai As Long, so As String, pSo As Long, dt As String, pDt As Long
+    Dim toks() As String, pos() As Long, nt As Long
+    ReDim toks(1 To 20): ReDim pos(1 To 20)
+    s = s & " "
+    For i = 1 To Len(s)
+        c = Mid$(s, i, 1)
+        If c = " " Or c = "/" Or c = vbTab Then
+            If Len(tok) > 0 And nt < 20 Then nt = nt + 1: toks(nt) = tok: pos(nt) = bd
+            tok = ""
+        Else
+            If Len(tok) = 0 Then bd = i
+            tok = tok & c
+        End If
+    Next i
+    If nt < 2 Then Exit Function
+    For i = 1 To nt
+        tok = toks(i)
+        If LaMaLoai(tok) Then
+            If Len(loai) > 0 Or Len(so) > 0 Then Exit Function
+            loai = tok: pLoai = pos(i)
+        ElseIf LaSo(tok, False) And Len(so) = 0 Then
+            so = tok: pSo = pos(i)
+        ElseIf LaSo(tok, True) And Len(so) > 0 And Len(dt) = 0 Then
+            dt = tok: pDt = pos(i)
+        Else
+            Exit Function                ' co phan la (vd ten duong) -> khong tach
+        End If
+    Next i
+    If Len(so) = 0 Then Exit Function
+    ReDim ten(1 To 3): ReDim viTri(1 To 3)
+    If Len(loai) > 0 Then n = n + 1: ten(n) = loai: viTri(n) = pLoai
+    n = n + 1: ten(n) = so: viTri(n) = pSo
+    If Len(dt) > 0 Then n = n + 1: ten(n) = dt: viTri(n) = pDt
+    If n < 2 Then n = 0
+    TL_TachChuoi = n
+End Function
+
+' Ma loai dat: chu IN HOA A-Z (co the co "+"), dai 2..12
+Private Function LaMaLoai(ByVal t As String) As Boolean
+    Dim i As Long, c As Long, coChu As Boolean
+    If Len(t) < 2 Or Len(t) > 12 Then Exit Function
+    For i = 1 To Len(t)
+        c = AscW(Mid$(t, i, 1))
+        If c >= 65 And c <= 90 Then
+            coChu = True
+        ElseIf c <> 43 Then
+            Exit Function
+        End If
+    Next i
+    LaMaLoai = coChu
+End Function
+
+' So: chi chu so ; choPhay = cho phep dau , hoac . (dien tich)
+Private Function LaSo(ByVal t As String, ByVal choPhay As Boolean) As Boolean
+    Dim i As Long, c As Long, nSo As Long
+    For i = 1 To Len(t)
+        c = AscW(Mid$(t, i, 1))
+        If c >= 48 And c <= 57 Then
+            nSo = nSo + 1
+        ElseIf choPhay And (c = 44 Or c = 46) Then
+        Else
+            Exit Function
+        End If
+    Next i
+    LaSo = (nSo > 0)
+End Function
+
+Private Sub TachChuDs(ByVal m As ModelReference, ByVal ee As ElementEnumerator, ByVal lvNguon As Long, ByRef nTach As Long)
+    Dim ds As New Collection, el As Element, c As Element, i As Long
+    If ee Is Nothing Then Exit Sub
+    On Error Resume Next
+    Do While ee.MoveNext
+        Set el = ee.Current
+        If el.Type = msdElementTypeText Or el.Type = msdElementTypeTextNode Then
+            If lvNguon <= 0 Or DC_LevelSo(el) = lvNguon Then ds.Add el
+        End If
+    Loop
+    For i = 1 To ds.Count
+        Set el = ds.Item(i)
+        Set c = ChuDon(el)
+        If Not c Is Nothing Then
+            If TachMotChu(m, el, c) Then nTach = nTach + 1
+        End If
+    Next i
+End Sub
+
+' Text -> chinh no ; text node 1 dong -> chu con ; con lai Nothing
+Private Function ChuDon(ByVal el As Element) As Element
+    Dim sb As ElementEnumerator, dem As Long, c As Element
+    On Error Resume Next
+    If el.Type = msdElementTypeText Then Set ChuDon = el: Exit Function
+    Set sb = el.AsComplexElement.GetSubElements
+    Do While sb.MoveNext
+        If sb.Current.Type = msdElementTypeText Then dem = dem + 1: Set c = sb.Current
+    Loop
+    If dem = 1 Then Set ChuDon = c
+End Function
+
+Private Function TachMotChu(ByVal m As ModelReference, ByVal el As Element, ByVal c As Element) As Boolean
+    Dim s As String, ten() As String, vt() As Long, n As Long, i As Long
+    Dim te As TextElement, rot As Matrix3d, d As Point3d, h As Double
+    Dim rw As Double, rh As Double, L As Double, ca As Double, sa As Double
+    Dim cx As Double, cy As Double, f As Double, nt As TextElement, ts As Object
+    On Error Resume Next
+    Set te = c
+    s = te.Text
+    n = TL_TachChuoi(s, ten, vt)
+    If n < 2 Then Exit Function
+    rot = te.Rotation
+    d.X = rot.RowX.X: d.Y = rot.RowY.X: d.Z = 0#      ' truc X cua chu sau khi xoay
+    If Err.Number <> 0 Then Err.Clear: d = Point3dFromXYZ(1#, 0#, 0#)
+    L = Sqr(d.X * d.X + d.Y * d.Y): If L <= 0 Then d = Point3dFromXYZ(1#, 0#, 0#): L = 1#
+    d.X = d.X / L: d.Y = d.Y / L
+    h = te.TextStyle.Height
+    rw = el.Range.High.X - el.Range.Low.X: rh = el.Range.High.Y - el.Range.Low.Y
+    cx = (el.Range.High.X + el.Range.Low.X) / 2#: cy = (el.Range.High.Y + el.Range.Low.Y) / 2#
+    ca = Abs(d.X): sa = Abs(d.Y)
+    If ca >= sa Then L = (rw - h * sa) / ca Else L = (rh - h * ca) / sa
+    If L <= 0 Then L = Len(s) * h * 0.6
+    Dim moi As New Collection
+    For i = 1 To n
+        f = (vt(i) - 1 + Len(ten(i)) / 2#) / Len(s)
+        Set nt = Nothing
+        Set nt = CreateTextElement1(c, ten(i), Point3dFromXYZ(cx + d.X * (f - 0.5) * L, cy + d.Y * (f - 0.5) * L, 0#), rot)
+        If nt Is Nothing Then Exit Function
+        Set ts = nt.TextStyle
+        ts.Justification = msdTextJustificationCenterCenter
+        Set nt.TextStyle = ts
+        Err.Clear
+        nt.Color = c.Color
+        moi.Add nt
+    Next i
+    Err.Clear
+    For i = 1 To moi.Count
+        m.AddElement moi.Item(i)
+    Next i
+    If Err.Number <> 0 Then Exit Function
+    m.RemoveElement el
+    TachMotChu = (Err.Number = 0)
+    Err.Clear
+End Function
