@@ -11,7 +11,7 @@ Private Sub UserForm_Initialize()
     Me.Font.Name = "Arial"
     Me.Font.size = 8
     Me.Width = 380
-    Me.Height = 356
+    Me.Height = 372
 
     Dim x As Single: x = 12
     AddLabel "lblPath", ChrW(272) & ChrW(432) & ChrW(7901) & "ng d" & ChrW(7851) & "n file CSDL:", x, 8, 200
@@ -28,24 +28,30 @@ Private Sub UserForm_Initialize()
     Set c = Me.Controls.Add("Forms.CheckBox.1", "chkVe", True)
     c.Caption = "V" & ChrW(7869) & " nh" & ChrW(227) & "n l" & ChrW(234) & "n b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " sau khi g" & ChrW(225) & "n"
     c.Left = x: c.Top = 196: c.Width = 300: c.Height = 16: c.Value = False   ' mac dinh KHONG ve nhan
+    ' SUA 25/10: ghi chu mo duoi o ve nhan
+    Dim gc As Object
+    Set gc = Me.Controls.Add("Forms.Label.1", "lblGhiChuNhan", True)
+    gc.Caption = "V" & ChrW(7869) & " nh" & ChrW(227) & "n th" & ChrW(7917) & "a theo Th" & ChrW(244) & "ng t" & ChrW(432) & " 26: lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t, s" & ChrW(7889) & " th" & ChrW(7917) & "a / di" & ChrW(7879) & "n t" & ChrW(237) & "ch th" & ChrW(224) & "nh 1 kh" & ChrW(7889) & "i (m" & ChrW(7863) & "c " & ChrW(273) & ChrW(7883) & "nh l" & ChrW(7899) & "p 13)"
+    gc.Left = x + 16: gc.Top = 213: gc.Width = 340: gc.Height = 12
+    gc.Font.Name = "Arial": gc.Font.size = 7: gc.ForeColor = RGB(128, 128, 128)
     c.Font.Name = "Arial": c.Font.size = 8
     Dim c2 As Object
     Set c2 = Me.Controls.Add("Forms.CheckBox.1", "chkXoaCu", True)
     c2.Caption = "X" & ChrW(243) & "a gi" & ChrW(225) & " tr" & ChrW(7883) & " c" & ChrW(361) & " c" & ChrW(7911) & "a c" & ChrW(225) & "c tr" & ChrW(432) & ChrW(7901) & "ng c" & ChrW(243) & " nh" & ChrW(7853) & "p level (th" & ChrW(7917) & "a kh" & ChrW(244) & "ng c" & ChrW(243) & " nh" & ChrW(227) & "n " & ChrW(273) & ChrW(7875) & " tr" & ChrW(7889) & "ng)"
-    c2.Left = x: c2.Top = 264: c2.Width = 350: c2.Height = 16: c2.Value = False
+    c2.Left = x: c2.Top = 280: c2.Width = 350: c2.Height = 16: c2.Value = False
     c2.Font.Name = "Arial": c2.Font.size = 8
-    AddPair "L" & ChrW(7899) & "p nh" & ChrW(227) & "n:", "txtLvNhan", "6", x, 216
-    AddPair "C" & ChrW(7905) & " ch" & ChrW(7919) & " nh" & ChrW(227) & "n:", "txtCao", "1", x, 240
+    AddPair "L" & ChrW(7899) & "p nh" & ChrW(227) & "n:", "txtLvNhan", "13", x, 230
+    AddPair "C" & ChrW(7905) & " ch" & ChrW(7919) & " nh" & ChrW(227) & "n:", "txtCao", "1", x, 254
 
     ' Tu dien CSDL theo ten file .dgn dang mo (dc01.dgn -> dc01.txt)
     Me.Controls("txtPath").Text = CsdlMacDinh()
 
     Dim b1 As Object, b2 As Object
     Set b1 = Me.Controls.Add("Forms.CommandButton.1", "cmdOK", True)
-    b1.Caption = "Ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n": b1.Left = 170: b1.Top = 290: b1.Width = 95: b1.Height = 26
+    b1.Caption = "Ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n": b1.Left = 170: b1.Top = 306: b1.Width = 95: b1.Height = 26
     b1.Font.Name = "Arial": b1.Font.size = 8
     Set b2 = Me.Controls.Add("Forms.CommandButton.1", "cmdDong", True)
-    b2.Caption = ChrW(272) & ChrW(243) & "ng": b2.Left = 275: b2.Top = 290: b2.Width = 80: b2.Height = 26
+    b2.Caption = ChrW(272) & ChrW(243) & "ng": b2.Left = 275: b2.Top = 306: b2.Width = 80: b2.Height = 26
     b2.Font.Name = "Arial": b2.Font.size = 8
     Dim h1 As clsNutTL, h2 As clsNutTL
     Set h1 = New clsNutTL: Set h1.btn = b1: Set h1.Form = Me: h1.ma = "OK": mNut.Add h1
