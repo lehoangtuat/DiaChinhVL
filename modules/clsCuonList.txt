@@ -1,0 +1,8 @@
+Option Explicit
+' Bat MouseMove tren ListBox -> bat cuon chuot (modCuonChuot)
+Public WithEvents lst As MSForms.ListBox
+Public Form As Object
+
+Private Sub lst_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+    DC_CuonBat lst, Form
+End Sub
