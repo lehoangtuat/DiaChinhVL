@@ -1,0 +1,9 @@
+Option Explicit
+' Bam vao Label (vd tieu de cot) -> goi Form.XuLyNut ma
+Public WithEvents lbl As MSForms.Label
+Public Form As Object
+Public ma As String
+
+Private Sub lbl_Click()
+    If Not Form Is Nothing Then Form.XuLyNut ma
+End Sub
