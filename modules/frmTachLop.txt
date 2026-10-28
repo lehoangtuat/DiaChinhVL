@@ -5,6 +5,8 @@
 '   Can: modTachLop, modConvertFont (chon file/thu muc), clsNutTL, modCauHinh, modMenuDC
 '============================================================
 Option Explicit
+' SUA 28/10: lan con chuot cuon ListBox (modCuonChuot)
+Private mCuon0 As Object
 
 Private mNut As New Collection
 Private mDs As Object           ' LCase(path) -> True (chong trung)
@@ -58,6 +60,7 @@ Private Sub UserForm_Initialize()
 
     Dim ls As Object
     Set ls = Me.Controls.Add("Forms.ListBox.1", "lstFile", True)
+    Set mCuon0 = DC_GanCuon(ls, Me)     ' SUA 28/10: lan chuot cuon danh sach
     ls.Left = 6: ls.Top = 108: ls.Width = 474: ls.Height = 120
     ls.Font.Name = "Arial": ls.Font.size = 8
     ls.ColumnCount = 2: ls.ColumnWidths = "330;138"
@@ -412,3 +415,7 @@ End Sub
 Private Function KetQua(ByRef nDa() As Long) As String
     KetQua = "L" & ChrW(272) & " " & nDa(1) & " / ST " & nDa(2) & " / DT " & nDa(3)
 End Function
+
+Private Sub UserForm_Terminate()
+    DC_CuonTat
+End Sub
