@@ -6,11 +6,16 @@
 '   Tieng Viet ma hoa ChrW() -> dan kieu gi cung khong ra "?".
 '============================================================
 Option Explicit
+' SUA 28/10: lan con chuot cuon ListBox (modCuonChuot)
+Private mCuon0 As Object
 
 Private mNut As New Collection
 Private mVungs As Collection
 Private mLst As clsListEvent
 Private mWb As Object            ' workbook Excel vua xuat (de Nap Excel lai)
+' SUA 28/10: sap xep theo cot
+Private mGoc As Collection
+Private mCotSX As Long, mGiamSX As Boolean
 Private mTec As Object           ' SUA 22/10: vong do danh dau thua dang chon (phan tu tam)
 
 Private Sub UserForm_Initialize()
@@ -40,6 +45,7 @@ Private Sub UserForm_Initialize()
     ' Bang du lieu
     Dim lst As Object
     Set lst = Me.Controls.Add("Forms.ListBox.1", "lstData", True)
+    Set mCuon0 = DC_GanCuon(lst, Me)     ' SUA 28/10: lan chuot cuon danh sach
     lst.Left = 8: lst.Top = 46: lst.Width = 418: lst.Height = 122
     lst.ColumnCount = 7
     lst.ColumnWidths = "24;30;36;44;56;120;106"
@@ -71,7 +77,10 @@ Private Sub UserForm_Initialize()
 
     ' Mac dinh CSDL theo ten file .dgn dang mo
     Me.Controls("txtPath").Text = CsdlMacDinh()
+    mCotSX = -1
     NapBang
+    GanBamTieuDe        ' SUA 28/10: bam tieu de cot de sap xep
+    PhongTo 1.1         ' SUA 28/10: to them 10%
 End Sub
 
 Private Sub NapBang()
@@ -80,6 +89,7 @@ Private Sub NapBang()
     lst.Clear
     path = Trim$(Me.Controls("txtPath").Text)
     Set mVungs = MoCSDL(path)
+    Set mGoc = mVungs: mCotSX = -1: DanhDauCot     ' SUA 28/10
     If mVungs Is Nothing Then Exit Sub
     If mVungs.Count = 0 Then
         Me.Controls("lblTong").Caption = "Ch" & ChrW(432) & "a c" & ChrW(243) & " th" & ChrW(7917) & "a n" & ChrW(224) & "o trong CSDL."
@@ -153,6 +163,7 @@ Public Sub XuLyNut(ByVal ma As String)
         Case "NAPEXCEL": NapExcel
         Case "GHI":      GhiDong
         Case "DONG":     TatDanhDau: Unload Me
+        Case "SX0", "SX1", "SX2", "SX3", "SX4", "SX5", "SX6": SapXep CLng(Mid$(ma, 3))
     End Select
 End Sub
 
@@ -211,6 +222,7 @@ Private Sub TatDanhDau()
 End Sub
 
 Private Sub UserForm_Terminate()
+    DC_CuonTat
     TatDanhDau
 End Sub
 
@@ -333,6 +345,148 @@ End Function
 Private Function MaThua(ByVal v As clsVung) As String
     MaThua = Trim$(Str$(Round(v.cx, 2))) & ";" & Trim$(Str$(Round(v.cy, 2)))
 End Function
+
+' SUA 28/10: bam tieu de cot -> sap xep (bam lai = dao chieu). So truoc (1-2-3...), chu sau (A-Z).
+Private Sub SapXep(ByVal cot As Long)
+    Dim n As Long, i As Long, j As Long, gap As Long, tmp As Long, a() As Long, kh() As Variant
+    Dim moi As Collection, giam As Boolean, lst As Object, r As Long, v As clsVung
+    If mVungs Is Nothing Then Exit Sub
+    n = mVungs.Count
+    If n < 2 Then Exit Sub
+    If mGoc Is Nothing Then Set mGoc = mVungs
+    If cot = mCotSX Then giam = Not mGiamSX Else giam = False
+    mCotSX = cot: mGiamSX = giam
+    ReDim a(1 To n): ReDim kh(1 To n)
+    Dim viTri As Object
+    Set viTri = CreateObject("Scripting.Dictionary")
+    For i = 1 To mGoc.Count
+        viTri(ObjPtr(mGoc.Item(i))) = i
+    Next i
+    For i = 1 To n
+        a(i) = i
+        Set v = mVungs.Item(i)
+        Select Case cot
+            Case 0: kh(i) = viTri(ObjPtr(v))
+            Case 1: kh(i) = v.SoTo
+            Case 2: kh(i) = v.soThua
+            Case 3: kh(i) = v.loaiDat
+            Case 4: kh(i) = v.Dt
+            Case 5: kh(i) = v.TenChu
+            Case Else: kh(i) = v.DiaChi
+        End Select
+    Next i
+    ' Shell sort tren chi so
+    gap = n \ 2
+    Do While gap > 0
+        For i = gap + 1 To n
+            tmp = a(i): j = i
+            Do While j > gap
+                If SoSanh(kh(a(j - gap)), kh(tmp), giam) <= 0 Then Exit Do
+                a(j) = a(j - gap): j = j - gap
+            Loop
+            a(j) = tmp
+        Next i
+        gap = gap \ 2
+    Loop
+    Set moi = New Collection
+    For i = 1 To n
+        moi.Add mVungs.Item(a(i))
+    Next i
+    Set mVungs = moi
+    ' hien lai bang
+    Set lst = Me.Controls("lstData")
+    lst.Clear
+    For i = 1 To n
+        Set v = mVungs.Item(i)
+        lst.AddItem CStr(viTri(ObjPtr(v)))
+        r = lst.ListCount - 1
+        lst.List(r, 1) = v.SoTo
+        lst.List(r, 2) = v.soThua
+        lst.List(r, 3) = v.loaiDat
+        lst.List(r, 4) = Format$(Round(v.Dt, 1), "0.0")
+        lst.List(r, 5) = v.TenChu
+        lst.List(r, 6) = v.DiaChi
+    Next i
+    DanhDauCot
+End Sub
+
+' >0 neu x dung SAU y (tang dan); giam = dao lai. So dung truoc chu.
+Private Function SoSanh(ByVal x As Variant, ByVal y As Variant, ByVal giam As Boolean) As Long
+    Dim sx As String, sy As String, nx As Boolean, ny As Boolean, k As Long
+    sx = Trim$(CStr(x)): sy = Trim$(CStr(y))
+    nx = LaSoSX(sx): ny = LaSoSX(sy)
+    If Len(sx) = 0 And Len(sy) > 0 Then
+        k = 1                                   ' o trong xuong cuoi
+    ElseIf Len(sy) = 0 And Len(sx) > 0 Then
+        k = -1
+    ElseIf nx And ny Then
+        If Val(Replace(sx, ",", ".")) > Val(Replace(sy, ",", ".")) Then
+            k = 1
+        ElseIf Val(Replace(sx, ",", ".")) < Val(Replace(sy, ",", ".")) Then
+            k = -1
+        End If
+    ElseIf nx Then
+        k = -1
+    ElseIf ny Then
+        k = 1
+    Else
+        k = StrComp(sx, sy, vbTextCompare)
+    End If
+    If giam Then k = -k
+    SoSanh = k
+End Function
+
+Private Function LaSoSX(ByVal s As String) As Boolean
+    If Len(s) = 0 Then Exit Function
+    LaSoSX = IsNumeric(Replace(s, ",", "."))
+End Function
+
+' Them mui ten len/xuong vao tieu de cot dang sap xep
+Private Sub DanhDauCot()
+    Dim ten As Variant, i As Long, c As Object, cap As String
+    ten = Array("hStt", "hTo", "hThua", "hLoai", "hDt", "hChu", "hDc")
+    On Error Resume Next
+    For i = 0 To 6
+        Set c = Me.Controls(ten(i))
+        cap = c.Caption
+        If Right$(cap, 2) = " " & ChrW(9650) Or Right$(cap, 2) = " " & ChrW(9660) Then cap = Left$(cap, Len(cap) - 2)
+        If i = mCotSX Then cap = cap & IIf(mGiamSX, " " & ChrW(9660), " " & ChrW(9650))
+        c.Caption = cap
+    Next i
+End Sub
+
+' Phong to toan bo form theo he so k (vd 1.1 = to them 10%)
+Private Sub PhongTo(ByVal k As Double)
+    Dim c As Object, cw As Variant, i As Long, s As String
+    On Error Resume Next
+    Me.Width = Me.Width * k: Me.Height = Me.Height * k
+    For Each c In Me.Controls
+        c.Left = c.Left * k: c.Top = c.Top * k
+        c.Width = c.Width * k: c.Height = c.Height * k
+        c.Font.size = Round(c.Font.size * k)
+    Next c
+    cw = Split(Me.Controls("lstData").ColumnWidths, ";")
+    For i = 0 To UBound(cw)
+        If i > 0 Then s = s & ";"
+        s = s & CStr(Round(Val(Replace(Replace(cw(i), "pt", ""), ",", ".")) * k, 1))
+    Next i
+    Me.Controls("lstData").ColumnWidths = Replace(s, ",", ".")
+End Sub
+
+' Gan su kien bam cho tieu de cot
+Private Sub GanBamTieuDe()
+    Dim ten As Variant, i As Long, hd As clsNhanBam, c As Object
+    ten = Array("hStt", "hTo", "hThua", "hLoai", "hDt", "hChu", "hDc")
+    On Error Resume Next
+    For i = 0 To 6
+        Set c = Me.Controls(ten(i))
+        c.ControlTipText = "B" & ChrW(7845) & "m " & ChrW(273) & ChrW(7875) & " s" & ChrW(7855) & "p x" & ChrW(7871) & "p (b" & ChrW(7845) & "m l" & ChrW(7841) & "i: " & ChrW(273) & ChrW(7843) & "o chi" & ChrW(7873) & "u)"
+        c.ForeColor = RGB(0, 0, 160)
+        Set hd = New clsNhanBam
+        Set hd.lbl = c: Set hd.Form = Me: hd.ma = "SX" & i
+        mNut.Add hd
+    Next i
+End Sub
 
 '--- Tro giup dung control ---
 Private Sub AddLabel(ByVal nm As String, ByVal cap As String, _
