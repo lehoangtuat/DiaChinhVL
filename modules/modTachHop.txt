@@ -1163,3 +1163,27 @@ Public Sub TH_VeRanhChung(ByVal ox As Double, ByVal oy As Double, ByVal gx As Do
     Next i
     Err.Clear
 End Sub
+
+' SUA 28/10: bang phu "So hieu dinh thua | Chieu dai (m)" (tag tths/cdhs) = chep tu bang
+'   "Doan | Chieu dai" (so do SAU), BO dau ' : 1'-2' 5,00 ; 2'-3' ... -> dinh 1,2,3...,1
+'   Chi lay chuoi doan lien tiep dau tien (ranh ngoai). Tra ve so hang (0 = khong co).
+Public Function TH_BangPhu(rSo() As String, rCanh() As Double, rX() As Double, rY() As Double) As Long
+    Dim n As Long, i As Long, e As Variant, a As String, b As String, truoc As String
+    On Error GoTo Thoi
+    If mDoanS Is Nothing Then Exit Function
+    If mDoanS.Count = 0 Then Exit Function
+    ReDim rSo(1 To mDoanS.Count + 1): ReDim rCanh(1 To mDoanS.Count + 1)
+    ReDim rX(1 To mDoanS.Count + 1): ReDim rY(1 To mDoanS.Count + 1)
+    For i = 1 To mDoanS.Count
+        e = mDoanS.Item(i)
+        a = Replace(CStr(e(0)), "'", ""): b = Replace(CStr(e(1)), "'", "")
+        If n > 0 And a <> truoc Then Exit For          ' het chuoi ranh ngoai
+        If n = 0 Then n = 1: rSo(1) = a
+        rCanh(n) = CDbl(e(2))
+        n = n + 1: rSo(n) = b: rCanh(n) = -1#
+        truoc = b
+    Next i
+    If n < 2 Then Exit Function
+    TH_BangPhu = n
+Thoi:
+End Function
