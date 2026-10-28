@@ -1,0 +1,125 @@
+'============================================================
+' modThuaKe - GHI SO THUA LIEN KE quanh thua trong so do trich luc / tach / hop
+'   Lay tu CSDL (mac dinh theo ten ban ve). So thua trong -> "0".
+'   Thua khac to: "538 (To 46)". Chi ghi khi nhan nam trong o so do.
+'   ini: TL_THUAKE = 0 de tat.
+'============================================================
+Option Explicit
+
+Private mDs As Collection, mPath As String, mTg As Date
+Private Const TOL As Double = 0.05
+
+' v: thua chinh ; (ox,oy) = vi tri ve cua diem (gx,gy) ; kp = ty le so do
+' h: co chu ; (bx,by,bw,bh) = tam + kich thuoc o so do (toa do ve) ; toBD = so to cua thua chinh
+Public Sub TK_VeThuaKe(ByVal v As clsVung, ByVal ox As Double, ByVal oy As Double, _
+                       ByVal gx As Double, ByVal gy As Double, ByVal kp As Double, ByVal h As Double, _
+                       ByVal bx As Double, ByVal by As Double, ByVal bw As Double, ByVal bh As Double, _
+                       ByVal toBD As String)
+    Dim ds As Collection, w As clsVung, i As Long, rg() As Double, rw() As Double
+    Dim px As Double, py As Double, X As Double, Y As Double, s As String
+    On Error GoTo Thoi
+    If DC_DocCauHinh("TL_THUAKE", "1") = "0" Then Exit Sub
+    If v Is Nothing Then Exit Sub
+    If Not v.HasRing Then Exit Sub
+    If h <= 0 Or kp <= 0 Then Exit Sub
+    Set ds = DsThua()
+    If ds Is Nothing Then Exit Sub
+    rg = v.ring
+    Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+    BaoRing rg, x1, y1, x2, y2
+    toBD = Trim$(toBD)
+    For i = 1 To ds.Count
+        Set w = ds.Item(i)
+        If w.HasRing Then
+            rw = w.ring
+            If Not NgoaiHop(rw, x1 - TOL, y1 - TOL, x2 + TOL, y2 + TOL) Then
+                If Not DiemTrongPolygon(rg, w.cx, w.cy) Then          ' bo chinh no / thua con ben trong
+                    If ViTriNhan(rg, rw, v, w, h / kp, px, py) Then
+                        X = ox + (px - gx) * kp: Y = oy + (py - gy) * kp
+                        If Abs(X - bx) < bw / 2# - h * 1.5 And Abs(Y - by) < bh / 2# - h Then
+                            s = Trim$(w.soThua)
+                            If Len(s) = 0 Then s = "0"
+                            If Len(Trim$(w.SoTo)) > 0 And Len(toBD) > 0 And Trim$(w.SoTo) <> toBD Then
+                                s = s & " (T" & ChrW(7901) & " " & Trim$(w.SoTo) & ")"
+                            End If
+                            VeText X, Y, s, h, -1
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next i
+Thoi:
+End Sub
+
+' CSDL theo ban ve dang mo (nho dem, doc lai khi file doi)
+Private Function DsThua() As Collection
+    Dim p As String, tg As Date
+    On Error Resume Next
+    p = CsdlMacDinh()
+    If Len(Dir$(p)) = 0 Then Exit Function
+    tg = FileDateTime(p)
+    If Not mDs Is Nothing And p = mPath And tg = mTg Then Set DsThua = mDs: Exit Function
+    Set mDs = MoCSDL(p): mPath = p: mTg = tg
+    Set DsThua = mDs
+End Function
+
+Private Function NgoaiHop(rw() As Double, ByVal x1 As Double, ByVal y1 As Double, ByVal x2 As Double, ByVal y2 As Double) As Boolean
+    Dim a1 As Double, b1 As Double, a2 As Double, b2 As Double
+    BaoRing rw, a1, b1, a2, b2
+    NgoaiHop = (a2 < x1 Or a1 > x2 Or b2 < y1 Or b1 > y2)
+End Function
+
+' Tim cac diem chung tren ranh 2 thua ; >= 2 diem = lien ke (chung canh).
+' Vi tri nhan: trung diem doan chung, day vao trong thua w.
+Private Function ViTriNhan(rg() As Double, rw() As Double, ByVal v As clsVung, ByVal w As clsVung, _
+                           ByVal hThat As Double, ByRef px As Double, ByRef py As Double) As Boolean
+    Dim xs() As Double, ys() As Double, n As Long, i As Long, j As Long
+    Dim m As Long, mw As Long, dMax As Double, d As Double, ia As Long, ib As Long
+    m = UBound(rg, 1): mw = UBound(rw, 1)
+    ReDim xs(1 To m + mw + 2): ReDim ys(1 To m + mw + 2)
+    For i = 0 To mw - 1
+        If TrenRanh(rg, rw(i, 0), rw(i, 1)) Then n = n + 1: xs(n) = rw(i, 0): ys(n) = rw(i, 1)
+    Next i
+    For i = 0 To m - 1
+        If TrenRanh(rw, rg(i, 0), rg(i, 1)) Then n = n + 1: xs(n) = rg(i, 0): ys(n) = rg(i, 1)
+    Next i
+    If n < 2 Then Exit Function
+    ia = 1: ib = 1
+    For i = 1 To n - 1
+        For j = i + 1 To n
+            d = (xs(i) - xs(j)) ^ 2 + (ys(i) - ys(j)) ^ 2
+            If d > dMax Then dMax = d: ia = i: ib = j
+        Next j
+    Next i
+    If dMax < TOL * TOL Then Exit Function
+    Dim mx As Double, my As Double, ux As Double, uy As Double, L As Double, k As Double, t As Variant
+    mx = (xs(ia) + xs(ib)) / 2#: my = (ys(ia) + ys(ib)) / 2#
+    ' phap tuyen cua doan chung, chon phia nam trong w
+    ux = -(ys(ib) - ys(ia)): uy = xs(ib) - xs(ia)
+    L = Sqr(ux * ux + uy * uy): ux = ux / L: uy = uy / L
+    For Each t In Array(2#, 3#, 4.5, 6.5, 9#)
+        k = t * hThat
+        If DiemTrongPolygon(rw, mx + ux * k, my + uy * k) Then px = mx + ux * k: py = my + uy * k: ViTriNhan = True: Exit Function
+        If DiemTrongPolygon(rw, mx - ux * k, my - uy * k) Then px = mx - ux * k: py = my - uy * k: ViTriNhan = True: Exit Function
+    Next t
+    ' khong dat duoc gan ranh -> dung tam thua lien ke
+    px = w.cx: py = w.cy: ViTriNhan = True
+End Function
+
+' Diem (x,y) nam tren ranh ngoai rg (sai so TOL)
+Private Function TrenRanh(rg() As Double, ByVal x As Double, ByVal y As Double) As Boolean
+    Dim i As Long, m As Long, ax As Double, ay As Double, dx As Double, dy As Double, L2 As Double, t As Double, qx As Double, qy As Double
+    m = UBound(rg, 1)
+    For i = 0 To m - 1
+        ax = rg(i, 0): ay = rg(i, 1): dx = rg(i + 1, 0) - ax: dy = rg(i + 1, 1) - ay
+        L2 = dx * dx + dy * dy
+        If L2 > 0 Then
+            t = ((x - ax) * dx + (y - ay) * dy) / L2
+            If t >= -0.001 And t <= 1.001 Then
+                qx = ax + t * dx - x: qy = ay + t * dy - y
+                If qx * qx + qy * qy <= TOL * TOL Then TrenRanh = True: Exit Function
+            End If
+        End If
+    Next i
+End Function
