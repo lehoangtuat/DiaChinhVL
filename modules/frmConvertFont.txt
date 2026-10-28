@@ -3,6 +3,8 @@
 '   Can: modConvertFont, clsNutTL, modCauHinh, modMenuDC (DC_ThongBao)
 '============================================================
 Option Explicit
+' SUA 28/10: lan con chuot cuon ListBox (modCuonChuot)
+Private mCuon0 As Object
 
 Private mNut As New Collection
 Private mDs As Object           ' LCase(path) -> True (chong trung)
@@ -57,6 +59,7 @@ Private Sub UserForm_Initialize()
     ' --- danh sach file
     Dim ls As Object
     Set ls = Me.Controls.Add("Forms.ListBox.1", "lstFile", True)
+    Set mCuon0 = DC_GanCuon(ls, Me)     ' SUA 28/10: lan chuot cuon danh sach
     ls.Left = 6: ls.Top = 58: ls.Width = 474: ls.Height = 192
     ls.Font.Name = "Arial": ls.Font.size = 8
     ls.ColumnCount = 2: ls.ColumnWidths = "384;84"
@@ -253,4 +256,8 @@ Private Sub ChayConvert()
         If nLoi > 8 Then kq = kq & vbCrLf & "..."
     End If
     DC_ThongBao kq, "Convert Font", IIf(nLoi > 0, vbExclamation, vbInformation)
+End Sub
+
+Private Sub UserForm_Terminate()
+    DC_CuonTat
 End Sub
