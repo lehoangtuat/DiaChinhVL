@@ -701,6 +701,7 @@ boTxt2:
 
     ' So do thua: THU NHO vua o (kp), tam o = tam khung (Cpx,Cpy)
     VeThuaTrongO found, Cpx, Cpy, kp, bwm * 0.03
+    TK_VeThuaKe found, Cpx, Cpy, found.cx, found.cy, kp, bwm * 0.0252, Cpx, Cpy, bwm, bhm, toBanDo
     Set gLvHSMot = Nothing
     Set gLvHSMap = Nothing
     DatLv lvCu
@@ -1265,9 +1266,14 @@ Public Sub ChenKhungTachHop(ByVal cheDo As Long, ByVal goc As Collection, ByVal 
     VeSoDoTH goc, tx, ty, gx, gy, kp, cao, False
     VeSoDoTH sau, Cpx, Cpy, gx, gy, kp, cao, True
     If cheDo = 2 Then TH_VeRanhChung Cpx, Cpy, gx, gy, kp   ' SUA 22/10
+    TK_VeThuaKe vChinh, tx, ty, gx, gy, kp, cao * 0.84, tx, ty, bwt * k, bht * k, toBanDo
+    TK_VeThuaKe vChinh, Cpx, Cpy, gx, gy, kp, cao * 0.84, Cpx, Cpy, bw * k, bh * k, toBanDo
 
     ' 3) Bang Doan / Chieu dai
     DienBangDoan sau, cxb, cyb, k, Cpx, Cpy
+    Dim pS() As String, pC() As Double, pX() As Double, pY() As Double, pN As Long  ' SUA 28/10 bang phu
+    pN = TH_BangPhu(pS, pC, pX, pY)
+    If pN > 0 Then DienBangPhu "tths", "cdhs", pN, pS, pC, cxb, cyb, k, Cpx, Cpy, pX, pY
 
     Set gLvHSMot = Nothing
     Set gLvHSMap = Nothing
