@@ -6,6 +6,9 @@
 '   Can: modDiemMia, modConvertFont (CF_ChonMotFile), clsNutTL, modCauHinh
 '============================================================
 Option Explicit
+' SUA 28/10: lan con chuot cuon ListBox (modCuonChuot)
+Private mCuon1 As Object
+Private mCuon0 As Object
 
 Private mNut As New Collection
 Private mp As Object
@@ -68,6 +71,7 @@ Private Sub TaoTrang1(ByVal pg As Object)
     ThemNut pg, "CHONTEP", "Ch" & ChrW(7885) & "n t" & ChrW(7879) & "p", 300, 98, 82, 20
     ThemNut pg, "BOTEP", "B" & ChrW(7887) & " t" & ChrW(7879) & "p", 214, 98, 82, 20
     Set mLstF = pg.Controls.Add("Forms.ListBox.1", "lstTep", True)
+    Set mCuon0 = DC_GanCuon(mLstF, Me)     ' SUA 28/10: lan chuot cuon danh sach
     mLstF.Left = 4: mLstF.Top = 122: mLstF.Width = 380: mLstF.Height = 118
     mLstF.Font.Name = "Arial": mLstF.Font.size = 8
     ThemNut pg, "XEMDL", "Xem d" & ChrW(7919) & " li" & ChrW(7879) & "u >", 300, 244, 82, 20
@@ -84,6 +88,7 @@ Private Sub TaoTrang2(ByVal pg As Object)
         x = x + w(i)
     Next i
     Set mLstD = pg.Controls.Add("Forms.ListBox.1", "lstDL", True)
+    Set mCuon1 = DC_GanCuon(mLstD, Me)     ' SUA 28/10: lan chuot cuon danh sach
     mLstD.Left = 4: mLstD.Top = 18: mLstD.Width = 380: mLstD.Height = 222
     mLstD.Font.Name = "Arial": mLstD.Font.size = 8
     mLstD.ColumnCount = 5: mLstD.ColumnWidths = "70;80;80;66;70"
@@ -255,4 +260,8 @@ Private Sub ThemNut(ByVal pg As Object, ByVal ma As String, ByVal cap As String,
     Set hd = New clsNutTL
     Set hd.btn = b: Set hd.Form = Me: hd.ma = ma
     mNut.Add hd
+End Sub
+
+Private Sub UserForm_Terminate()
+    DC_CuonTat
 End Sub
