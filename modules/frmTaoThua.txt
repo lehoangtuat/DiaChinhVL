@@ -3,6 +3,8 @@
 '   Co nut Xoa nhan. Tieu de thanh de ASCII (font he thong).
 '============================================================
 Option Explicit
+' SUA 28/10: lan con chuot cuon ListBox (modCuonChuot)
+Private mCuon0 As Object
 
 Private mNut As New Collection
 
@@ -17,6 +19,7 @@ Private Sub UserForm_Initialize()
     AddLabel "lblLv", "L" & ChrW(7899) & "p ranh (tick):", 8, 6, 130
     Dim lst As Object
     Set lst = Me.Controls.Add("Forms.ListBox.1", "lstLevel", True)
+    Set mCuon0 = DC_GanCuon(lst, Me)     ' SUA 28/10: lan chuot cuon danh sach
     lst.Left = 8: lst.Top = 20: lst.Width = 120: lst.Height = 250
     lst.ListStyle = 1: lst.MultiSelect = 1
     lst.Font.Name = "Arial": lst.Font.size = 8
@@ -138,4 +141,8 @@ Public Sub XuLyNut(ByVal ma As String)
                 Me.Controls("txtCSDL").Text, Me.Controls("txtMauRanh").Text, _
                 val(Me.Controls("txtBatHo").Text)
     Me.Show vbModeless
+End Sub
+
+Private Sub UserForm_Terminate()
+    DC_CuonTat
 End Sub
