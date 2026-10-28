@@ -1,4 +1,6 @@
 Option Explicit
+' SUA 28/10: lan con chuot cuon ListBox (modCuonChuot)
+Private mCuon0 As Object
  
 Private mNut As New Collection
  
@@ -10,6 +12,7 @@ Private Sub UserForm_Initialize()
     AddLabel "lblLv", "Lop ranh (tick chon):", 8, 6, 160
     Dim lst As Object
     Set lst = Me.Controls.Add("Forms.ListBox.1", "lstLevel", True)
+    Set mCuon0 = DC_GanCuon(lst, Me)     ' SUA 28/10: lan chuot cuon danh sach
     lst.Left = 8: lst.Top = 22: lst.Width = 150: lst.Height = 340
     lst.ListStyle = 1: lst.MultiSelect = 1
     Dim i As Long
@@ -82,4 +85,8 @@ Public Sub XuLyNut(ByVal ma As String)
                 Me.Controls("txtLvNhan").Text, val(Me.Controls("txtCao").Text), _
                 Me.Controls("chkCSDL").Value, Me.Controls("txtPath").Text
     Me.Show vbModeless
+End Sub
+
+Private Sub UserForm_Terminate()
+    DC_CuonTat
 End Sub
