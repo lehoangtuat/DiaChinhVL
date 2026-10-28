@@ -528,6 +528,11 @@ Public Sub DC_ChepMauDgn(ByVal dgn As String, ByVal sc As Double, _
         End If
 
 ChepPT:
+        ' SUA 26/10: chu mau KHONG phai Times New Roman (.VnTime, Arial...) -> ve lai bang
+        '   Times New Roman Unicode (may khong co font .Vn / Arial CE van hien dung)
+        If el.Type = msdElementTypeText Then
+            If ChuSangTNR(el, gt, tr) Then GoTo Tiep
+        End If
         Set e2 = Nothing
         On Error Resume Next
         Set e2 = ActiveModelReference.CopyElement(el)
@@ -864,6 +869,59 @@ Private Function VeChuGop(ByVal el As Element, ByVal s As String, tr As Transfor
     Exit Function
 Thoi:
     VeChuGop = False
+End Function
+
+' SUA 26/10: tao lai chu mau bang font Times New Roman (Unicode). gt = chu da thay (Unicode)
+'   hoac "" (giu noi dung mau). Tra ve True neu da ve thay (bo ban chep goc).
+Private Function ChuSangTNR(ByVal el As Element, ByVal gt As String, tr As Transform3d) As Boolean
+    Dim fn As String, s As String, i As Long, c As Long, kq As String
+    Dim h As Double, w As Double, j As Long, te As TextElement, f As Object
+    On Error Resume Next
+    fn = el.AsTextElement.TextStyle.Font.Name
+    If Err.Number <> 0 Then Err.Clear: Exit Function
+    If StrComp(fn, "Times New Roman", vbTextCompare) = 0 Then Exit Function
+    If Len(gt) > 0 Then
+        s = gt
+    Else
+        s = el.AsTextElement.Text
+        If LaFontVn(el) Then s = Tcvn3SangUnicode(s)
+    End If
+    For i = 1 To Len(s)                       ' bo ky tu dieu khien (vd Chr(16) trong mau .VnTime)
+        c = AscW(Mid$(s, i, 1))
+        If c >= 32 Or c < 0 Then kq = kq & Mid$(s, i, 1)
+    Next i
+    If Len(Trim$(kq)) = 0 Then Exit Function
+    Set f = ActiveDesignFile.Fonts.Find(msdFontTypeWindowsTrueType, "Times New Roman")
+    If f Is Nothing Then Err.Clear: Exit Function
+    h = el.AsTextElement.TextStyle.Height
+    w = el.AsTextElement.TextStyle.Width
+    j = el.AsTextElement.TextStyle.Justification
+    If Err.Number <> 0 Or h <= 0 Then Err.Clear: Exit Function
+    Set ActiveSettings.TextStyle.Font = f
+    ActiveSettings.TextStyle.Height = h
+    ActiveSettings.TextStyle.Width = w
+    ActiveSettings.TextStyle.Justification = j
+    Err.Clear
+    Set te = CreateTextElement1(Nothing, kq, el.AsTextElement.Origin, el.AsTextElement.Rotation)
+    If te Is Nothing Or Err.Number <> 0 Then Err.Clear: Exit Function
+    Set te.Level = el.Level
+    te.Color = el.Color
+    te.LineWeight = 0
+    If Len(gt) > 0 And DC_MauDien() >= 0 Then te.Color = DC_MauDien()
+    te.Transform tr
+    If Not gLvHSMap Is Nothing Then
+        If gLvHSMap.Exists(CStr(DC_LevelSo(el))) Then
+            DC_GanLevel te, gLvHSMap(CStr(DC_LevelSo(el)))
+        ElseIf Not gLvHSMot Is Nothing Then
+            DC_GanLevel te, gLvHSMot
+        End If
+    ElseIf Not gLvHSMot Is Nothing Then
+        DC_GanLevel te, gLvHSMot
+    End If
+    Err.Clear
+    ActiveModelReference.AddElement te
+    ChuSangTNR = (Err.Number = 0)
+    Err.Clear
 End Function
 
 Private Sub BoNetTuyBien(ByVal e As Element)
