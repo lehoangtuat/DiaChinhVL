@@ -1,2 +1,2 @@
-3.1
-Ve nhan thua (menu Ban do): nhan TT26 thanh khoi, lop/mau rieng; Tach lop: Pha chu gop (LUC 766/3860,9 -> 3 chu); Gan thong tin: ve nhan TT26 thanh khoi (lop 13); To ban do tu dong theo ten file (DC9 -> 9); Mau TT26 + tu cap nhat file mau; tao thu muc C:\DiaChinhVL\CSDL
+3.2
+So thua lien ke quanh thua trong so do trich luc/tach/hop (thua chua co so ghi 0, khac to ghi To); Chu mau khong phai Times New Roman tu ve lai bang Times New Roman Unicode; Bang du lieu to hon, bam tieu de cot de sap xep; Lan chuot cuon danh sach; Cap nhat file mau TT26
