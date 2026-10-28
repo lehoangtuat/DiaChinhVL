@@ -70,3 +70,7 @@ modKTT
 frmChonKTT
 modVeNhan
 frmVeNhan
+clsCuonList
+modCuonChuot
+clsNhanBam
+modThuaKe
