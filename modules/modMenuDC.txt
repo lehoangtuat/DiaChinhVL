@@ -224,6 +224,7 @@ Private Function TaoMenu(ByVal ten As String) As Long
         Muc h, "Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n t" & ChrW(7853) & "p l" & ChrW(7879) & "nh theo " & ChrW(273) & ChrW(7883) & "nh ngh" & ChrW(297) & "a (s" & ChrW(7855) & "p c" & ChrW(243) & ")", ""
         Gach h
         Muc h, "Chi" & ChrW(7873) & "u d" & ChrW(224) & "i c" & ChrW(7841) & "nh...", "GHICD"
+        Muc h, "Ki" & ChrW(7875) & "m tra v" & ChrW(249) & "ng th" & ChrW(7917) & "a (giao n" & ChrW(7897) & "p TW)", "KTVUNG"     ' SUA 05/11
         Muc h, "Convert Font TCVN3 - Unicode", "DOIFONT"
         Muc h, "Convert Font nhi" & ChrW(7873) & "u file (TCVN3 / Unicode)...", "CFONT"
         Muc h, "G" & ChrW(7855) & "n tag b" & ChrW(7843) & "ng t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " (l" & ChrW(224) & "m file m" & ChrW(7851) & "u tr" & ChrW(237) & "ch l" & ChrW(7909) & "c)...", "GANTAG"
@@ -252,6 +253,7 @@ Public Sub DC_ChayLenh(ByVal ma As String)
     Select Case ma
     Case "TOPO":      DC_MoTaoThua
     Case "TIMLOI":    DC_MoTimLoi
+    Case "KTVUNG":    DC_MoKiemVung          ' SUA 05/11: moi vung 1 so thua / 1 loai dat / 1 dien tich
     Case "GANTT":     DC_MoGanTT
     Case "BANGDL":    DC_MoBangDuLieu
     Case "VENHAN":    DC_MoVeNhan            ' SUA 25/10: form Ve nhan thua (modVeNhan)
