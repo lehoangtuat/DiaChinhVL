@@ -124,36 +124,52 @@ Private Sub XuatExcel()
     On Error GoTo 0
     If xl Is Nothing Then MsgBox "Kh" & ChrW(244) & "ng m" & ChrW(7903) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c Excel.", vbExclamation: Exit Sub
     xl.Visible = True
+    ' SUA 29/10: viet ca bang 1 lan bang mang + dinh dang chiu loi (loi 1004 tren 1 so may Excel)
+    On Error GoTo LoiXL
     Set wb = xl.Workbooks.Add
     Set ws = wb.Worksheets(1)
-    ws.Cells(1, 1).Value = "STT"
-    ws.Cells(1, 2).Value = ChrW(272) & ChrW(7893) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)
-    ws.Cells(1, 3).Value = "Th" & ChrW(7917) & "a"
-    ws.Cells(1, 4).Value = "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t"
-    ws.Cells(1, 5).Value = "Di" & ChrW(7879) & "n t" & ChrW(237) & "ch (m2)"
-    ws.Cells(1, 6).Value = "T" & ChrW(234) & "n ch" & ChrW(7911)
-    ws.Cells(1, 7).Value = ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881)
-    ws.Cells(1, 8).Value = "Ma (khong sua)"
-    ws.Range("A1:H1").Font.Bold = True
-    ws.Range("B:D,F:G").NumberFormat = "@"           ' giu nguyen "01", "0012"...
-    Dim i As Long, v As clsVung, r As Long
-    For i = 1 To mVungs.Count
-        Set v = mVungs.Item(i): r = i + 1
-        ws.Cells(r, 1).Value = i
-        ws.Cells(r, 2).Value = v.SoTo
-        ws.Cells(r, 3).Value = v.soThua
-        ws.Cells(r, 4).Value = v.loaiDat
-        ws.Cells(r, 5).Value = Round(v.Dt, 1)
-        ws.Cells(r, 6).Value = v.TenChu
-        ws.Cells(r, 7).Value = v.DiaChi
-        ws.Cells(r, 8).Value = MaThua(v)
+    Dim i As Long, v As clsVung, n As Long, a() As Variant, c As Variant
+    n = mVungs.Count
+    On Error Resume Next
+    For Each c In Array(2, 3, 4, 6, 7, 8)                ' cot chu: giu nguyen "01", "0012", "=..."
+        ws.Columns(c).NumberFormat = "@"
+    Next c
+    Err.Clear
+    On Error GoTo LoiXL
+    ReDim a(1 To n + 1, 1 To 8)
+    a(1, 1) = "STT"
+    a(1, 2) = ChrW(272) & ChrW(7893) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)
+    a(1, 3) = "Th" & ChrW(7917) & "a"
+    a(1, 4) = "Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t"
+    a(1, 5) = "Di" & ChrW(7879) & "n t" & ChrW(237) & "ch (m2)"
+    a(1, 6) = "T" & ChrW(234) & "n ch" & ChrW(7911)
+    a(1, 7) = ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881)
+    a(1, 8) = "Ma (khong sua)"
+    For i = 1 To n
+        Set v = mVungs.Item(i)
+        a(i + 1, 1) = i
+        a(i + 1, 2) = CStr(v.SoTo)
+        a(i + 1, 3) = CStr(v.soThua)
+        a(i + 1, 4) = CStr(v.loaiDat)
+        a(i + 1, 5) = Round(v.Dt, 1)
+        a(i + 1, 6) = CStr(v.TenChu)
+        a(i + 1, 7) = CStr(v.DiaChi)
+        a(i + 1, 8) = MaThua(v)
     Next i
-    ws.Cells(mVungs.Count + 2, 4).Value = "T" & ChrW(7893) & "ng:"
-    ws.Cells(mVungs.Count + 2, 5).Formula = "=SUM(E2:E" & (mVungs.Count + 1) & ")"
+    ws.Range(ws.Cells(1, 1), ws.Cells(n + 1, 8)).Value = a
+    On Error Resume Next
+    ws.Range(ws.Cells(1, 1), ws.Cells(1, 8)).Font.Bold = True
+    ws.Cells(n + 2, 4).Value = "T" & ChrW(7893) & "ng:"
+    ws.Cells(n + 2, 5).Formula = "=SUM(E2:E" & (n + 1) & ")"
     ws.Columns("A:H").AutoFit
+    Err.Clear
+    On Error GoTo 0
     Set mWb = wb
     MsgBox "S" & ChrW(7917) & "a trong Excel (T" & ChrW(7901) & ", Th" & ChrW(7917) & "a, Lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t, Ch" & ChrW(7911) & ", " & ChrW(272) & ChrW(7883) & "a ch" & ChrW(7881) & "), xong b" & ChrW(7845) & "m 'N" & ChrW(7841) & "p Excel' " & ChrW(273) & ChrW(7875) & " ghi l" & ChrW(7841) & "i CSDL." & vbCrLf & _
            "(C" & ChrW(243) & " th" & ChrW(7875) & " l" & ChrW(432) & "u file Excel r" & ChrW(7891) & "i n" & ChrW(7841) & "p sau)", vbInformation, "Bang du lieu"
+    Exit Sub
+LoiXL:
+    MsgBox "Kh" & ChrW(244) & "ng xu" & ChrW(7845) & "t " & ChrW(273) & ChrW(432) & ChrW(7907) & "c Excel: " & Err.Description & " (" & Err.Number & ")", vbExclamation, "Bang du lieu"
 End Sub
 
 Public Sub XuLyNut(ByVal ma As String)
@@ -468,7 +484,7 @@ Private Sub PhongTo(ByVal k As Double)
     cw = Split(Me.Controls("lstData").ColumnWidths, ";")
     For i = 0 To UBound(cw)
         If i > 0 Then s = s & ";"
-        s = s & CStr(Round(Val(Replace(Replace(cw(i), "pt", ""), ",", ".")) * k, 1))
+        s = s & CStr(CLng(Val(Replace(Replace(cw(i), "pt", ""), ",", ".")) * k))
     Next i
     Me.Controls("lstData").ColumnWidths = Replace(s, ",", ".")
 End Sub
