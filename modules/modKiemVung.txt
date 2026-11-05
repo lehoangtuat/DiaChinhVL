@@ -1,0 +1,224 @@
+'============================================================
+' modKiemVung - KIEM TRA VUNG THUA truoc khi giao nop Trung uong
+'   Moi vung thua (ghep tu lop ranh) phai co DUNG 1 so hieu thua (lop 13),
+'   1 loai dat (lop 2), 1 dien tich (lop 4) - theo bang phan lop giao nop.
+'   Bao: thieu / thua (2, 3...) tung loai, tung vung. Form: frmKiemVung.
+'============================================================
+Option Explicit
+
+Public KV_DsLoi As Collection        ' moi phan tu: Array(clsVung, mo ta, so thua tim thay)
+
+Public Sub DC_MoKiemVung()
+    DC_MoFormTuTao "frmKiemVung"
+End Sub
+
+' Tra ve so vung ; tomTat = cau bao tong hop (kieu he thong TW)
+Public Function KV_KiemTra(ByVal ranhCSV As String, ByVal lvSo As String, ByVal lvLD As String, _
+                           ByVal lvDT As String, ByVal snap As Double, ByVal chiaGiao As Boolean, _
+                           ByRef tomTat As String) As Long
+    Dim segs As Collection, vungs As Collection, tia As Long
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    Set KV_DsLoi = New Collection
+    tomTat = ""
+    If snap <= 0 Then snap = 0.05
+    ShowStatus "Kiem tra vung thua: doc ranh ..."
+    Set segs = LayDoanNhieuLevel(ranhCSV, snap, minX, minY, maxX, maxY)
+    If segs Is Nothing Then tomTat = "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ranh tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & ranhCSV: Exit Function
+    If segs.Count = 0 Then tomTat = "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c " & ChrW(273) & ChrW(432) & ChrW(7901) & "ng ranh tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & ranhCSV: Exit Function
+    If chiaGiao Then
+        ShowStatus "Kiem tra vung thua: chia doan tai giao diem ..."
+        Set segs = NoiDoanGiao(segs, snap)
+    End If
+    ShowStatus "Kiem tra vung thua: ghep vung ..."
+    gGhepVungMin = 0.000001          ' SUA 05/11: giu ca vung manh (TW bao loi ca vung rat nho)
+    Set vungs = GhepVung(segs, snap, tia)
+    gGhepVungMin = 0#
+    If vungs Is Nothing Then tomTat = "Kh" & ChrW(244) & "ng gh" & ChrW(233) & "p " & ChrW(273) & ChrW(432) & ChrW(7907) & "c v" & ChrW(249) & "ng th" & ChrW(7917) & "a n" & ChrW(224) & "o.": Exit Function
+    If vungs.Count = 0 Then tomTat = "Kh" & ChrW(244) & "ng gh" & ChrW(233) & "p " & ChrW(273) & ChrW(432) & ChrW(7907) & "c v" & ChrW(249) & "ng th" & ChrW(7917) & "a n" & ChrW(224) & "o.": Exit Function
+
+    Dim nV As Long, i As Long, j As Long
+    nV = vungs.Count
+    Dim bx1() As Double, by1() As Double, bx2() As Double, by2() As Double, rg() As Double
+    Dim dem() As Long, soTim() As String
+    ReDim bx1(1 To nV): ReDim by1(1 To nV): ReDim bx2(1 To nV): ReDim by2(1 To nV)
+    ReDim dem(1 To nV, 1 To 3): ReDim soTim(1 To nV)
+    For i = 1 To nV
+        rg = vungs.Item(i).ring
+        BaoRing rg, bx1(i), by1(i), bx2(i), by2(i)
+    Next i
+
+    ' --- gom chu tren 3 lop
+    Dim lv(1 To 3) As Long, o As Level
+    Set o = DC_TimLevel(lvSo): If Not o Is Nothing Then lv(1) = o.Number Else lv(1) = -99
+    Set o = DC_TimLevel(lvLD): If Not o Is Nothing Then lv(2) = o.Number Else lv(2) = -99
+    Set o = DC_TimLevel(lvDT): If Not o Is Nothing Then lv(3) = o.Number Else lv(3) = -99
+    ShowStatus "Kiem tra vung thua: doc chu ..."
+    Dim cx() As Double, cy() As Double, ck() As Long, cs() As String, nC As Long
+    ReDim cx(1 To 1000): ReDim cy(1 To 1000): ReDim ck(1 To 1000): ReDim cs(1 To 1000)
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    esc.IncludeType msdElementTypeCellHeader
+    Set ee = ActiveModelReference.Scan(esc)
+    Do While ee.MoveNext
+        GomChu ee.Current, lv, cx, cy, ck, cs, nC
+    Loop
+
+    ' --- gan chu vao vung
+    ShowStatus "Kiem tra vung thua: doi chieu " & nC & " chu voi " & nV & " vung ..."
+    Dim v As clsVung, k As Long
+    For j = 1 To nC
+        For i = 1 To nV
+            If cx(j) >= bx1(i) And cx(j) <= bx2(i) And cy(j) >= by1(i) And cy(j) <= by2(i) Then
+                Set v = vungs.Item(i)
+                If TrongVung(v, cx(j), cy(j)) Then
+                    dem(i, ck(j)) = dem(i, ck(j)) + 1
+                    If ck(j) = 1 Then
+                        If Len(soTim(i)) > 0 Then soTim(i) = soTim(i) & ", "
+                        soTim(i) = soTim(i) & cs(j)
+                    End If
+                    Exit For
+                End If
+            End If
+        Next i
+        If j Mod 200 = 0 Then DoEvents
+    Next j
+
+    ' --- tong hop loi
+    Dim ten(1 To 3) As String, mo As String, nThieu(1 To 3) As Long, nThua(1 To 3, 2 To 9) As Long
+    ten(1) = "s" & ChrW(7889) & " hi" & ChrW(7879) & "u th" & ChrW(7917) & "a": ten(2) = "lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t": ten(3) = "di" & ChrW(7879) & "n t" & ChrW(237) & "ch"
+    For i = 1 To nV
+        mo = ""
+        For k = 1 To 3
+            If dem(i, k) = 0 Then
+                mo = mo & IIf(Len(mo) > 0, "; ", "") & "thi" & ChrW(7871) & "u " & ten(k)
+                nThieu(k) = nThieu(k) + 1
+            ElseIf dem(i, k) > 1 Then
+                mo = mo & IIf(Len(mo) > 0, "; ", "") & dem(i, k) & " " & ten(k)
+                If dem(i, k) <= 9 Then nThua(k, dem(i, k)) = nThua(k, dem(i, k)) + 1 Else nThua(k, 9) = nThua(k, 9) + 1
+            End If
+        Next k
+        If Len(mo) > 0 Then
+            If vungs.Item(i).Dt < 1# Then mo = "V" & ChrW(217) & "NG M" & ChrW(7842) & "NH " & Format$(vungs.Item(i).Dt, "0.000") & " m2 (ranh ch" & ChrW(7891) & "ng/h" & ChrW(7903) & "): " & mo
+            KV_DsLoi.Add Array(vungs.Item(i), mo, soTim(i))
+        End If
+    Next i
+
+    Dim s As String, m As Long
+    For m = 2 To 9
+        s = ""
+        For k = 1 To 3
+            If nThua(k, m) > 0 Then s = s & IIf(Len(s) > 0, "; ", "") & "c" & ChrW(243) & " " & m & " " & ten(k)
+        Next k
+        If Len(s) > 0 Then tomTat = tomTat & "- v" & ChrW(249) & "ng th" & ChrW(7917) & "a " & s & " (ch" & ChrW(7881) & " " & ChrW(273) & ChrW(432) & ChrW(7907) & "c 1)" & vbCrLf
+    Next m
+    For k = 1 To 3
+        If nThieu(k) > 0 Then tomTat = tomTat & "- " & nThieu(k) & " v" & ChrW(249) & "ng th" & ChrW(7917) & "a thi" & ChrW(7871) & "u " & ten(k) & vbCrLf
+    Next k
+    If Len(tomTat) = 0 Then
+        tomTat = ChrW(272) & ChrW(7841) & "t: " & nV & " v" & ChrW(249) & "ng th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7873) & "u c" & ChrW(243) & " " & ChrW(273) & ChrW(250) & "ng 1 s" & ChrW(7889) & " hi" & ChrW(7879) & "u th" & ChrW(7917) & "a, 1 lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t, 1 di" & ChrW(7879) & "n t" & ChrW(237) & "ch."
+    Else
+        tomTat = KV_DsLoi.Count & "/" & nV & " v" & ChrW(249) & "ng th" & ChrW(7917) & "a c" & ChrW(243) & " l" & ChrW(7895) & "i:" & vbCrLf & tomTat
+    End If
+    ShowStatus ""
+    KV_KiemTra = nV
+End Function
+
+' Diem trong vung (trong ranh ngoai, ngoai cac dao)
+Private Function TrongVung(ByVal v As clsVung, ByVal x As Double, ByVal y As Double) As Boolean
+    Dim rg() As Double, k As Long
+    rg = v.ring
+    If Not DiemTrongPolygon(rg, x, y) Then Exit Function
+    For k = 1 To v.Dao.Count
+        rg = v.Dao.Item(k)
+        If DiemTrongPolygon(rg, x, y) Then Exit Function
+    Next k
+    TrongVung = True
+End Function
+
+' Gom chu (text / text node / chu trong cell) tren 3 lop dich
+Private Sub GomChu(ByVal el As Element, lv() As Long, cx() As Double, cy() As Double, _
+                   ck() As Long, cs() As String, ByRef n As Long)
+    Dim k As Long, s As String, sb As ElementEnumerator, lvE As Long
+    On Error Resume Next
+    If el.Type = msdElementTypeCellHeader Then
+        Set sb = el.AsCellElement.GetSubElements
+        If sb Is Nothing Then Exit Sub
+        Do While sb.MoveNext
+            GomChu sb.Current, lv, cx, cy, ck, cs, n
+        Loop
+        Exit Sub
+    End If
+    If el.Type <> msdElementTypeText And el.Type <> msdElementTypeTextNode Then Exit Sub
+    lvE = DC_LevelSo(el)
+    For k = 1 To 3
+        If lvE = lv(k) Then Exit For
+    Next k
+    If k > 3 Then Exit Sub
+    If el.Type = msdElementTypeText Then
+        s = Trim$(el.AsTextElement.Text)
+    Else
+        Set sb = el.AsTextNodeElement.GetSubElements
+        Do While sb.MoveNext
+            If sb.Current.Type = msdElementTypeText Then s = s & sb.Current.AsTextElement.Text
+        Loop
+        s = Trim$(s)
+    End If
+    If Len(s) = 0 Then Exit Sub
+    n = n + 1
+    If n > UBound(cx) Then
+        ReDim Preserve cx(1 To n * 2): ReDim Preserve cy(1 To n * 2)
+        ReDim Preserve ck(1 To n * 2): ReDim Preserve cs(1 To n * 2)
+    End If
+    ' SUA 05/11: dung DIEM CHEN (origin) cua chu nhu he thong TW (khong dung tam khung chu)
+    Dim o As Point3d
+    If el.Type = msdElementTypeText Then o = el.AsTextElement.Origin Else o = el.AsTextNodeElement.Origin
+    cx(n) = o.X: cy(n) = o.Y
+    ck(n) = k: cs(n) = s
+    Err.Clear
+End Sub
+
+' Ve dau loi (cell "LOIVUNG": vong tron + chu) tai tam cac vung loi. Tra ve so dau.
+Public Function KV_VeDauLoi(ByVal lvLoi As String, ByVal cao As Double) As Long
+    Dim i As Long, a As Variant, v As clsVung, els(0 To 1) As Element, cel As Element, lv As Level
+    If KV_DsLoi Is Nothing Then Exit Function
+    If cao <= 0 Then cao = 1
+    Set lv = DC_TimLevel(lvLoi)
+    On Error Resume Next
+    ActiveSettings.TextStyle.Height = cao: ActiveSettings.TextStyle.Width = cao
+    ActiveSettings.TextStyle.Justification = msdTextJustificationLeftCenter
+    For i = 1 To KV_DsLoi.Count
+        a = KV_DsLoi.Item(i): Set v = a(0)
+        Set els(0) = CreateEllipseElement2(Nothing, Point3dFromXYZ(v.cx, v.cy, 0#), cao * 1.5, cao * 1.5, Matrix3dIdentity)
+        Set els(1) = CreateTextElement1(Nothing, CStr(a(1)), Point3dFromXYZ(v.cx + cao * 2, v.cy, 0#), Matrix3dIdentity)
+        Set cel = CreateCellElement1("LOIVUNG", els, Point3dFromXYZ(v.cx, v.cy, 0#), False)
+        If Not cel Is Nothing Then
+            If Not lv Is Nothing Then Set cel.Level = lv
+            cel.Color = 3
+            ActiveModelReference.AddElement cel
+            If Err.Number = 0 Then KV_VeDauLoi = KV_VeDauLoi + 1
+        End If
+        Err.Clear
+    Next i
+End Function
+
+' Xoa cac dau loi "LOIVUNG"
+Public Function KV_XoaDauLoi() As Long
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator, ds As New Collection, i As Long
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeCellHeader
+    Set ee = ActiveModelReference.Scan(esc)
+    On Error Resume Next
+    Do While ee.MoveNext
+        If UCase$(ee.Current.AsCellElement.Name) = "LOIVUNG" Then ds.Add ee.Current
+        Err.Clear
+    Loop
+    For i = 1 To ds.Count
+        ActiveModelReference.RemoveElement ds.Item(i)
+        If Err.Number = 0 Then KV_XoaDauLoi = KV_XoaDauLoi + 1
+        Err.Clear
+    Next i
+End Function
