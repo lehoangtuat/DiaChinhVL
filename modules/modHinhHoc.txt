@@ -1,4 +1,6 @@
 Option Explicit
+' SUA 05/11: dien tich vung nho nhat GhepVung giu lai (0 = mac dinh 1 m2). modKiemVung dat nho de bat vung manh.
+Public gGhepVungMin As Double
 
 '============================================================
 ' modHinhHoc - Hinh hoc & to-po (khong phu thuoc MicroStation)
@@ -611,7 +613,7 @@ Public Function GhepVung(ByVal segs As Collection, ByVal snap As Double, _
                 Aria = Aria + ring(kk, 0) * ring(kk + 1, 1) - ring(kk + 1, 0) * ring(kk, 1)
             Next kk
             Aria = Aria / 2#
-            If Abs(Aria) >= 1# Then
+            If Abs(Aria) >= IIf(gGhepVungMin > 0#, gGhepVungMin, 1#) Then
                 If Aria > 0 Then
                     faceRings.Add ring
                     faceArea.Add Aria
