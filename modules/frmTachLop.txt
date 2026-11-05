@@ -81,6 +81,16 @@ Private Sub UserForm_Initialize()
     gc.Left = 6: gc.Top = 252: gc.Width = 474: gc.Height = 26
     gc.Font.Name = "Arial": gc.Font.size = 8: gc.Font.Italic = True
 
+    ' SUA 05/11: xoa chu trung + o sai so
+    ThemNut "XOATRUNG", "X" & ChrW(243) & "a ch" & ChrW(7919) & " tr" & ChrW(249) & "ng", "X" & ChrW(243) & "a ch" & ChrW(7919) & " c" & ChrW(249) & "ng n" & ChrW(7897) & "i dung, c" & ChrW(249) & "ng l" & ChrW(7899) & "p n" & ChrW(7857) & "m ch" & ChrW(7891) & "ng l" & ChrW(234) & "n nhau (copy/d" & ChrW(225) & "n 2 l" & ChrW(7847) & "n) - gi" & ChrW(7919) & " l" & ChrW(7841) & "i 1 ch" & ChrW(7919), 6, 288, 104
+    Dim lt As Object, tt As Object
+    Set lt = Me.Controls.Add("Forms.Label.1", "lblTrung", True)
+    lt.Caption = "Sai s" & ChrW(7889) & " (m):": lt.Left = 116: lt.Top = 292: lt.Width = 52: lt.Height = 14
+    lt.Font.Name = "Arial": lt.Font.size = 8
+    Set tt = Me.Controls.Add("Forms.TextBox.1", "txtTrung", True)
+    tt.Left = 168: tt.Top = 289: tt.Width = 40: tt.Height = 18
+    tt.Font.Name = "Arial": tt.Font.size = 8
+    tt.Text = DC_DocCauHinh("TLOP_TRUNG", "0.2")
     ThemNut "TACH", "T" & ChrW(225) & "ch l" & ChrW(7899) & "p", "", 290, 286, 92
     ThemNut "DONG", ChrW(272) & ChrW(243) & "ng", "", 388, 286, 92
 
@@ -215,6 +225,8 @@ Public Sub XuLyNut(ByVal ma As String)
         ChayPhaKhoi
     Case "TACHCHU"
         ChayTachChu
+    Case "XOATRUNG"
+        ChayXoaTrung
     End Select
 End Sub
 
@@ -317,6 +329,55 @@ Private Sub ChayTach()
         If nLoi > 8 Then s = s & vbCrLf & "..."
     End If
     DC_ThongBao s, tieuDe, IIf(nLoi > 0, vbExclamation, vbInformation)
+End Sub
+
+' SUA 05/11: xoa chu trung (copy/dan 2 lan, cung noi dung chong len nhau)
+Private Sub ChayXoaTrung()
+    Dim lvN As Long, nF As Long, i As Long, kq As String, bak As Boolean, chiChon As Boolean
+    Dim nX As Long, tX As Long, nLoi As Long, loi As String, s As String, laHT As Boolean, td As String, tol As Double
+    td = "X" & ChrW(243) & "a ch" & ChrW(7919) & " tr" & ChrW(249) & "ng"
+    nF = Lst.ListCount
+    If nF = 0 Then
+        DC_ThongBao "Danh s" & ChrW(225) & "ch ch" & ChrW(432) & "a c" & ChrW(243) & " t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891) & " n" & ChrW(224) & "o.", td, vbExclamation
+        Exit Sub
+    End If
+    lvN = SoLv("cboNguon")
+    tol = Val(Replace(Trim$(Me.Controls("txtTrung").Text), ",", "."))
+    If tol <= 0 Then tol = 0.2
+    DC_GhiCauHinh "TLOP_TRUNG", CStr(tol)
+    bak = CBool(Me.Controls("chkBak").Value)
+    chiChon = CBool(Me.Controls("chkChon").Value)
+    On Error Resume Next
+    laHT = (StrComp(CStr(Lst.List(0, 0)), ActiveDesignFile.FullName, vbTextCompare) = 0)
+    On Error GoTo 0
+    If Not (nF = 1 And laHT) Then chiChon = False
+    s = "X" & ChrW(243) & "a c" & ChrW(225) & "c ch" & ChrW(7919) & " TR" & ChrW(217) & "NG (c" & ChrW(249) & "ng n" & ChrW(7897) & "i dung, c" & ChrW(249) & "ng l" & ChrW(7899) & "p, c" & ChrW(225) & "ch nhau " & ChrW(8804) & " " & tol & " m) " & _
+        IIf(lvN > 0, "tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & lvN, "tr" & ChrW(234) & "n M" & ChrW(7884) & "I l" & ChrW(7899) & "p") & _
+        IIf(chiChon, " trong c" & ChrW(225) & "c " & ChrW(273) & ChrW(7889) & "i t" & ChrW(432) & ChrW(7907) & "ng " & ChrW(273) & "ang ch" & ChrW(7885) & "n", " trong " & nF & " t" & ChrW(7901) & " b" & ChrW(7843) & "n " & ChrW(273) & ChrW(7891)) & "." & vbCrLf & _
+        "M" & ChrW(7895) & "i nh" & ChrW(243) & "m tr" & ChrW(249) & "ng gi" & ChrW(7919) & " l" & ChrW(7841) & "i 1 ch" & ChrW(7919) & "." & vbCrLf & vbCrLf & "Ti" & ChrW(7871) & "p t" & ChrW(7909) & "c?"
+    If DC_ThongBao(s, td, vbYesNo Or vbQuestion) <> vbYes Then Exit Sub
+    mDangChay = True
+    For i = 0 To nF - 1
+        Me.Controls("lblDem").Caption = " " & (i + 1) & "/" & nF
+        Me.Controls("lblPath").Caption = " " & Lst.List(i, 0)
+        Lst.List(i, 1) = ChrW(273) & "ang x" & ChrW(243) & "a ch" & ChrW(7919) & " tr" & ChrW(249) & "ng..."
+        DoEvents
+        kq = TL_XoaTrungFile(CStr(Lst.List(i, 0)), lvN, bak, chiChon, tol, nX)
+        If Len(kq) = 0 Then
+            Lst.List(i, 1) = "X" & ChrW(243) & "a " & nX & " ch" & ChrW(7919) & " tr" & ChrW(249) & "ng"
+            tX = tX + nX
+        Else
+            Lst.List(i, 1) = "L" & ChrW(7895) & "i"
+            nLoi = nLoi + 1
+            If nLoi <= 8 Then loi = loi & vbCrLf & "- " & Lst.List(i, 0) & ": " & kq
+        End If
+        DoEvents
+    Next i
+    mDangChay = False
+    Me.Controls("lblPath").Caption = " Xong x" & ChrW(243) & "a ch" & ChrW(7919) & " tr" & ChrW(249) & "ng: " & tX
+    s = ChrW(272) & ChrW(227) & " x" & ChrW(243) & "a " & tX & " ch" & ChrW(7919) & " tr" & ChrW(249) & "ng."
+    If nLoi > 0 Then s = s & vbCrLf & vbCrLf & "L" & ChrW(7895) & "i " & nLoi & " t" & ChrW(7901) & ":" & loi
+    DC_ThongBao s, td, IIf(nLoi > 0, vbExclamation, vbInformation)
 End Sub
 
 ' SUA 25/10: pha chu gop (LUC 766/3860,9 -> LUC | 766 | 3860,9)
