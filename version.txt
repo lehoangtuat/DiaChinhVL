@@ -1,2 +1,2 @@
 3.2
-So thua lien ke quanh thua trong so do trich luc/tach/hop (thua chua co so ghi 0, khac to ghi To); Chu mau khong phai Times New Roman tu ve lai bang Times New Roman Unicode; Bang du lieu to hon, bam tieu de cot de sap xep; Lan chuot cuon danh sach; Cap nhat file mau TT26
+So thua lien ke quanh thua trong so do trich luc/tach/hop (thua chua co so ghi 0, khac to ghi To); Hop thua: bang So hieu dinh / Chieu dai chep tu bang Doan (bo dau phay tren); Chu mau khong phai Times New Roman tu ve lai bang Times New Roman Unicode; Bang du lieu to hon, bam tieu de cot de sap xep; Lan chuot cuon danh sach; Cap nhat file mau TT26
