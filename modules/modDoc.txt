@@ -76,6 +76,7 @@ Private Sub ThemDinhVaoSegs(ByRef pts() As Point3d, ByVal snap As Double, _
     On Error GoTo Thoat
     lo = LBound(pts): hi = UBound(pts)
     If hi <= lo Then Exit Sub
+    If Not DC_DinhHopLe(pts) Then Exit Sub        ' SUA 08/11: bo net hong toa do NaN
     For i = lo To hi
         If first Then
             minX = pts(i).x: maxX = pts(i).x: minY = pts(i).y: maxY = pts(i).y: first = False
