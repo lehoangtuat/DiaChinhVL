@@ -218,7 +218,13 @@ Public Sub TamCanGiua(ByRef ring() As Double, ByVal daoColl As Collection, _
     Next GX
 
     If Not co Then
-        cx = gcx: cy = gcy
+        ' SUA 07/11: vung dai/hep (duong, kenh) luoi 15x15 khong roi vao trong -> truoc day lay
+        '   trong tam (nam NGOAI vung, roi vao thua ben canh -> 2 tam 1 thua). Nay quet ngang tim diem trong.
+        If TCG_QuetNgang(ring, daoColl, X0, x1, Y0, y1, gcx, gcy, bestX, bestY) Then
+            cx = bestX: cy = bestY
+        Else
+            cx = gcx: cy = gcy
+        End If
         Exit Sub
     End If
 
@@ -245,6 +251,59 @@ Public Sub TamCanGiua(ByRef ring() As Double, ByVal daoColl As Collection, _
 
     cx = bestX: cy = bestY
 End Sub
+
+' SUA 07/11: tim diem TRONG vung bang cac duong quet ngang + doc (cho vung dai, hep)
+'   Chon doan trong dai nhat; uu tien gan trong tam khi xap xi bang nhau.
+Private Function TCG_QuetNgang(ByRef ring() As Double, ByVal daoColl As Collection, _
+                               ByVal X0 As Double, ByVal x1 As Double, ByVal Y0 As Double, ByVal y1 As Double, _
+                               ByVal gcx As Double, ByVal gcy As Double, _
+                               ByRef bx As Double, ByRef by As Double) As Boolean
+    Const NQ As Long = 80
+    Dim n As Long, i As Long, k As Long, h As Long, m As Long, j As Long
+    Dim c As Double, xs() As Double, t As Double, L As Double, mx As Double, bestL As Double, dgc As Double, bestG As Double
+    Dim ai As Double, aj As Double, bi As Double, bj As Double
+    n = UBound(ring, 1)
+    If n < 3 Then Exit Function
+    ReDim xs(0 To n + 1)
+    bestL = -1#: bestG = 1E+30
+    For h = 0 To 1                       ' 0: quet ngang (y co dinh), 1: quet doc (x co dinh)
+        For k = 1 To NQ
+            If h = 0 Then c = Y0 + (y1 - Y0) * (k - 0.5) / NQ Else c = X0 + (x1 - X0) * (k - 0.5) / NQ
+            m = 0
+            For i = 0 To n - 1
+                If h = 0 Then
+                    ai = ring(i, 1): aj = ring(i + 1, 1): bi = ring(i, 0): bj = ring(i + 1, 0)
+                Else
+                    ai = ring(i, 0): aj = ring(i + 1, 0): bi = ring(i, 1): bj = ring(i + 1, 1)
+                End If
+                If (ai > c) <> (aj > c) Then
+                    xs(m) = bi + (c - ai) * (bj - bi) / (aj - ai)
+                    m = m + 1
+                End If
+            Next i
+            ' sap xep
+            For i = 0 To m - 2
+                For j = i + 1 To m - 1
+                    If xs(j) < xs(i) Then t = xs(i): xs(i) = xs(j): xs(j) = t
+                Next j
+            Next i
+            For i = 0 To m - 2 Step 2
+                L = xs(i + 1) - xs(i)
+                mx = (xs(i) + xs(i + 1)) / 2#
+                If L > bestL * 0.98 Then
+                    If h = 0 Then dgc = Hypot(mx - gcx, c - gcy) Else dgc = Hypot(c - gcx, mx - gcy)
+                    If (L > bestL * 1.02) Or (dgc < bestG) Then
+                        If h = 0 Then
+                            If TCG_HopLe(ring, daoColl, mx, c) Then bestL = IIf(L > bestL, L, bestL): bestG = dgc: bx = mx: by = c: TCG_QuetNgang = True
+                        Else
+                            If TCG_HopLe(ring, daoColl, c, mx) Then bestL = IIf(L > bestL, L, bestL): bestG = dgc: bx = c: by = mx: TCG_QuetNgang = True
+                        End If
+                    End If
+                End If
+            Next i
+        Next k
+    Next h
+End Function
 
 Private Function TCG_HopLe(ByRef ring() As Double, ByVal daoColl As Collection, _
                            ByVal px As Double, ByVal py As Double) As Boolean
@@ -340,7 +399,8 @@ Private Function FindNode(ByVal x As Double, ByVal y As Double, ByVal snap As Do
                           ByRef nodeX() As Double, ByRef nodeY() As Double, _
                           ByRef nodeCount As Long, ByRef capX As Long) As Long
     Dim key As String, idx As Long
-    key = CLng(RoundHalf(x / snap)) & "|" & CLng(RoundHalf(y / snap))
+    ' SUA 08/11: CLng tran so (loi 6 Overflow) khi toa do / snap > 2,1 ty (doi tuong o rat xa, snap nho)
+    key = Format$(RoundHalf(x / snap), "0") & "|" & Format$(RoundHalf(y / snap), "0")
     If nodeMap.Exists(key) Then
         FindNode = nodeMap.Item(key)
         Exit Function
@@ -913,7 +973,8 @@ Public Sub LuoiGiaoCat(ByVal n As Long, ax() As Double, ay() As Double, bx() As 
         If dl(i) > tol Then
             gx1 = Int((NhoHon(ax(i), bx(i)) - tol) / oL): gx2 = Int((LonHon(ax(i), bx(i)) + tol) / oL)
             gy1 = Int((NhoHon(ay(i), by(i)) - tol) / oL): gy2 = Int((LonHon(ay(i), by(i)) + tol) / oL)
-            If (gx2 - gx1 + 1) * (gy2 - gy1 + 1) <= 2500 Then
+            ' SUA 08/11: nhan bang Double - doan rat dai (vd net lac ve goc toa do) lam Long tran so (loi 6)
+            If CDbl(gx2 - gx1 + 1) * CDbl(gy2 - gy1 + 1) <= 2500# Then
                 For gx = gx1 To gx2
                     For gy = gy1 To gy2
                         key = gx & "|" & gy
@@ -1061,4 +1122,30 @@ Public Function VongTrenTraiCW(rg() As Double) As Double()
     Next i
     kq(m, 0) = kq(0, 0): kq(m, 1) = kq(0, 1)
     VongTrenTraiCW = kq
+End Function
+
+'============================================================
+' SUA 08/11: kiem tra toa do hop le (net hong co toa do NaN / vo cuc
+'   -> Int()/CLng() bao loi 6 Overflow). Dung truoc khi dua dinh vao tinh toan.
+'============================================================
+Public Function DC_SoHopLe(ByVal v As Double) As Boolean
+    On Error GoTo Hong
+    If InStr(CStr(v), "#") > 0 Then Exit Function
+    If Abs(v) < 1E+12 Then DC_SoHopLe = True
+    Exit Function
+Hong:
+    DC_SoHopLe = False
+End Function
+
+Public Function DC_DinhHopLe(pts() As Point3d) As Boolean
+    Dim i As Long
+    On Error GoTo Hong
+    For i = LBound(pts) To UBound(pts)
+        If Not DC_SoHopLe(pts(i).X) Then Exit Function
+        If Not DC_SoHopLe(pts(i).Y) Then Exit Function
+    Next i
+    DC_DinhHopLe = True
+    Exit Function
+Hong:
+    DC_DinhHopLe = False
 End Function
