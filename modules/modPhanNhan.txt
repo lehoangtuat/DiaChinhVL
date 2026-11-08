@@ -1,0 +1,507 @@
+'============================================================
+' modPhanNhan - PHAN NHAN THEO THUA (SUA 07/11)
+'   Moi vung thua (ghep tu lop ranh): gom chu tren cac lop nguon, nhan dang
+'   so thua / loai dat / dien tich (ke ca nhan gop "LUC 2601 / 145", "593/",
+'   "/82", "1225/72/ONT"...), tach thanh chu rieng va dua ve lop dung
+'   (mac dinh 13 / 2 / 4). Chu goc -> lop luu (mac dinh 60).
+'   Quy tac: 1 so nguyen dung rieng = so thua; 2 so nguyen chong nhau
+'   = tren so thua, duoi dien tich; so sau dau "/" = dien tich.
+'   Vung khong chac chan -> KHONG sua, dua vao KV_DsLoi de nguoi dung xem.
+'   Form: nut "Phan nhan theo thua" tren frmKiemVung.
+'============================================================
+Option Explicit
+
+' du lieu chu
+Private pEl As Collection          ' Element goc
+Private pS() As String             ' noi dung
+Private pX() As Double, pY() As Double, pH() As Double, pDX() As Double, pDY() As Double
+Private pVung() As Long            ' chi so vung (0 = ngoai)
+Private pNP() As Long              ' so phan (0 = la / bo qua)
+Private pVai() As String           ' vai tro tung phan "S"/"L"/"D"/"B" noi bang "|"
+Private pTok() As String           ' noi dung tung phan noi bang "|"
+Private pPos() As String           ' vi tri ky tu tung phan noi bang "|"
+Private pRac() As Boolean          ' chu chi gom "/" (rac)
+Private pLa() As Boolean           ' chu co so nhung khong hieu -> vung nghi ngo
+Private pN As Long
+
+Public Function PN_Chay(ByVal ranhCSV As String, ByVal nguonCSV As String, _
+                        ByVal lvSo As String, ByVal lvLD As String, ByVal lvDT As String, _
+                        ByVal lvLuu As String, ByVal snap As Double, ByVal chiaGiao As Boolean, _
+                        ByRef tomTat As String) As Long
+    Dim td As String
+    td = "Ph" & ChrW(226) & "n nh" & ChrW(227) & "n theo th" & ChrW(7917) & "a"
+    Set KV_DsLoi = New Collection
+    tomTat = ""
+    If snap <= 0 Then snap = 0.001
+
+    ' --- 1. vung thua
+    Dim segs As Collection, vungs As Collection, tia As Long
+    Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+    ShowStatus "Phan nhan: doc ranh ..."
+    Set segs = LayDoanNhieuLevel(ranhCSV, snap, minX, minY, maxX, maxY)
+    If segs Is Nothing Then tomTat = "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c ranh l" & ChrW(7899) & "p " & ranhCSV: Exit Function
+    If segs.Count = 0 Then tomTat = "Kh" & ChrW(244) & "ng " & ChrW(273) & ChrW(7885) & "c " & ChrW(273) & ChrW(432) & ChrW(7907) & "c ranh l" & ChrW(7899) & "p " & ranhCSV: Exit Function
+    If chiaGiao Then Set segs = NoiDoanGiao(segs, snap)
+    ShowStatus "Phan nhan: ghep vung ..."
+    Set vungs = GhepVung(segs, snap, tia)
+    If vungs Is Nothing Then tomTat = "Kh" & ChrW(244) & "ng gh" & ChrW(233) & "p " & ChrW(273) & ChrW(432) & ChrW(7907) & "c v" & ChrW(249) & "ng th" & ChrW(7917) & "a.": Exit Function
+    If vungs.Count = 0 Then tomTat = "Kh" & ChrW(244) & "ng gh" & ChrW(233) & "p " & ChrW(273) & ChrW(432) & ChrW(7907) & "c v" & ChrW(249) & "ng th" & ChrW(7917) & "a.": Exit Function
+    Dim nV As Long, i As Long, j As Long, k As Long, rg() As Double
+    nV = vungs.Count
+    Dim bx1() As Double, by1() As Double, bx2() As Double, by2() As Double
+    ReDim bx1(1 To nV): ReDim by1(1 To nV): ReDim bx2(1 To nV): ReDim by2(1 To nV)
+    For i = 1 To nV
+        rg = vungs.Item(i).ring
+        BaoRing rg, bx1(i), by1(i), bx2(i), by2(i)
+    Next i
+
+    ' --- 2. lop nguon
+    Dim arr() As String, lvN() As Long, nL As Long, o As Level
+    arr = Split(nguonCSV, ",")
+    ReDim lvN(0 To UBound(arr) + 1)
+    For i = 0 To UBound(arr)
+        If Len(Trim$(arr(i))) > 0 Then
+            Set o = DC_TimLevel(Trim$(arr(i)))
+            If Not o Is Nothing Then lvN(nL) = o.Number: nL = nL + 1
+        End If
+    Next i
+    If nL = 0 Then tomTat = "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y l" & ChrW(7899) & "p ngu" & ChrW(7891) & "n " & nguonCSV: Exit Function
+
+    ' --- 3. doc chu
+    ShowStatus "Phan nhan: doc chu ..."
+    Set pEl = New Collection: pN = 0
+    ReDim pS(1 To 1000): ReDim pX(1 To 1000): ReDim pY(1 To 1000): ReDim pH(1 To 1000)
+    ReDim pDX(1 To 1000): ReDim pDY(1 To 1000)
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator, el As Element, c As Element, lvE As Long, ok As Boolean
+    Dim s As String, rot As Matrix3d, ddx As Double, ddy As Double, L As Double
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeText
+    esc.IncludeType msdElementTypeTextNode
+    Set ee = ActiveModelReference.Scan(esc)
+    On Error Resume Next
+    Do While ee.MoveNext
+        Set el = ee.Current
+        lvE = el.Level.Number
+        ok = False
+        For k = 0 To nL - 1
+            If lvE = lvN(k) Then ok = True: Exit For
+        Next k
+        If ok Then
+            Set c = PN_ChuDon(el)
+            If Not c Is Nothing Then
+                s = c.AsTextElement.Text
+                If Len(Trim$(s)) > 0 Then
+                    pN = pN + 1
+                    If pN > UBound(pS) Then
+                        ReDim Preserve pS(1 To pN * 2): ReDim Preserve pX(1 To pN * 2): ReDim Preserve pY(1 To pN * 2)
+                        ReDim Preserve pH(1 To pN * 2): ReDim Preserve pDX(1 To pN * 2): ReDim Preserve pDY(1 To pN * 2)
+                    End If
+                    pEl.Add el
+                    pS(pN) = s
+                    pX(pN) = (el.Range.Low.X + el.Range.High.X) / 2#
+                    pY(pN) = (el.Range.Low.Y + el.Range.High.Y) / 2#
+                    pH(pN) = c.AsTextElement.TextStyle.Height
+                    rot = c.AsTextElement.Rotation
+                    ddx = rot.RowX.X: ddy = rot.RowY.X
+                    If Err.Number <> 0 Then ddx = 1#: ddy = 0#: Err.Clear
+                    L = Sqr(ddx * ddx + ddy * ddy)
+                    If L <= 0# Then ddx = 1#: ddy = 0#: L = 1#
+                    pDX(pN) = ddx / L: pDY(pN) = ddy / L
+                End If
+            End If
+        End If
+        Err.Clear
+    Loop
+    On Error GoTo 0
+    If pN = 0 Then tomTat = "Kh" & ChrW(244) & "ng c" & ChrW(243) & " ch" & ChrW(7919) & " n" & ChrW(224) & "o tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & nguonCSV: Exit Function
+
+    ' --- 4. phan tich tung chu + gan vung
+    ShowStatus "Phan nhan: phan tich " & pN & " chu ..."
+    ReDim pVung(1 To pN): ReDim pNP(1 To pN): ReDim pVai(1 To pN): ReDim pTok(1 To pN): ReDim pPos(1 To pN)
+    ReDim pRac(1 To pN): ReDim pLa(1 To pN)
+    For j = 1 To pN
+        PN_PhanTich j
+        For i = 1 To nV
+            If pX(j) >= bx1(i) And pX(j) <= bx2(i) And pY(j) >= by1(i) And pY(j) <= by2(i) Then
+                If PN_TrongVung(vungs.Item(i), pX(j), pY(j)) Then pVung(j) = i: Exit For
+            End If
+        Next i
+        If j Mod 200 = 0 Then DoEvents
+    Next j
+
+    ' --- 5. quyet dinh tung vung
+    ShowStatus "Phan nhan: quyet dinh ..."
+    Dim dsChu() As String, nVungSua As Long, nNghi As Long, ly As String, ghi As String
+    ReDim dsChu(1 To nV)
+    For j = 1 To pN
+        If pVung(j) > 0 Then
+            If Len(dsChu(pVung(j))) > 0 Then dsChu(pVung(j)) = dsChu(pVung(j)) & ","
+            dsChu(pVung(j)) = dsChu(pVung(j)) & j
+        End If
+    Next j
+    Dim okV() As Boolean
+    ReDim okV(1 To nV)
+    For i = 1 To nV
+        If Len(dsChu(i)) > 0 Then
+            ly = PN_QuyetDinh(dsChu(i), ghi)
+            If Len(ly) = 0 Then
+                If Len(ghi) > 0 Then okV(i) = True: nVungSua = nVungSua + 1
+            Else
+                nNghi = nNghi + 1
+                KV_DsLoi.Add Array(vungs.Item(i), ly, ghi)
+            End If
+        End If
+    Next i
+
+    ' --- 6. xac nhan + thuc hien
+    Dim msg As String
+    msg = "S" & ChrW(7869) & " s" & ChrW(7855) & "p x" & ChrW(7871) & "p nh" & ChrW(227) & "n cho " & nVungSua & " v" & ChrW(249) & "ng th" & ChrW(7917) & "a (s" & ChrW(7889) & " th" & ChrW(7917) & "a " & ChrW(8594) & " l" & ChrW(7899) & "p " & lvSo & ", lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t " & ChrW(8594) & " l" & ChrW(7899) & "p " & lvLD & ", di" & ChrW(7879) & "n t" & ChrW(237) & "ch " & ChrW(8594) & " l" & ChrW(7899) & "p " & lvDT & ")." & vbCrLf & _
+          "Ch" & ChrW(7919) & " g" & ChrW(7889) & "c b" & ChrW(7883) & " t" & ChrW(225) & "ch/thay s" & ChrW(7869) & " chuy" & ChrW(7875) & "n sang l" & ChrW(7899) & "p " & lvLuu & " (kh" & ChrW(244) & "ng x" & ChrW(243) & "a)." & vbCrLf & _
+          nNghi & " v" & ChrW(249) & "ng kh" & ChrW(244) & "ng ch" & ChrW(7855) & "c ch" & ChrW(7855) & "n s" & ChrW(7869) & " KH" & ChrW(212) & "NG s" & ChrW(7917) & "a, ch" & ChrW(7881) & " li" & ChrW(7879) & "t k" & ChrW(234) & " " & ChrW(273) & ChrW(7875) & " b" & ChrW(7841) & "n xem." & vbCrLf & vbCrLf & "Th" & ChrW(7921) & "c hi" & ChrW(7879) & "n?"
+    ShowStatus ""
+    If nVungSua = 0 Then
+        tomTat = "Kh" & ChrW(244) & "ng c" & ChrW(243) & " v" & ChrW(249) & "ng n" & ChrW(224) & "o s" & ChrW(7917) & "a t" & ChrW(7921) & " " & ChrW(273) & ChrW(7897) & "ng " & ChrW(273) & ChrW(432) & ChrW(7907) & "c. " & nNghi & " v" & ChrW(249) & "ng c" & ChrW(7847) & "n xem tay (danh s" & ChrW(225) & "ch b" & ChrW(234) & "n d" & ChrW(432) & ChrW(7899) & "i)."
+        Exit Function
+    End If
+    If DC_ThongBao(msg, td, vbYesNo + vbQuestion) <> vbYes Then
+        tomTat = ChrW(272) & ChrW(227) & " h" & ChrW(7911) & "y. " & nNghi & " v" & ChrW(249) & "ng c" & ChrW(7847) & "n xem tay (danh s" & ChrW(225) & "ch b" & ChrW(234) & "n d" & ChrW(432) & ChrW(7899) & "i)."
+        Exit Function
+    End If
+
+    Dim oSo As Level, oLD As Level, oDT As Level, oLuu As Level
+    Set oSo = PN_Lop(lvSo): Set oLD = PN_Lop(lvLD): Set oDT = PN_Lop(lvDT): Set oLuu = PN_Lop(lvLuu)
+    If oSo Is Nothing Or oLD Is Nothing Or oDT Is Nothing Or oLuu Is Nothing Then
+        tomTat = "Kh" & ChrW(244) & "ng t" & ChrW(7841) & "o/t" & ChrW(236) & "m " & ChrW(273) & ChrW(432) & ChrW(7907) & "c l" & ChrW(7899) & "p " & ChrW(273) & ChrW(237) & "ch (" & lvSo & ", " & lvLD & ", " & lvDT & ", " & lvLuu & ").": Exit Function
+    End If
+    ShowStatus "Phan nhan: dang sua ..."
+    Dim nMoi As Long, nDoi As Long, nLuu As Long
+    For j = 1 To pN
+        If pVung(j) > 0 Then
+            If okV(pVung(j)) Then PN_ThucHien j, oSo, oLD, oDT, oLuu, nMoi, nDoi, nLuu
+        End If
+        If j Mod 200 = 0 Then DoEvents
+    Next j
+    ShowStatus ""
+    tomTat = ChrW(272) & ChrW(227) & " s" & ChrW(7855) & "p x" & ChrW(7871) & "p " & nVungSua & " v" & ChrW(249) & "ng: " & ChrW(273) & ChrW(7893) & "i l" & ChrW(7899) & "p " & nDoi & " ch" & ChrW(7919) & ", t" & ChrW(7841) & "o " & nMoi & " ch" & ChrW(7919) & " t" & ChrW(225) & "ch, chuy" & ChrW(7875) & "n " & nLuu & " ch" & ChrW(7919) & " g" & ChrW(7889) & "c sang l" & ChrW(7899) & "p " & lvLuu & "." & vbCrLf & _
+             nNghi & " v" & ChrW(249) & "ng c" & ChrW(7847) & "n xem tay (b" & ChrW(7845) & "m t" & ChrW(7915) & "ng d" & ChrW(242) & "ng " & ChrW(273) & ChrW(7875) & " ph" & ChrW(243) & "ng t" & ChrW(7899) & "i). Sau " & ChrW(273) & ChrW(243) & " b" & ChrW(7845) & "m Ki" & ChrW(7875) & "m tra."
+    PN_Chay = nVungSua
+End Function
+
+' Text -> chinh no ; text node 1 dong -> chu con ; con lai Nothing
+Private Function PN_ChuDon(ByVal el As Element) As Element
+    Dim sb As ElementEnumerator, dem As Long, c As Element
+    On Error Resume Next
+    If el.Type = msdElementTypeText Then Set PN_ChuDon = el: Exit Function
+    Set sb = el.AsTextNodeElement.GetSubElements
+    If sb Is Nothing Then Exit Function
+    Do While sb.MoveNext
+        If sb.Current.Type = msdElementTypeText Then dem = dem + 1: Set c = sb.Current
+    Loop
+    If dem = 1 Then Set PN_ChuDon = c
+End Function
+
+Private Function PN_Lop(ByVal t As String) As Level
+    If IsNumeric(Trim$(t)) Then
+        Set PN_Lop = DC_LevelTheoSo(CLng(Val(t)))
+    Else
+        Set PN_Lop = DC_TimLevel(t)
+    End If
+End Function
+
+Private Function PN_TrongVung(ByVal v As clsVung, ByVal x As Double, ByVal y As Double) As Boolean
+    Dim rg() As Double, k As Long
+    rg = v.ring
+    If Not DiemTrongPolygon(rg, x, y) Then Exit Function
+    For k = 1 To v.Dao.Count
+        rg = v.Dao.Item(k)
+        If DiemTrongPolygon(rg, x, y) Then Exit Function
+    Next k
+    PN_TrongVung = True
+End Function
+
+' Loai ky tu: 1 chu IN HOA / +, 2 chu so / , . (trong so), 3 dau /, 0 khoang trang, 9 khac
+Private Function PN_LoaiKT(ByVal ch As String) As Long
+    Dim c As Long
+    c = AscW(ch) And &HFFFF&
+    If (c >= 65 And c <= 90) Or c = 43 Then
+        PN_LoaiKT = 1
+    ElseIf c >= 48 And c <= 57 Then
+        PN_LoaiKT = 2
+    ElseIf c = 47 Then
+        PN_LoaiKT = 3
+    ElseIf c <= 32 Then
+        PN_LoaiKT = 0
+    ElseIf c = 44 Or c = 46 Then
+        PN_LoaiKT = 4
+    Else
+        PN_LoaiKT = 9
+    End If
+End Function
+
+' Phan tich chu j -> cac phan (vai tro, noi dung, vi tri)
+Private Sub PN_PhanTich(ByVal j As Long)
+    Dim s As String, i As Long, ch As String, lk As Long, cur As Long, tok As String, bd As Long
+    Dim tk() As String, tp() As Long, tb() As Long, nt As Long
+    ReDim tk(1 To 30): ReDim tp(1 To 30): ReDim tb(1 To 30)
+    s = pS(j)
+    ' --- tach token: chu (1), so (2, cho , . o giua), "/" (3)
+    cur = 0: tok = ""
+    For i = 1 To Len(s) + 1
+        If i <= Len(s) Then ch = Mid$(s, i, 1): lk = PN_LoaiKT(ch) Else ch = "": lk = 0
+        If lk = 4 Then
+            If cur = 2 Then lk = 2 Else lk = 9               ' dau , . chi hop le ngay sau chu so
+        End If
+        If lk = 9 Then
+            ' chu thuong / co dau / ma TCVN (ghi chu, ten duong...) -> bo qua chu nay
+            ' ky tu la khac ( "(", "-", ...) ma co so -> vung nghi ngo
+            pLa(j) = (PN_CoSo(s) And Not PN_CoChuThuong(s))
+            pNP(j) = 0
+            Exit Sub
+        End If
+        If lk <> cur Or lk = 3 Then
+            If cur <> 0 And Len(tok) > 0 And nt < 30 Then nt = nt + 1: tk(nt) = tok: tp(nt) = cur: tb(nt) = bd
+            tok = "": bd = i
+        End If
+        If lk <> 0 Then tok = tok & ch
+        cur = lk
+    Next i
+    If nt = 0 Then Exit Sub
+    ' so: phan biet nguyen (I) / thap phan (D); bo dau , . o cuoi
+    Dim nL As Long, nS As Long, sauGach As Boolean, idx(1 To 3) As Long, nNum As Long, gachSau(1 To 3) As Boolean, kieu(1 To 3) As String
+    Dim iL As Long, t As String
+    For i = 1 To nt
+        Select Case tp(i)
+            Case 1
+                If Len(tk(i)) < 2 Or Len(tk(i)) > 12 Then pLa(j) = PN_CoSo(s): Exit Sub
+                nL = nL + 1: iL = i
+            Case 2
+                t = tk(i)
+                Do While Len(t) > 0 And (Right$(t, 1) = "," Or Right$(t, 1) = ".")
+                    t = Left$(t, Len(t) - 1)
+                Loop
+                tk(i) = t
+                nNum = nNum + 1
+                If nNum > 3 Then pLa(j) = True: Exit Sub
+                idx(nNum) = i
+                ' so dung sau "/": so dau tien chi tinh khi truoc no KHONG co ma loai dat
+                If nNum = 1 Then gachSau(1) = sauGach And (nL = 0) Else gachSau(nNum) = sauGach
+                sauGach = False
+                If InStr(t, ",") > 0 Or InStr(t, ".") > 0 Then kieu(nNum) = "D" Else kieu(nNum) = "I"
+            Case 3
+                nS = nS + 1: sauGach = True
+        End Select
+    Next i
+    If nL > 1 Then pLa(j) = True: Exit Sub
+    Dim vai As String, tok2 As String, pos As String, n As Long
+    If nNum = 0 Then
+        If nL = 1 Then
+            n = 1: vai = "L": tok2 = tk(iL): pos = CStr(tb(iL))
+        ElseIf nS > 0 Then
+            pRac(j) = True
+        End If
+    ElseIf nNum = 1 Then
+        Dim r As String
+        If kieu(1) = "D" Or gachSau(1) Then
+            r = "D"
+        ElseIf nL = 1 Or nS > 0 Then
+            r = "S"                                   ' "LUC 123", "123/", "123 /"
+        Else
+            r = "B"                                   ' so nguyen dung rieng
+        End If
+        n = 1: vai = r: tok2 = tk(idx(1)): pos = CStr(tb(idx(1)))
+        If nL = 1 Then n = 2: vai = "L|" & vai: tok2 = tk(iL) & "|" & tok2: pos = tb(iL) & "|" & pos
+    ElseIf nNum = 2 Then
+        ' so 1 = so thua (nguyen, khong sau "/"), so 2 = dien tich (sau "/" hoac thap phan)
+        If kieu(1) <> "I" Or gachSau(1) Then pLa(j) = True: Exit Sub
+        If Not (gachSau(2) Or kieu(2) = "D") Then pLa(j) = True: Exit Sub
+        n = 2: vai = "S|D": tok2 = tk(idx(1)) & "|" & tk(idx(2)): pos = tb(idx(1)) & "|" & tb(idx(2))
+        If nL = 1 Then n = 3: vai = "L|" & vai: tok2 = tk(iL) & "|" & tok2: pos = tb(iL) & "|" & pos
+    Else
+        pLa(j) = True: Exit Sub
+    End If
+    pNP(j) = n: pVai(j) = vai: pTok(j) = tok2: pPos(j) = pos
+End Sub
+
+Private Function PN_CoSo(ByVal s As String) As Boolean
+    Dim i As Long, c As Long
+    For i = 1 To Len(s)
+        c = AscW(Mid$(s, i, 1))
+        If c >= 48 And c <= 57 Then PN_CoSo = True: Exit Function
+    Next i
+End Function
+
+' Quyet dinh 1 vung. Tra ve "" neu sua duoc (ghi = danh sach chu), nguoc lai ly do (ghi = noi dung chu)
+Private Function PN_QuyetDinh(ByVal ds As String, ByRef ghi As String) As String
+    Dim a() As String, i As Long, j As Long, k As Long, v() As String, nS As Long, nL As Long, nD As Long
+    Dim bj(1 To 3) As Long, bk(1 To 3) As Long, nB As Long, la As Boolean, noi As String
+    a = Split(ds, ",")
+    ghi = ""
+    For i = 0 To UBound(a)
+        j = CLng(a(i))
+        noi = noi & IIf(Len(noi) > 0, "; ", "") & Trim$(pS(j))
+        If pLa(j) Then la = True
+        If pNP(j) > 0 Then
+            v = Split(pVai(j), "|")
+            For k = 0 To UBound(v)
+                Select Case v(k)
+                    Case "S": nS = nS + 1
+                    Case "L": nL = nL + 1
+                    Case "D": nD = nD + 1
+                    Case "B"
+                        nB = nB + 1
+                        If nB <= 3 Then bj(nB) = j: bk(nB) = k
+                End Select
+            Next k
+        End If
+    Next i
+    ghi = noi
+    If la Then PN_QuyetDinh = "C" & ChrW(243) & " nh" & ChrW(227) & "n l" & ChrW(7841) & " (kh" & ChrW(244) & "ng t" & ChrW(225) & "ch " & ChrW(273) & ChrW(432) & ChrW(7907) & "c ch" & ChrW(7855) & "c ch" & ChrW(7855) & "n)": Exit Function
+    ' so nguyen dung rieng
+    If nB = 1 Then
+        If nS = 0 Then
+            PN_DatVai bj(1), bk(1), "S": nS = 1
+        ElseIf nD = 0 Then
+            PN_DatVai bj(1), bk(1), "D": nD = 1
+        Else
+            PN_QuyetDinh = "Th" & ChrW(7915) & "a 1 s" & ChrW(7889) & " kh" & ChrW(244) & "ng r" & ChrW(245) & " l" & ChrW(224) & " s" & ChrW(7889) & " th" & ChrW(7917) & "a hay di" & ChrW(7879) & "n t" & ChrW(237) & "ch": Exit Function
+        End If
+    ElseIf nB = 2 Then
+        If nS = 0 And nD = 0 Then
+            ' 2 so chong nhau: tren = so thua, duoi = dien tich
+            Dim u1 As Double, u2 As Double, j1 As Long, j2 As Long, doc As Double, ngang As Double, hh As Double
+            j1 = bj(1): j2 = bj(2)
+            u1 = -pDY(j1) * pX(j1) + pDX(j1) * pY(j1)
+            u2 = -pDY(j1) * pX(j2) + pDX(j1) * pY(j2)
+            ngang = Abs(pDX(j1) * (pX(j2) - pX(j1)) + pDY(j1) * (pY(j2) - pY(j1)))
+            doc = Abs(u2 - u1)
+            hh = pH(j1): If pH(j2) > hh Then hh = pH(j2)
+            Dim a1 As Double, a2 As Double
+            a1 = pDX(j1) * pX(j1) + pDY(j1) * pY(j1)
+            a2 = pDX(j1) * pX(j2) + pDY(j1) * pY(j2)
+            If doc >= hh * 0.6 And doc <= hh * 4# And ngang <= hh * 4# Then
+                ' chong tren/duoi: tren = so thua
+                If u1 > u2 Then
+                    PN_DatVai j1, bk(1), "S": PN_DatVai j2, bk(2), "D"
+                Else
+                    PN_DatVai j2, bk(2), "S": PN_DatVai j1, bk(1), "D"
+                End If
+            ElseIf doc < hh * 0.6 And ngang <= hh * 8# Then
+                ' cung 1 dong: trai = so thua, phai = dien tich
+                If a1 < a2 Then
+                    PN_DatVai j1, bk(1), "S": PN_DatVai j2, bk(2), "D"
+                Else
+                    PN_DatVai j2, bk(2), "S": PN_DatVai j1, bk(1), "D"
+                End If
+            Else
+                PN_QuyetDinh = "2 s" & ChrW(7889) & " r" & ChrW(7901) & "i xa nhau - c" & ChrW(243) & " th" & ChrW(7875) & " 2 th" & ChrW(7917) & "a chung 1 v" & ChrW(249) & "ng (thi" & ChrW(7871) & "u ranh)": Exit Function
+            End If
+            nS = 1: nD = 1
+        Else
+            PN_QuyetDinh = "C" & ChrW(243) & " 2 s" & ChrW(7889) & " r" & ChrW(7901) & "i kh" & ChrW(244) & "ng x" & ChrW(225) & "c " & ChrW(273) & ChrW(7883) & "nh " & ChrW(273) & ChrW(432) & ChrW(7907) & "c": Exit Function
+        End If
+    ElseIf nB > 2 Then
+        PN_QuyetDinh = nB & " s" & ChrW(7889) & " r" & ChrW(7901) & "i - c" & ChrW(243) & " th" & ChrW(7875) & " nhi" & ChrW(7873) & "u th" & ChrW(7917) & "a chung 1 v" & ChrW(249) & "ng (thi" & ChrW(7871) & "u ranh)": Exit Function
+    End If
+    If nS > 1 Then PN_QuyetDinh = nS & " s" & ChrW(7889) & " th" & ChrW(7917) & "a trong 1 v" & ChrW(249) & "ng (thi" & ChrW(7871) & "u ranh ho" & ChrW(7863) & "c nh" & ChrW(227) & "n tr" & ChrW(249) & "ng)": Exit Function
+    If nL > 1 Then PN_QuyetDinh = nL & " lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t trong 1 v" & ChrW(249) & "ng": Exit Function
+    If nD > 1 Then PN_QuyetDinh = nD & " di" & ChrW(7879) & "n t" & ChrW(237) & "ch trong 1 v" & ChrW(249) & "ng": Exit Function
+    If nS + nL + nD = 0 Then ghi = ""
+End Function
+
+Private Sub PN_DatVai(ByVal j As Long, ByVal k As Long, ByVal r As String)
+    Dim v() As String, i As Long, s As String
+    v = Split(pVai(j), "|")
+    v(k) = r
+    For i = 0 To UBound(v)
+        s = s & IIf(i > 0, "|", "") & v(i)
+    Next i
+    pVai(j) = s
+End Sub
+
+' Sua 1 chu: 1 phan & noi dung trung khit -> doi lop ; con lai -> tao chu tach + chuyen goc sang lop luu
+Private Sub PN_ThucHien(ByVal j As Long, ByVal oSo As Level, ByVal oLD As Level, ByVal oDT As Level, ByVal oLuu As Level, _
+                        ByRef nMoi As Long, ByRef nDoi As Long, ByRef nLuu As Long)
+    Dim el As Element, c As Element, te As TextElement, v() As String, tk() As String, vt() As String
+    Dim i As Long, lvD As Level, s As String
+    On Error Resume Next
+    Set el = pEl.Item(j)
+    If pRac(j) Then
+        Set el.Level = oLuu: el.Rewrite
+        If Err.Number = 0 Then nLuu = nLuu + 1
+        Err.Clear
+        Exit Sub
+    End If
+    If pNP(j) = 0 Then Exit Sub
+    v = Split(pVai(j), "|"): tk = Split(pTok(j), "|"): vt = Split(pPos(j), "|")
+    s = Trim$(pS(j))
+    If pNP(j) = 1 And s = tk(0) And el.Type = msdElementTypeText Then
+        Set lvD = PN_LopVai(v(0), oSo, oLD, oDT)
+        If lvD Is Nothing Then Exit Sub
+        If el.Level.Number <> lvD.Number Then
+            Set el.Level = lvD: el.Rewrite
+            If Err.Number = 0 Then nDoi = nDoi + 1
+        End If
+        Err.Clear
+        Exit Sub
+    End If
+    ' tao chu tach
+    Set c = PN_ChuDon(el)
+    If c Is Nothing Then Exit Sub
+    Set te = c
+    Dim rot As Matrix3d, dx As Double, dy As Double, L As Double, h As Double, rw As Double, rh As Double
+    Dim cx As Double, cy As Double, ca As Double, sa As Double, f As Double, nt As TextElement, ts As Object
+    Dim moi As New Collection, nLen As Long
+    rot = te.Rotation
+    dx = rot.RowX.X: dy = rot.RowY.X
+    If Err.Number <> 0 Then Err.Clear: dx = 1#: dy = 0#
+    L = Sqr(dx * dx + dy * dy): If L <= 0 Then dx = 1#: dy = 0#: L = 1#
+    dx = dx / L: dy = dy / L
+    h = te.TextStyle.Height
+    rw = el.Range.High.X - el.Range.Low.X: rh = el.Range.High.Y - el.Range.Low.Y
+    cx = (el.Range.High.X + el.Range.Low.X) / 2#: cy = (el.Range.High.Y + el.Range.Low.Y) / 2#
+    ca = Abs(dx): sa = Abs(dy)
+    If ca >= sa Then L = (rw - h * sa) / ca Else L = (rh - h * ca) / sa
+    nLen = Len(te.Text): If nLen < 1 Then nLen = 1
+    If L <= 0 Then L = nLen * h * 0.6
+    For i = 0 To UBound(v)
+        Set lvD = PN_LopVai(v(i), oSo, oLD, oDT)
+        f = (CLng(vt(i)) - 1 + Len(tk(i)) / 2#) / nLen
+        Set nt = Nothing
+        Set nt = CreateTextElement1(c, tk(i), Point3dFromXYZ(cx + dx * (f - 0.5) * L, cy + dy * (f - 0.5) * L, 0#), rot)
+        If nt Is Nothing Then Err.Clear: Exit Sub
+        Set ts = nt.TextStyle
+        ts.Justification = msdTextJustificationCenterCenter
+        Set nt.TextStyle = ts
+        Err.Clear
+        nt.Color = c.Color
+        If Not lvD Is Nothing Then Set nt.Level = lvD
+        moi.Add nt
+    Next i
+    Err.Clear
+    For i = 1 To moi.Count
+        ActiveModelReference.AddElement moi.Item(i)
+    Next i
+    If Err.Number <> 0 Then Err.Clear: Exit Sub
+    nMoi = nMoi + moi.Count
+    Set el.Level = oLuu: el.Rewrite
+    If Err.Number = 0 Then nLuu = nLuu + 1
+    Err.Clear
+End Sub
+
+Private Function PN_LopVai(ByVal r As String, ByVal oSo As Level, ByVal oLD As Level, ByVal oDT As Level) As Level
+    Select Case r
+        Case "S", "B": Set PN_LopVai = oSo
+        Case "L": Set PN_LopVai = oLD
+        Case "D": Set PN_LopVai = oDT
+    End Select
+End Function
+
+' Co chu thuong a-z hoac ky tu ngoai ASCII (ghi chu, ten duong, ma TCVN3...)
+Private Function PN_CoChuThuong(ByVal s As String) As Boolean
+    Dim i As Long, c As Long
+    For i = 1 To Len(s)
+        c = AscW(Mid$(s, i, 1)) And &HFFFF&
+        If (c >= 97 And c <= 122) Or c > 127 Then PN_CoChuThuong = True: Exit Function
+    Next i
+End Function
