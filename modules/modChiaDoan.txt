@@ -29,14 +29,33 @@ Public Function DC_ChiaDoanGiao(ByVal levelsCSV As String, ByVal tol As Double, 
     esc.IncludeType msdElementTypeLineString
     ReDim els(1 To 256)
     Set ee = ActiveModelReference.Scan(esc)
+    ' SUA 08/11: bo qua net hong (toa do NaN) - truoc day gay loi 6 Overflow
+    Dim ptsK() As Point3d, nHong As Long, viTriHong As String, q2 As Long
     Do While ee.MoveNext
         Set el = ee.Current
         If lvOk.Exists(CStr(DC_LevelSo(el))) Then
-            nE = nE + 1
-            If nE > UBound(els) Then ReDim Preserve els(1 To nE * 2)
-            Set els(nE) = el
+            ptsK = el.AsVertexList.GetVertices
+            If DC_DinhHopLe(ptsK) Then
+                nE = nE + 1
+                If nE > UBound(els) Then ReDim Preserve els(1 To nE * 2)
+                Set els(nE) = el
+            Else
+                nHong = nHong + 1
+                If nHong <= 5 Then
+                    For q2 = LBound(ptsK) To UBound(ptsK)
+                        If DC_SoHopLe(ptsK(q2).X) And DC_SoHopLe(ptsK(q2).Y) Then
+                            viTriHong = viTriHong & vbCrLf & "  - l" & ChrW(7899) & "p " & DC_LevelSo(el) & ", " & ChrW(273) & ChrW(7847) & "u c" & ChrW(242) & "n l" & ChrW(7841) & "i: X=" & Format$(ptsK(q2).X, "0.000") & "  Y=" & Format$(ptsK(q2).Y, "0.000")
+                            Exit For
+                        End If
+                    Next q2
+                End If
+            End If
         End If
     Loop
+    If nHong > 0 Then
+        DC_ThongBao "C" & ChrW(243) & " " & nHong & " n" & ChrW(233) & "t ranh b" & ChrW(7883) & " H" & ChrW(7886) & "NG t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " (NaN) - " & ChrW(273) & ChrW(227) & " b" & ChrW(7887) & " qua, n" & ChrW(234) & "n x" & ChrW(243) & "a:" & viTriHong & vbCrLf & vbCrLf & _
+                    "C" & ChrW(225) & "ch x" & ChrW(243) & "a: ph" & ChrW(243) & "ng t" & ChrW(7899) & "i t" & ChrW(7885) & "a " & ChrW(273) & ChrW(7897) & " tr" & ChrW(234) & "n, ch" & ChrW(7885) & "n n" & ChrW(233) & "t " & ChrW(273) & "i ra t" & ChrW(7915) & " " & ChrW(273) & "i" & ChrW(7875) & "m " & ChrW(273) & ChrW(243) & " (Element Selection) r" & ChrW(7891) & "i Delete.", "Chia " & ChrW(273) & "o" & ChrW(7841) & "n", vbExclamation
+    End If
     If nE = 0 Then Exit Function
 
     ' 2) Doan thang + chu so phan tu / so dinh
