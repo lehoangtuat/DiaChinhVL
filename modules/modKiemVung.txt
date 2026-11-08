@@ -7,6 +7,10 @@
 Option Explicit
 
 Public KV_DsLoi As Collection        ' moi phan tu: Array(clsVung, mo ta, so thua tim thay)
+' Bang dinh/canh/dau mut cho Do dau ranh lech (KV_DoDauLech)
+Private dlVX() As Double, dlVY() As Double, dlVE() As Long, dlNV As Long
+Private dlSX1() As Double, dlSY1() As Double, dlSX2() As Double, dlSY2() As Double, dlSE() As Long, dlNS As Long
+Private dlEX() As Double, dlEY() As Double, dlEE() As Long, dlNE As Long
 
 Public Sub DC_MoKiemVung()
     DC_MoFormTuTao "frmKiemVung"
@@ -68,13 +72,15 @@ Public Function KV_KiemTra(ByVal ranhCSV As String, ByVal lvSo As String, ByVal 
 
     ' --- gan chu vao vung
     ShowStatus "Kiem tra vung thua: doi chieu " & nC & " chu voi " & nV & " vung ..."
-    Dim v As clsVung, k As Long
+    Dim v As clsVung, k As Long, coVung() As Boolean
+    ReDim coVung(1 To nC + 1)
     For j = 1 To nC
         For i = 1 To nV
             If cx(j) >= bx1(i) And cx(j) <= bx2(i) And cy(j) >= by1(i) And cy(j) <= by2(i) Then
                 Set v = vungs.Item(i)
                 If TrongVung(v, cx(j), cy(j)) Then
                     dem(i, ck(j)) = dem(i, ck(j)) + 1
+                    coVung(j) = True
                     If ck(j) = 1 Then
                         If Len(soTim(i)) > 0 Then soTim(i) = soTim(i) & ", "
                         soTim(i) = soTim(i) & cs(j)
@@ -101,10 +107,61 @@ Public Function KV_KiemTra(ByVal ranhCSV As String, ByVal lvSo As String, ByVal 
             End If
         Next k
         If Len(mo) > 0 Then
-            If vungs.Item(i).Dt < 1# Then mo = "V" & ChrW(217) & "NG M" & ChrW(7842) & "NH " & Format$(vungs.Item(i).Dt, "0.000") & " m2 (ranh ch" & ChrW(7891) & "ng/h" & ChrW(7903) & "): " & mo
+            If vungs.Item(i).Dt < 1# And dem(i, 1) = 0 Then
+                mo = "V" & ChrW(217) & "NG M" & ChrW(7842) & "NH " & Format$(vungs.Item(i).Dt, "0.000") & " m2 (ranh ch" & ChrW(7891) & "ng/h" & ChrW(7903) & "): " & mo
+            End If
             KV_DsLoi.Add Array(vungs.Item(i), mo, soTim(i))
         End If
     Next i
+
+    ' SUA 06/11: so thua nam NGOAI moi vung (ranh ho / vung khong ghep duoc) -> bao loi
+    Dim nNgoai As Long, vN As clsVung, rN() As Double, hN As Double
+    For j = 1 To nC
+        If ck(j) = 1 And Not coVung(j) Then
+            nNgoai = nNgoai + 1
+            hN = 2#
+            ReDim rN(0 To 4, 0 To 1)
+            rN(0, 0) = cx(j) - hN: rN(0, 1) = cy(j) - hN
+            rN(1, 0) = cx(j) + hN: rN(1, 1) = cy(j) - hN
+            rN(2, 0) = cx(j) + hN: rN(2, 1) = cy(j) + hN
+            rN(3, 0) = cx(j) - hN: rN(3, 1) = cy(j) + hN
+            rN(4, 0) = rN(0, 0): rN(4, 1) = rN(0, 1)
+            Set vN = New clsVung
+            vN.ring = rN: vN.cx = cx(j): vN.cy = cy(j): vN.Dt = -1#: vN.HasRing = True
+            KV_DsLoi.Add Array(vN, "S" & ChrW(7889) & " th" & ChrW(7917) & "a n" & ChrW(7857) & "m NGO" & ChrW(192) & "I v" & ChrW(249) & "ng kh" & ChrW(233) & "p k" & ChrW(237) & "n (ranh h" & ChrW(7903) & " / thi" & ChrW(7871) & "u ranh chia th" & ChrW(7917) & "a)", cs(j))
+        End If
+    Next j
+
+    ' SUA 07/11: TRUNG SO THUA tren cung to (TW khong chap nhan)
+    Dim dTr As Object, kTr As String, nTrung As Long, sKey As Variant, idx() As String, q As Long, c As Long
+    Set dTr = CreateObject("Scripting.Dictionary")
+    For j = 1 To nC
+        If ck(j) = 1 Then
+            kTr = KV_ChuanSo(cs(j))
+            If Len(kTr) > 0 Then
+                If dTr.Exists(kTr) Then dTr(kTr) = dTr(kTr) & "," & j Else dTr.Add kTr, CStr(j)
+            End If
+        End If
+    Next j
+    For Each sKey In dTr.Keys
+        idx = Split(dTr(sKey), ",")
+        If UBound(idx) >= 1 Then
+            nTrung = nTrung + 1
+            For q = 0 To UBound(idx)
+                c = CLng(idx(q))
+                hN = 2#
+                ReDim rN(0 To 4, 0 To 1)
+                rN(0, 0) = cx(c) - hN: rN(0, 1) = cy(c) - hN
+                rN(1, 0) = cx(c) + hN: rN(1, 1) = cy(c) - hN
+                rN(2, 0) = cx(c) + hN: rN(2, 1) = cy(c) + hN
+                rN(3, 0) = cx(c) - hN: rN(3, 1) = cy(c) + hN
+                rN(4, 0) = rN(0, 0): rN(4, 1) = rN(0, 1)
+                Set vN = New clsVung
+                vN.ring = rN: vN.cx = cx(c): vN.cy = cy(c): vN.Dt = -1#: vN.HasRing = True
+                KV_DsLoi.Add Array(vN, "TR" & ChrW(217) & "NG s" & ChrW(7889) & " th" & ChrW(7917) & "a " & cs(c) & " (" & (q + 1) & "/" & (UBound(idx) + 1) & " tr" & ChrW(234) & "n t" & ChrW(7901) & ") - TW kh" & ChrW(244) & "ng ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n", cs(c))
+            Next q
+        End If
+    Next sKey
 
     Dim s As String, m As Long
     For m = 2 To 9
@@ -117,6 +174,8 @@ Public Function KV_KiemTra(ByVal ranhCSV As String, ByVal lvSo As String, ByVal 
     For k = 1 To 3
         If nThieu(k) > 0 Then tomTat = tomTat & "- " & nThieu(k) & " v" & ChrW(249) & "ng th" & ChrW(7917) & "a thi" & ChrW(7871) & "u " & ten(k) & vbCrLf
     Next k
+    If nTrung > 0 Then tomTat = tomTat & "- " & nTrung & " s" & ChrW(7889) & " th" & ChrW(7917) & "a b" & ChrW(7883) & " TR" & ChrW(217) & "NG tr" & ChrW(234) & "n t" & ChrW(7901) & " (TW kh" & ChrW(244) & "ng ch" & ChrW(7845) & "p nh" & ChrW(7853) & "n)" & vbCrLf
+    If nNgoai > 0 Then tomTat = tomTat & "- " & nNgoai & " s" & ChrW(7889) & " th" & ChrW(7917) & "a n" & ChrW(7857) & "m ngo" & ChrW(224) & "i v" & ChrW(249) & "ng kh" & ChrW(233) & "p k" & ChrW(237) & "n (ki" & ChrW(7875) & "m tra ranh h" & ChrW(7903) & ")" & vbCrLf
     If Len(tomTat) = 0 Then
         tomTat = ChrW(272) & ChrW(7841) & "t: " & nV & " v" & ChrW(249) & "ng th" & ChrW(7917) & "a " & ChrW(273) & ChrW(7873) & "u c" & ChrW(243) & " " & ChrW(273) & ChrW(250) & "ng 1 s" & ChrW(7889) & " hi" & ChrW(7879) & "u th" & ChrW(7917) & "a, 1 lo" & ChrW(7841) & "i " & ChrW(273) & ChrW(7845) & "t, 1 di" & ChrW(7879) & "n t" & ChrW(237) & "ch."
     Else
@@ -176,6 +235,9 @@ Private Sub GomChu(ByVal el As Element, lv() As Long, cx() As Double, cy() As Do
     Dim o As Point3d
     If el.Type = msdElementTypeText Then o = el.AsTextElement.Origin Else o = el.AsTextNodeElement.Origin
     cx(n) = o.X: cy(n) = o.Y
+    ' SUA 07/11: theo thuc te TW - chu chi can KHONG de len ranh -> xet theo TAM khung chu
+    cx(n) = (el.Range.Low.X + el.Range.High.X) / 2#
+    cy(n) = (el.Range.Low.Y + el.Range.High.Y) / 2#
     ck(n) = k: cs(n) = s
     Err.Clear
 End Sub
@@ -221,4 +283,279 @@ Public Function KV_XoaDauLoi() As Long
         If Err.Number = 0 Then KV_XoaDauLoi = KV_XoaDauLoi + 1
         Err.Clear
     Next i
+End Function
+
+'============================================================
+' SUA 06/11: DO DAU RANH LECH NHO (TW coi la HO, MicroStation van tao vung duoc)
+'   Dau mut cua doan ranh khong daTrung DUNG 1 dinh / khong nam DUNG tren 1 canh
+'   cua doi tuong ranh khac, nhung cach < tolLech (mac dinh 1 mm).
+'   Ket qua dua vao KV_DsLoi (dung chung danh sach / zoom / ve dau loi).
+'============================================================
+
+Public Function KV_DoDauLech(ByVal ranhCSV As String, ByVal tolLech As Double, ByRef tomTat As String) As Long
+    Const CELL As Double = 2#
+    Const SAI_TRUNG As Double = 0.000000005     ' <= 5e-9 m coi nhu daTrung khit
+    Dim arr() As String, i As Long, j As Long, k As Long, lvN() As Long, nL As Long, o As Level
+    Set KV_DsLoi = New Collection
+    tomTat = ""
+    If tolLech <= 0 Then tolLech = 0.001
+    arr = Split(ranhCSV, ",")
+    ReDim lvN(0 To UBound(arr) + 1)
+    For i = LBound(arr) To UBound(arr)
+        If Len(Trim$(arr(i))) > 0 Then
+            Set o = DC_TimLevel(Trim$(arr(i)))
+            If Not o Is Nothing Then lvN(nL) = o.Number: nL = nL + 1
+        End If
+    Next i
+    If nL = 0 Then tomTat = "Kh" & ChrW(244) & "ng t" & ChrW(236) & "m th" & ChrW(7845) & "y l" & ChrW(7899) & "p ranh " & ranhCSV: Exit Function
+
+    dlNV = 0: dlNS = 0: dlNE = 0
+    ReDim dlVX(1 To 1000): ReDim dlVY(1 To 1000): ReDim dlVE(1 To 1000)
+    ReDim dlSX1(1 To 1000): ReDim dlSY1(1 To 1000): ReDim dlSX2(1 To 1000): ReDim dlSY2(1 To 1000): ReDim dlSE(1 To 1000)
+    ReDim dlEX(1 To 1000): ReDim dlEY(1 To 1000): ReDim dlEE(1 To 1000)
+
+    ShowStatus "Do dau ranh lech: doc ranh ..."
+    Dim esc As ElementScanCriteria, ee As ElementEnumerator, el As Element, lvE As Long, ok As Boolean
+    Dim nEl As Long, pts() As Point3d, sb As ElementEnumerator, kin As Boolean
+    Set esc = New ElementScanCriteria
+    esc.ExcludeAllTypes
+    esc.IncludeType msdElementTypeLine
+    esc.IncludeType msdElementTypeLineString
+    esc.IncludeType msdElementTypeShape
+    esc.IncludeType msdElementTypeComplexString
+    esc.IncludeType msdElementTypeComplexShape
+    Set ee = ActiveModelReference.Scan(esc)
+    On Error Resume Next
+    Do While ee.MoveNext
+        Set el = ee.Current
+        lvE = el.Level.Number
+        ok = False
+        For k = 0 To nL - 1
+            If lvE = lvN(k) Then ok = True: Exit For
+        Next k
+        If ok Then
+            nEl = nEl + 1
+            Erase pts
+            kin = (el.Type = msdElementTypeShape Or el.Type = msdElementTypeComplexShape)
+            If el.Type = msdElementTypeLine Or el.Type = msdElementTypeLineString Then
+                pts = el.AsLineElement.GetVertices()
+                DL_ThemDay pts, nEl, Not kin
+            ElseIf el.Type = msdElementTypeShape Then
+                pts = el.AsShapeElement.GetVertices()
+                DL_ThemDay pts, nEl, False
+            Else
+                Set sb = Nothing
+                If el.Type = msdElementTypeComplexString Then Set sb = el.AsComplexStringElement.GetSubElements Else Set sb = el.AsComplexShapeElement.GetSubElements
+                Dim ax() As Double, ay() As Double, na As Long, q As Long
+                na = 0: ReDim ax(1 To 64): ReDim ay(1 To 64)
+                Err.Clear
+                If Not sb Is Nothing Then
+                Do While sb.MoveNext
+                    Erase pts
+                    pts = sb.Current.AsLineElement.GetVertices()
+                    If Err.Number = 0 Then
+                        For q = LBound(pts) To UBound(pts)
+                            na = na + 1
+                            If na > UBound(ax) Then ReDim Preserve ax(1 To na * 2): ReDim Preserve ay(1 To na * 2)
+                            ax(na) = pts(q).X: ay(na) = pts(q).Y
+                        Next q
+                    End If
+                    Err.Clear
+                Loop
+                End If
+                If na >= 2 Then
+                    ReDim pts(0 To na - 1)
+                    For q = 1 To na
+                        pts(q - 1).X = ax(q): pts(q - 1).Y = ay(q)
+                    Next q
+                    DL_ThemDay pts, nEl, Not kin
+                End If
+            End If
+        End If
+        Err.Clear
+    Loop
+    On Error GoTo 0
+    If dlNE = 0 Then tomTat = "Kh" & ChrW(244) & "ng c" & ChrW(243) & " " & ChrW(273) & ChrW(7847) & "u m" & ChrW(250) & "t ranh n" & ChrW(224) & "o tr" & ChrW(234) & "n l" & ChrW(7899) & "p " & ranhCSV: Exit Function
+
+    ' --- luoi o vuong cho dinh va canh
+    ShowStatus "Do dau ranh lech: lap luoi ..."
+    Dim dV As Object, dS As Object, key As String, ix As Long, iy As Long
+    Set dV = CreateObject("Scripting.Dictionary")
+    Set dS = CreateObject("Scripting.Dictionary")
+    For i = 1 To dlNV
+        key = CStr(Int(dlVX(i) / CELL)) & "_" & CStr(Int(dlVY(i) / CELL))
+        If dV.Exists(key) Then dV(key) = dV(key) & "," & i Else dV.Add key, CStr(i)
+    Next i
+    Dim nb As Long, sL As Double, tt As Double, px As Double, py As Double, lastK As String
+    For i = 1 To dlNS
+        sL = Sqr((dlSX2(i) - dlSX1(i)) ^ 2 + (dlSY2(i) - dlSY1(i)) ^ 2)
+        nb = Int(sL / (CELL * 0.5)) + 1
+        lastK = ""
+        For k = 0 To nb
+            tt = k / nb
+            px = dlSX1(i) + (dlSX2(i) - dlSX1(i)) * tt: py = dlSY1(i) + (dlSY2(i) - dlSY1(i)) * tt
+            key = CStr(Int(px / CELL)) & "_" & CStr(Int(py / CELL))
+            If key <> lastK Then
+                If dS.Exists(key) Then dS(key) = dS(key) & "," & i Else dS.Add key, CStr(i)
+                lastK = key
+            End If
+        Next k
+        If i Mod 500 = 0 Then DoEvents
+    Next i
+
+    ' --- xet tung dau mut
+    ShowStatus "Do dau ranh lech: xet " & dlNE & " dau mut ..."
+    Dim ex As Double, ey As Double, g As Long, dmin As Double, d As Double, daTrung As Boolean
+    Dim dsTach() As String, m As Long, dx As Long, dy As Long, nLech As Long
+    Dim kq() As Double, kx() As Double, ky() As Double
+    ReDim kq(1 To 16): ReDim kx(1 To 16): ReDim ky(1 To 16)
+    For i = 1 To dlNE
+        ex = dlEX(i): ey = dlEY(i): g = dlEE(i)
+        ix = Int(ex / CELL): iy = Int(ey / CELL)
+        daTrung = False
+        For dx = -1 To 1
+            For dy = -1 To 1
+                key = CStr(ix + dx) & "_" & CStr(iy + dy)
+                If dV.Exists(key) Then
+                    dsTach = Split(dV(key), ",")
+                    For m = 0 To UBound(dsTach)
+                        j = CLng(dsTach(m))
+                        If dlVE(j) <> g Then
+                            If Abs(dlVX(j) - ex) <= SAI_TRUNG And Abs(dlVY(j) - ey) <= SAI_TRUNG Then daTrung = True: Exit For
+                        End If
+                    Next m
+                End If
+                If daTrung Then Exit For
+            Next dy
+            If daTrung Then Exit For
+        Next dx
+        If Not daTrung Then
+            dmin = 1E+30
+            For dx = -1 To 1
+                For dy = -1 To 1
+                    key = CStr(ix + dx) & "_" & CStr(iy + dy)
+                    If dS.Exists(key) Then
+                        dsTach = Split(dS(key), ",")
+                        For m = 0 To UBound(dsTach)
+                            j = CLng(dsTach(m))
+                            If dlSE(j) <> g Then
+                                d = DL_KcDoan(ex, ey, dlSX1(j), dlSY1(j), dlSX2(j), dlSY2(j))
+                                If d < dmin Then dmin = d
+                            End If
+                        Next m
+                    End If
+                Next dy
+            Next dx
+            If dmin > SAI_TRUNG And dmin < tolLech Then
+                ' bo daTrung vi tri (2 dau mut cung cho)
+                ok = True
+                For k = 1 To nLech
+                    If Abs(kx(k) - ex) < 0.000001 And Abs(ky(k) - ey) < 0.000001 Then ok = False: Exit For
+                Next k
+                If ok Then
+                    nLech = nLech + 1
+                    If nLech > UBound(kq) Then ReDim Preserve kq(1 To nLech * 2): ReDim Preserve kx(1 To nLech * 2): ReDim Preserve ky(1 To nLech * 2)
+                    kq(nLech) = dmin: kx(nLech) = ex: ky(nLech) = ey
+                End If
+            End If
+        End If
+        If i Mod 300 = 0 Then DoEvents
+    Next i
+
+    ' --- sap xep tang dan (lech cang nho cang kho thay, xep truoc)
+    Dim t As Double
+    For i = 1 To nLech - 1
+        For j = i + 1 To nLech
+            If kq(j) < kq(i) Then
+                t = kq(i): kq(i) = kq(j): kq(j) = t
+                t = kx(i): kx(i) = kx(j): kx(j) = t
+                t = ky(i): ky(i) = ky(j): ky(j) = t
+            End If
+        Next j
+    Next i
+    Dim v As clsVung, rN() As Double, h As Double, mo As String
+    h = 0.5
+    For i = 1 To nLech
+        ReDim rN(0 To 4, 0 To 1)
+        rN(0, 0) = kx(i) - h: rN(0, 1) = ky(i) - h
+        rN(1, 0) = kx(i) + h: rN(1, 1) = ky(i) - h
+        rN(2, 0) = kx(i) + h: rN(2, 1) = ky(i) + h
+        rN(3, 0) = kx(i) - h: rN(3, 1) = ky(i) + h
+        rN(4, 0) = rN(0, 0): rN(4, 1) = rN(0, 1)
+        Set v = New clsVung
+        v.ring = rN: v.cx = kx(i): v.cy = ky(i): v.Dt = -1#: v.HasRing = True
+        If kq(i) * 1000# < 0.001 Then mo = Format$(kq(i) * 1000#, "0.0E+00") Else mo = Format$(kq(i) * 1000#, "0.000")
+        mo = ChrW(272) & ChrW(7847) & "u ranh l" & ChrW(7879) & "ch " & mo & " mm (TW coi l" & ChrW(224) & " h" & ChrW(7903) & ") - b" & ChrW(7855) & "t Keypoint l" & ChrW(7841) & "i"
+        KV_DsLoi.Add Array(v, mo, "X=" & Format$(kx(i), "0.000") & " Y=" & Format$(ky(i), "0.000"))
+    Next i
+    If nLech = 0 Then
+        tomTat = ChrW(272) & ChrW(7841) & "t: " & dlNE & " " & ChrW(273) & ChrW(7847) & "u m" & ChrW(250) & "t ranh " & ChrW(273) & ChrW(7873) & "u kh" & ChrW(7899) & "p " & ChrW(273) & ChrW(250) & "ng " & ChrW(273) & ChrW(7881) & "nh/c" & ChrW(7841) & "nh (kh" & ChrW(244) & "ng c" & ChrW(243) & " " & ChrW(273) & ChrW(7847) & "u l" & ChrW(7879) & "ch d" & ChrW(432) & ChrW(7899) & "i " & Format$(tolLech * 1000#, "0.###") & " mm)."
+    Else
+        tomTat = nLech & " " & ChrW(273) & ChrW(7847) & "u ranh l" & ChrW(7879) & "ch nh" & ChrW(7887) & " (d" & ChrW(432) & ChrW(7899) & "i " & Format$(tolLech * 1000#, "0.###") & " mm): MicroStation v" & ChrW(7851) & "n t" & ChrW(7841) & "o v" & ChrW(249) & "ng nh" & ChrW(432) & "ng TW coi l" & ChrW(224) & " H" & ChrW(7902) & " -> 2 th" & ChrW(7917) & "a th" & ChrW(224) & "nh 1 v" & ChrW(249) & "ng." & vbCrLf & "B" & ChrW(7845) & "m t" & ChrW(7915) & "ng d" & ChrW(242) & "ng, d" & ChrW(249) & "ng Modify Element b" & ChrW(7855) & "t Keypoint (K) " & ChrW(273) & ChrW(432) & "a " & ChrW(273) & ChrW(7847) & "u m" & ChrW(250) & "t v" & ChrW(224) & "o " & ChrW(273) & ChrW(250) & "ng " & ChrW(273) & ChrW(7881) & "nh ranh b" & ChrW(234) & "n c" & ChrW(7841) & "nh."
+    End If
+    ShowStatus ""
+    KV_DoDauLech = nLech
+End Function
+
+' Them 1 day dinh (1 doi tuong) vao bang dinh / canh / dau mut
+Private Sub DL_ThemDay(pts() As Point3d, ByVal g As Long, ByVal coDauMut As Boolean)
+    Dim i As Long, lo As Long, hi As Long
+    On Error Resume Next
+    lo = LBound(pts): hi = UBound(pts)
+    If Err.Number <> 0 Then Err.Clear: Exit Sub
+    On Error GoTo 0
+    If hi < lo Then Exit Sub
+    If Not DC_DinhHopLe(pts) Then Exit Sub      ' SUA 08/11: bo net hong toa do NaN
+    For i = lo To hi
+        dlNV = dlNV + 1
+        If dlNV > UBound(dlVX) Then ReDim Preserve dlVX(1 To dlNV * 2): ReDim Preserve dlVY(1 To dlNV * 2): ReDim Preserve dlVE(1 To dlNV * 2)
+        dlVX(dlNV) = pts(i).X: dlVY(dlNV) = pts(i).Y: dlVE(dlNV) = g
+        If i > lo Then
+            If pts(i).X <> pts(i - 1).X Or pts(i).Y <> pts(i - 1).Y Then
+                dlNS = dlNS + 1
+                If dlNS > UBound(dlSX1) Then
+                    ReDim Preserve dlSX1(1 To dlNS * 2): ReDim Preserve dlSY1(1 To dlNS * 2)
+                    ReDim Preserve dlSX2(1 To dlNS * 2): ReDim Preserve dlSY2(1 To dlNS * 2): ReDim Preserve dlSE(1 To dlNS * 2)
+                End If
+                dlSX1(dlNS) = pts(i - 1).X: dlSY1(dlNS) = pts(i - 1).Y
+                dlSX2(dlNS) = pts(i).X: dlSY2(dlNS) = pts(i).Y: dlSE(dlNS) = g
+            End If
+        End If
+    Next i
+    If coDauMut And hi > lo Then
+        If pts(lo).X = pts(hi).X And pts(lo).Y = pts(hi).Y Then Exit Sub   ' day tu khep kin
+        DL_ThemDau pts(lo).X, pts(lo).Y, g
+        DL_ThemDau pts(hi).X, pts(hi).Y, g
+    End If
+End Sub
+
+Private Sub DL_ThemDau(ByVal x As Double, ByVal y As Double, ByVal g As Long)
+    dlNE = dlNE + 1
+    If dlNE > UBound(dlEX) Then ReDim Preserve dlEX(1 To dlNE * 2): ReDim Preserve dlEY(1 To dlNE * 2): ReDim Preserve dlEE(1 To dlNE * 2)
+    dlEX(dlNE) = x: dlEY(dlNE) = y: dlEE(dlNE) = g
+End Sub
+
+' Khoang cach diem (px,py) toi doan AB - tinh theo toa do tuong doi de giu do chinh xac
+Private Function DL_KcDoan(ByVal px As Double, ByVal py As Double, ByVal ax As Double, ByVal ay As Double, _
+                           ByVal bx As Double, ByVal by As Double) As Double
+    Dim ux As Double, uy As Double, wx As Double, wy As Double, L2 As Double, t As Double
+    ux = bx - ax: uy = by - ay
+    wx = px - ax: wy = py - ay
+    L2 = ux * ux + uy * uy
+    If L2 <= 0# Then DL_KcDoan = Sqr(wx * wx + wy * wy): Exit Function
+    t = (wx * ux + wy * uy) / L2
+    If t < 0# Then t = 0#
+    If t > 1# Then t = 1#
+    wx = wx - t * ux: wy = wy - t * uy
+    DL_KcDoan = Sqr(wx * wx + wy * wy)
+End Function
+
+' Chuan hoa so thua de so trung: bo khoang trang, ky tu dieu khien
+Private Function KV_ChuanSo(ByVal t As String) As String
+    Dim i As Long, ch As String, r As String
+    For i = 1 To Len(t)
+        ch = Mid$(t, i, 1)
+        If AscW(ch) > 32 Then r = r & ch
+    Next i
+    KV_ChuanSo = UCase$(r)
 End Function
