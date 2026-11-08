@@ -1,2 +1,2 @@
-3.2
-So thua lien ke quanh thua trong so do trich luc/tach/hop (thua chua co so ghi 0, khac to ghi To); Hop thua: bang So hieu dinh / Chieu dai chep tu bang Doan (bo dau phay tren); Chu mau khong phai Times New Roman tu ve lai bang Times New Roman Unicode; Bang du lieu to hon, bam tieu de cot de sap xep; Lan chuot cuon danh sach; Cap nhat file mau TT26
+3.4
+Kiem tra vung thua (giao nop TW): bao trung so thua, so thua nam ngoai vung khep kin, nut Do dau ranh lech (dau mut lech < 1 mm TW coi la ho); Phan nhan theo thua: tach nhan gop (LUC 2601 / 145...) va dua so thua/loai dat/dien tich ve lop 13/2/4; Tao Topology: dat tam dung trong vung dai hep (duong, kenh), bo qua net ranh hong toa do (sua loi 6 Overflow); Tach lop: Xoa chu trung; Bang du lieu: sua loi Xuat Excel 1004
